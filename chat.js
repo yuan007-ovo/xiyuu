@@ -8513,7 +8513,7 @@ function renderMoments() {
                     <div style="display: flex; align-items: center;">
                         <span class="moment-time">${timeStr}</span>
                         ${visibilityTag}
-                        ${isMe ? `<span class="moment-delete" onclick="deleteMoment('${moment.id}')">删除</span>` : ''}
+                        <span class="moment-delete" onclick="deleteMoment('${moment.id}')">删除</span>
                     </div>
                     <div class="item-actions">
                         <div class="moment-action-menu" id="momentMenu_${moment.id}">
