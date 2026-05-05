@@ -2518,7 +2518,10 @@ function parseTavernData(json) {
         description: data.description || data.persona || '',
         firstMessage: data.first_mes || data.mes_example || '',
         scenario: data.scenario || '',
-        sex: data.creator_notes || '未知'
+        sex: data.creator_notes || '未知',
+        systemPrompt: data.system_prompt || '',
+        postHistoryInstructions: data.post_history_instructions || '',
+        creatorNotes: data.creator_notes || ''
     };
 
     // 2. 提取嵌套的世界书 (Lorebook)
@@ -2609,6 +2612,9 @@ function saveImportedChar(data, file) {
         description: data.char.description,
         firstMessage: data.char.firstMessage,
         scenario: data.char.scenario,
+        systemPrompt: data.char.systemPrompt,
+        postHistoryInstructions: data.char.postHistoryInstructions,
+        creatorNotes: data.char.creatorNotes,
         group: currentCharGroupFilter || '默认分组',
         wbEntries: importedWbIds, // 自动绑定刚才导入的所有词条
         avatarUrl: ''
@@ -4223,6 +4229,8 @@ function handleMoreAction(action) {
         document.getElementById('chatLocationNameInput').value = '';
         document.getElementById('chatLocationDescInput').value = '';
         document.getElementById('sendLocationModalOverlay').classList.add('show');
+    } else if (action === 'tavern') {
+        openTavernMode(); // 新增：打开酒馆模式
     } else {
         alert(`功能 [${action}] 正在开发中...`);
     }
@@ -5436,6 +5444,16 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
 
     if (memory.note && memory.note.length > 0) {
         systemPrompt += `\n[System Note: ${memory.note.map(m => m.content).join(' ')}]\n`;
+    }
+
+    // 新增：注入线下现实记忆同步
+    let tavMemories = JSON.parse(ChatDB.getItem(`tav_offline_memories_${currentLoginId}_${targetCharId}`) || '[]');
+    let syncMemories = tavMemories.filter(m => m.syncOnline);
+    if (syncMemories.length > 0) {
+        systemPrompt += `\n\n【线下现实记忆同步】\n以下是你和 ${userName} 在现实/线下发生的互动记忆，请务必结合这些记忆进行线上聊天，表现出你记得这些事：\n`;
+        syncMemories.forEach(mem => {
+            systemPrompt += `- ${mem.content}\n`;
+        });
     }
 
     if (isProactive) {

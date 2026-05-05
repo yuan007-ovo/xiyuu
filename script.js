@@ -1059,9 +1059,14 @@ const wbEditPanel = document.getElementById('wbEditPanel');
 
 window.reloadWorldbookData = function() {
     wbData = JSON.parse(ChatDB.getItem('worldbook_data')) || {
-        groups: ['默认分组'],
+        groups: ['默认分组', '未分类'],
         entries: []
     };
+    // 确保旧数据也包含未分类
+    if (!wbData.groups.includes('未分类')) {
+        wbData.groups.push('未分类');
+        ChatDB.setItem('worldbook_data', JSON.stringify(wbData));
+    }
     if (typeof renderWbGroups === 'function') renderWbGroups();
     if (typeof renderWbList === 'function') renderWbList();
 };
@@ -1087,9 +1092,14 @@ function closeWbEditPanel() {
 
 // --- Worldbook 核心逻辑 (数据存储与渲染) ---
 let wbData = JSON.parse(ChatDB.getItem('worldbook_data')) || {
-    groups: ['默认分组'], // 只保留默认分组
+    groups: ['默认分组', '未分类'], // 包含默认分组和未分类
     entries: []
 };
+// 确保旧数据也包含未分类
+if (!wbData.groups.includes('未分类')) {
+    wbData.groups.push('未分类');
+    ChatDB.setItem('worldbook_data', JSON.stringify(wbData));
+}
 
 let currentWbGroupFilter = '默认分组'; // 当前查看的分组
 
@@ -1168,7 +1178,7 @@ function importWbEntry() {
         if (!file) return;
         
         const fileName = file.name.replace(/\.[^/.]+$/, "");
-        wbData = JSON.parse(ChatDB.getItem('worldbook_data')) || { groups: ['默认分组'], entries: [] };
+        wbData = JSON.parse(ChatDB.getItem('worldbook_data')) || { groups: ['默认分组', '未分类'], entries: [] };
 
         // 专门处理 docx 格式
         if (file.name.endsWith('.docx')) {
@@ -1221,7 +1231,7 @@ function importWbEntry() {
                                     id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
                                     active: item.enabled !== false && item.disable !== true,
                                     title: item.comment || item.name || '未命名',
-                                    group: currentWbGroupFilter === '默认分组' ? wbData.groups[0] : currentWbGroupFilter,
+                                    group: currentWbGroupFilter === '默认分组' ? '未分类' : currentWbGroupFilter,
                                     position: 'before',
                                     constant: !!item.constant,
                                     exact: true,
@@ -1237,7 +1247,7 @@ function importWbEntry() {
                                     id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
                                     active: item.active !== false,
                                     title: item.title || '未命名',
-                                    group: wbData.groups.includes(item.group) ? item.group : (currentWbGroupFilter === '默认分组' ? wbData.groups[0] : currentWbGroupFilter),
+                                    group: wbData.groups.includes(item.group) ? item.group : (currentWbGroupFilter === '默认分组' ? '未分类' : currentWbGroupFilter),
                                     position: item.position || 'before',
                                     constant: !!item.constant,
                                     exact: item.exact !== false,
@@ -1252,7 +1262,7 @@ function importWbEntry() {
                                 id: Date.now().toString(),
                                 active: data.active !== false,
                                 title: data.title || fileName,
-                                group: wbData.groups.includes(data.group) ? data.group : (currentWbGroupFilter === '默认分组' ? wbData.groups[0] : currentWbGroupFilter),
+                                group: wbData.groups.includes(data.group) ? data.group : (currentWbGroupFilter === '默认分组' ? '未分类' : currentWbGroupFilter),
                                 position: data.position || 'before',
                                 constant: !!data.constant,
                                 exact: data.exact !== false,
@@ -1292,7 +1302,7 @@ function importAsText(title, content) {
         id: Date.now().toString(),
         active: true,
         title: title,
-        group: currentWbGroupFilter === '默认分组' ? wbData.groups[0] : currentWbGroupFilter,
+        group: currentWbGroupFilter === '默认分组' ? '未分类' : currentWbGroupFilter,
         position: 'before',
         constant: false,
         exact: true,
@@ -1334,9 +1344,15 @@ function renderWbGroups() {
     wbData.groups.forEach(g => {
         const item = document.createElement('div');
         item.className = 'preset-item';
+        
+        // 默认分组和未分类不可删除
+        const deleteBtnHtml = (g === '默认分组' || g === '未分类') 
+            ? '' 
+            : `<div class="preset-delete-btn" onclick="deleteWbGroup('${g}', event)">-</div>`;
+            
         item.innerHTML = `
             <span class="preset-item-name">${g}</span>
-            <div class="preset-delete-btn" onclick="deleteWbGroup('${g}', event)">-</div>
+            ${deleteBtnHtml}
         `;
         // 点击分组过滤查看
         item.onclick = (e) => {
@@ -1361,7 +1377,7 @@ function createNewWbEntry() {
     document.getElementById('wb-edit-exact').checked = true;
     
     // 恢复默认显示文本
-    document.getElementById('wb-edit-header-group').innerText = currentWbGroupFilter || wbData.groups[0];
+    document.getElementById('wb-edit-header-group').innerText = currentWbGroupFilter === '默认分组' ? '未分类' : currentWbGroupFilter;
     document.getElementById('wb-edit-position-text').innerText = '字符前';
     document.getElementById('wb-edit-position').value = 'before';
     
@@ -1398,7 +1414,7 @@ function saveWbEntry() {
         id: id,
         active: true,
         title: title,
-        group: document.getElementById('wb-edit-header-group').innerText || wbData.groups[0],
+        group: document.getElementById('wb-edit-header-group').innerText || '未分类',
         position: document.getElementById('wb-edit-position').value,
         constant: document.getElementById('wb-edit-constant').checked,
         exact: document.getElementById('wb-edit-exact').checked,
@@ -1458,23 +1474,64 @@ function toggleWbGroupEditMode() {
     }
 }
 
+// 确保全局通用输入弹窗的关闭函数存在
+if (typeof window.closeGlobalPrompt !== 'function') {
+    window.closeGlobalPrompt = function() {
+        document.getElementById('globalPromptModalOverlay').classList.remove('show');
+    }
+}
+
 function promptAddWbGroup() {
-    const name = prompt("请输入新分组名称：");
-    if (name && name.trim() !== "") {
-        if (wbData.groups.includes(name.trim())) return alert('分组已存在！');
-        wbData.groups.push(name.trim());
+    const modal = document.getElementById('globalPromptModalOverlay');
+    const titleEl = document.getElementById('globalPromptTitle');
+    const descEl = document.getElementById('globalPromptDesc');
+    const inputEl = document.getElementById('globalPromptInput');
+    const confirmBtn = document.getElementById('globalPromptConfirmBtn');
+
+    titleEl.innerText = '新建分组';
+    descEl.innerText = '请输入新分组名称';
+    inputEl.value = '';
+    inputEl.placeholder = '˶╸▵╺˶';
+
+    // 克隆按钮以移除之前绑定的事件，防止多次触发
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+    newConfirmBtn.onclick = () => {
+        const name = inputEl.value.trim();
+        if (!name) {
+            alert('分组名称不能为空！');
+            return;
+        }
+        if (wbData.groups.includes(name)) {
+            alert('分组已存在！');
+            return;
+        }
+        wbData.groups.push(name);
         saveWbData();
         renderWbGroups();
-    }
+        closeGlobalPrompt();
+    };
+
+    // 绑定回车键确认
+    inputEl.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            newConfirmBtn.click();
+        }
+    };
+
+    modal.classList.add('show');
+    setTimeout(() => inputEl.focus(), 100);
 }
 
 function deleteWbGroup(groupName, e) {
     e.stopPropagation();
-    if (groupName === '默认分组') return alert('默认分组不可删除！');
-    if (confirm(`确定删除分组 [${groupName}] 吗？该分组下的词条将被移至默认分组。`)) {
+    if (groupName === '默认分组' || groupName === '未分类') return alert('系统内置分组不可删除！');
+    if (confirm(`确定删除分组 [${groupName}] 吗？该分组下的词条将被移至【未分类】。`)) {
         wbData.groups = wbData.groups.filter(g => g !== groupName);
         wbData.entries.forEach(entry => {
-            if (entry.group === groupName) entry.group = '默认分组';
+            if (entry.group === groupName) entry.group = '未分类';
         });
         saveWbData();
         renderWbGroups();
@@ -1506,9 +1563,13 @@ document.addEventListener('click', (e) => {
 window.addEventListener('ChatDBReady', () => {
     // 重新读取最新数据，防止被初始化的空数据覆盖
     wbData = JSON.parse(ChatDB.getItem('worldbook_data')) || {
-        groups: ['默认分组'],
+        groups: ['默认分组', '未分类'],
         entries: []
     };
+    if (!wbData.groups.includes('未分类')) {
+        wbData.groups.push('未分类');
+        ChatDB.setItem('worldbook_data', JSON.stringify(wbData));
+    }
     renderWbGroups();
     renderWbList();
 });

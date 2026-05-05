@@ -2316,6 +2316,11 @@
                     <div class="cr-more-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg></div>
                     <span>查手机</span>
                 </div>
+                <!-- 新增：线下模式按钮 -->
+                <div class="cr-more-item" onclick="handleMoreAction('tavern')">
+                    <div class="cr-more-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke-linejoin="round"/></svg></div>
+                    <span>线下模式</span>
+                </div>
             </div>
         </div>
         
@@ -6818,12 +6823,555 @@
             </div>
         </div>
     </div>
+    <!-- 隐藏的上传输入框 -->
+    <input type="file" id="wallpaperUploadInput" accept="image/*" style="display: none;" onchange="handleWallpaperUpload(event)">
+    <input type="file" id="iconUploadInput" accept="image/*" style="display: none;" onchange="handleIconUpload(event)">
+    <input type="file" id="widgetBgUploadInput" accept="image/*" style="display: none;" onchange="handleWidgetBgUpload(event)">
+    <!-- =========================================
+         新增：线下大厅 (Tavern Lobby) 全屏面板
+         ========================================= -->
+    <div class="theme-panel instant-panel" id="tavernLobbyPanel" style="display: none; background-color: #f4f4f5; z-index: 2900;">
+        <div class="panel-header" style="background: #fff; border-bottom: 1px solid #eee;">
+            <div class="header-close" onclick="closeTavernLobby()" style="font-size: 15px; color: #8888;">BACK</div>
+            <div class="header-title-wrapper"><div class="header-title" style="background: transparent; box-shadow: none; font-size: 16px; color: #8888; padding: 0; transform: none;">线下大厅</div></div>
+            <div class="header-close" onclick="tavToggleSettings()" style="font-size: 14px; color: #bbb; font-weight: 900; letter-spacing: 1px; cursor: pointer;">SETTING</div>
+        </div>
+        <div class="panel-content" style="padding: 20px; display: flex; flex-direction: column;">
+            
+            <div style="font-size: 14px; font-weight: bold; color: #888; margin-bottom: 10px;">当前聊天记录</div>
+            <div id="tavCurrentChatCard" style="background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; cursor: pointer; border: 1px solid #eee;" onclick="tavEnterChat()">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 16px; font-weight: bold; color: #111;">继续聊天...</span>
+                    <span id="tavCurrentChatTime" style="font-size: 12px; color: #888;"></span>
+                </div>
+                <div id="tavCurrentChatPreview" style="font-size: 13px; color: #666; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">暂无内容</div>
+            </div>
+
+            <div style="font-size: 14px; font-weight: bold; color: #888; margin-bottom: 10px;">线下记忆总结</div>
+            <div id="tavOfflineMemoriesList" style="display: flex; flex-direction: column; gap: 12px; flex: 1; overflow-y: auto; padding-bottom: 80px;">
+                <!-- 动态渲染记忆卡片 -->
+            </div>
+        </div>
+        
+        <!-- 新增：底部见面按钮 -->
+        <div style="position: absolute; bottom: 0; left: 0; width: 100%; background: #fff; border-top: 1px solid #eee; padding: 15px 20px; padding-bottom: calc(15px + env(safe-area-inset-bottom)); z-index: 20; box-sizing: border-box;">
+            <div onclick="tavEnterChat()" style="width: 100%; background: #111; color: #fff; text-align: center; padding: 14px 0; border-radius: 16px; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.1); letter-spacing: 2px;">
+                见 面
+            </div>
+        </div>
+    </div>
+
+    <!-- =========================================
+         新增：酒馆模式 (Tavern Mode) 全屏面板
+         ========================================= -->
+    <div class="theme-panel instant-panel" id="tavernModePanel" style="display: none;">
+        <!-- 亮度遮罩层 -->
+        <div id="tav-brightness-overlay"></div>
+
+        <!-- 全局悬浮可拖动状态栏 -->
+        <div class="tav-floating-ball-container" id="tav-floating-ball-container" style="display: none;">
+            <div class="tav-floating-ball" id="tav-floating-ball" onclick="tavToggleFloatingPanel()"></div>
+            <div class="tav-floating-panel" id="tav-floating-panel-content">
+                <!-- 动态渲染悬浮状态栏内容 -->
+            </div>
+        </div>
+
+        <!-- 顶部导航栏 -->
+        <header class="tav-chat-header">
+            <div class="tav-header-btn-text" onclick="closeTavernMode()">BACK</div>
+            <div class="tav-header-center">
+                <div class="tav-header-avatar" id="tavHeaderAvatar"></div>
+                <div class="tav-header-name" id="tavHeaderName">Name</div>
+            </div>
+            <div class="tav-header-btn-text" onclick="tavToggleSettings()">SETTING</div>
+        </header>
+
+        <!-- 中间主剧情区 -->
+        <main class="tav-main-chat">
+            <!-- 剧情流 -->
+            <div class="tav-story-stream" id="tavStoryStream">
+                <!-- 动态渲染的剧情流将放在这里 -->
+            </div>
+
+            <!-- 底部输入区 -->
+            <div class="tav-input-area">
+                <div class="tav-input-toolbar">
+                    <div class="tav-toolbar-icon" onclick="tavTriggerAI()" title="AI 回复"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"></path></svg></div>
+                    <div class="tav-toolbar-icon" title="重新生成" onclick="tavPromptRegenerate()"><svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></div>
+                    <div class="tav-toolbar-icon" title="继续生成" onclick="tavPromptContinue()"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></div>
+                    <div class="tav-toolbar-icon" title="记忆库" onclick="tavOpenMemoryBank()"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg></div>
+                    <div class="tav-toolbar-icon" title="存档" onclick="tavOpenSaveMenu()"><svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg></div>
+                    <div class="tav-toolbar-icon" title="记忆总结" onclick="tavOpenSummaryModal()"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></div>
+                </div>
+                <div class="tav-input-row">
+                    <div class="tav-input-box">
+                        <textarea id="tavChatInput" placeholder="输入你的回复或动作..." oninput="this.style.height = '';this.style.height = this.scrollHeight + 'px'"></textarea>
+                    </div>
+                    <div class="tav-send-btn" onclick="tavSendMsg()">SEND</div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <!-- =========================================
+         结束：酒馆模式 (Tavern Mode) 全屏面板
+         ========================================= -->
+
+    <!-- 全屏设置中心 (移出酒馆模式面板，使其在全局可用) -->
+    <div class="tav-sidebar-right" id="tavSidebarRight" style="z-index: 3000;">
+        <div class="tav-sidebar-header">
+                <div class="tav-sidebar-close"  style="font-size: 14px; color: #8888;" onclick="tavToggleSettings()">BACK</div>
+                <div class="tav-sidebar-title" style="font-size: 14px; color: #8888;">SETTING</div>
+                <div class="tav-sidebar-close" style="visibility: hidden;">DONE</div>
+            </div>
+
+            <div class="tav-right-tabs">
+                <div class="tav-right-tab active" onclick="tavSwitchTab('preset')">预设</div>
+                <div class="tav-right-tab" onclick="tavSwitchTab('statusbar')">状态栏</div>
+                <div class="tav-right-tab" onclick="tavSwitchTab('appearance')">外观</div>
+                <div class="tav-right-tab" onclick="tavSwitchTab('regex')">正则</div>
+                <div class="tav-right-tab" onclick="tavSwitchTab('plugin')">插件</div>
+            </div>
+
+            <!-- 1. 预设面板 (提示词卡片化) -->
+            <div class="tav-tab-content-container active" id="tav-tab-preset">
+                <div class="tav-setting-group">
+                    <div class="tav-setting-title">上下文与世界书</div>
+                    <div class="tav-setting-card">
+                        <div class="tav-setting-row">
+                            <span>当前上下文占用</span>
+                            <span class="val" id="tavContextTokenSize">0 Tokens</span>
+                        </div>
+                        <div class="tav-setting-row">
+                            <span>携带酒馆历史聊天轮数</span>
+                            <input type="number" id="tavChatHistoryLength" value="20" style="width: 60px; text-align: right; border: none; outline: none; font-size: 14px; color: #888; background: transparent;" onchange="tavSaveChatHistoryLength()">
+                        </div>
+                        <div class="tav-setting-row">
+                            <span>读取线上聊天记录条数</span>
+                            <input type="number" id="tavOnlineChatHistoryLength" value="10" style="width: 60px; text-align: right; border: none; outline: none; font-size: 14px; color: #888; background: transparent;" onchange="tavSaveOnlineChatHistoryLength()">
+                        </div>
+                        <div class="tav-setting-row">
+                            <span>关联世界书</span>
+                            <div id="tavWbSelectText" onclick="openTavWbSelectModal()" style="font-size: 13px; color: #888; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                                未选择 <svg viewBox="0 0 24 24" width="14" height="14" stroke="#ccc" stroke-width="2" fill="none"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 系统提示词卡片 -->
+                <div class="tav-status-item-card open">
+                    <div class="tav-status-header" onclick="this.parentElement.classList.toggle('open')">
+                        <div class="tav-status-header-left">
+                            <div class="tav-toggle-switch active" onclick="event.stopPropagation(); this.classList.toggle('active')"></div>
+                            <span class="tav-status-title">系统提示词 (System)</span>
+                        </div>
+                        <div class="tav-status-header-right">
+                            <svg class="tav-status-arrow" viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </div>
+                    </div>
+                    <div class="tav-status-body">
+                        <textarea id="tavSystemPrompt" class="tav-ins-textarea" style="margin-top: 10px; height: 120px;" placeholder="输入全局系统提示词..."></textarea>
+                        <div style="display: flex; gap: 10px; padding: 15px 0;">
+                            <div class="tav-ins-btn outline half" onclick="tavOpenPresetModal('system', '系统提示词')">打开预设库</div>
+                            <div class="tav-ins-btn half" onclick="tavSavePreset('system')">保存为预设</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 越狱提示词卡片 -->
+                <div class="tav-status-item-card">
+                    <div class="tav-status-header" onclick="this.parentElement.classList.toggle('open')">
+                        <div class="tav-status-header-left">
+                            <div class="tav-toggle-switch active" onclick="event.stopPropagation(); this.classList.toggle('active')"></div>
+                            <span class="tav-status-title">越狱提示词 (Jailbreak)</span>
+                        </div>
+                        <div class="tav-status-header-right">
+                            <svg class="tav-status-arrow" viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </div>
+                    </div>
+                    <div class="tav-status-body">
+                        <textarea id="tavJailbreakPrompt" class="tav-ins-textarea" style="margin-top: 10px; height: 120px;" placeholder="输入越狱/NSFW提示词..."></textarea>
+                        <div style="display: flex; gap: 10px; padding: 15px 0;">
+                            <div class="tav-ins-btn outline half" onclick="tavOpenPresetModal('jailbreak', '越狱提示词')">打开预设库</div>
+                            <div class="tav-ins-btn half" onclick="tavSavePreset('jailbreak')">保存为预设</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 自定义文风卡片 -->
+                <div class="tav-status-item-card">
+                    <div class="tav-status-header" onclick="this.parentElement.classList.toggle('open')">
+                        <div class="tav-status-header-left">
+                            <div class="tav-toggle-switch active" onclick="event.stopPropagation(); this.classList.toggle('active')"></div>
+                            <span class="tav-status-title">自定义文风 (Style)</span>
+                        </div>
+                        <div class="tav-status-header-right">
+                            <svg class="tav-status-arrow" viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </div>
+                    </div>
+                    <div class="tav-status-body">
+                        <textarea id="tavStylePrompt" class="tav-ins-textarea" style="margin-top: 10px; height: 100px;" placeholder="描述期望的文风，例如：使用华丽的辞藻，侧重心理描写..."></textarea>
+                        <div style="display: flex; gap: 10px; padding: 15px 0;">
+                            <div class="tav-ins-btn outline half" onclick="tavOpenPresetModal('style', '自定义文风')">打开预设库</div>
+                            <div class="tav-ins-btn half" onclick="tavSavePreset('style')">保存为预设</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 作者备注卡片 -->
+                <div class="tav-status-item-card">
+                    <div class="tav-status-header" onclick="this.parentElement.classList.toggle('open')">
+                        <div class="tav-status-header-left">
+                            <div class="tav-toggle-switch active" onclick="event.stopPropagation(); this.classList.toggle('active')"></div>
+                            <span class="tav-status-title">作者备注 (Author's Note)</span>
+                        </div>
+                        <div class="tav-status-header-right">
+                            <svg class="tav-status-arrow" viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </div>
+                    </div>
+                    <div class="tav-status-body">
+                        <textarea id="tavNotePrompt" class="tav-ins-textarea" style="margin-top: 10px; height: 100px;" placeholder="输入作者备注，将强行插入到上下文末尾..."></textarea>
+                        <div style="display: flex; gap: 10px; padding: 15px 0;">
+                            <div class="tav-ins-btn outline half" onclick="tavOpenPresetModal('note', '作者备注')">打开预设库</div>
+                            <div class="tav-ins-btn half" onclick="tavSavePreset('note')">保存为预设</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. 状态栏面板 -->
+            <div class="tav-tab-content-container" id="tav-tab-statusbar">
+                <div class="tav-ins-btn outline" style="margin-bottom: 15px;" onclick="openTavAddStatusBarPanel()">+ 添加新状态栏</div>
+                
+                <div id="tavStatusBarList" style="display: flex; flex-direction: column; gap: 15px;">
+                    <!-- 动态渲染的状态栏列表 -->
+                </div>
+            </div>
+
+            <!-- 3. 外观面板 -->
+            <div class="tav-tab-content-container" id="tav-tab-appearance">
+                <div class="tav-setting-group">
+                    <div class="tav-setting-title">视觉设置 (VISUALS)</div>
+                    <div class="tav-setting-card">
+                        <div class="tav-setting-row-col">
+                            <span>自定义背景 (URL)</span>
+                            <input type="text" class="tav-ins-input" placeholder="输入图片链接..." oninput="tavChangeBackground(this.value)">
+                        </div>
+                        <div class="tav-setting-row">
+                            <span>屏幕亮度</span>
+                            <input type="range" min="0" max="80" value="0" style="width: 120px;" oninput="tavChangeBrightness(this.value)">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tav-setting-group">
+                    <div class="tav-setting-title">排版与字体 (TYPOGRAPHY)</div>
+                    <div class="tav-setting-card">
+                        <div class="tav-setting-row-col">
+                            <span>自定义字体 (URL)</span>
+                            <input type="text" class="tav-ins-input" placeholder="输入 .ttf / .woff 链接..." oninput="tavChangeFont(this.value)">
+                        </div>
+                        <div class="tav-setting-row">
+                            <span>全局字体大小</span>
+                            <input type="range" min="12" max="24" value="15" style="width: 120px;" oninput="tavChangeFontSize(this.value)">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tav-setting-group">
+                    <div class="tav-setting-title">自定义 CSS</div>
+                    <div class="tav-setting-card no-pad">
+                        <textarea id="tavCustomCssInput" class="tav-ins-textarea" placeholder="输入 CSS 代码..." style="height: 120px; font-family: monospace;" oninput="tavApplyCustomCss(this.value)"></textarea>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <div class="tav-ins-btn outline half" onclick="tavOpenPresetModal('css', '自定义 CSS')">打开预设库</div>
+                            <div class="tav-ins-btn half" onclick="tavSavePreset('css')">保存为预设</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. 正则面板 -->
+            <div class="tav-tab-content-container" id="tav-tab-regex">
+                <div class="tav-ins-btn outline" style="margin-bottom: 10px;" onclick="openTavRegexModal()">+ 添加新规则</div>
+                <div id="tavRegexList" style="display: flex; flex-direction: column; gap: 15px;">
+                    <!-- 动态渲染正则列表 -->
+                </div>
+            </div>
+
+            <!-- 5. 插件面板 (API 与 扩展) -->
+            <div class="tav-tab-content-container" id="tav-tab-plugin">
+                <div class="tav-setting-group">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div class="tav-setting-title">API 核心配置 (线下独立)</div>
+                        <div onclick="tavOpenApiPresetPopup()" style="font-size: 12px; color: #007aff; font-weight: bold; cursor: pointer;">全局 API 预设库</div>
+                    </div>
+                    
+                    <div class="app-settings-box" style="padding: 15px; gap: 15px; margin-top: 10px; background: #fff; border: 1px solid #eee; box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
+                        <!-- URL 输入框 -->
+                        <div class="api-input-wrapper" style="margin-bottom: 0; background: #f9f9f9;">
+                            <div class="api-input-icon">
+                                <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                                URL
+                            </div>
+                            <input type="text" id="tavApiUrl" placeholder="例如 https://api.openai.com/v1">
+                        </div>
+
+                        <!-- KEY 输入框 -->
+                        <div class="api-input-wrapper" style="margin-bottom: 0; background: #f9f9f9;">
+                            <div class="api-input-icon">
+                                <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                                KEY
+                            </div>
+                            <input type="password" id="tavApiKey" placeholder="sk-...">
+                        </div>
+
+                        <!-- 搜索模型输入框 -->
+                        <div class="api-input-wrapper" style="margin-bottom: 0; background: #f9f9f9;">
+                            <div class="api-input-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            </div>
+                            <input type="text" id="tavModelSearch" placeholder="Searching..." oninput="tavRenderModelSelect(this.value)">
+                        </div>
+
+                        <!-- 拉取模型按钮 -->
+                        <div class="api-input-wrapper" style="margin-bottom: 0; justify-content:center; cursor:pointer; background:#f0f0f0; font-weight:bold; color:#333;" onclick="tavFetchModels()">
+                            <span>拉取模型</span>
+                        </div>
+
+                        <!-- 模型选择下拉框 -->
+                        <select id="tavApiModel" class="font-url-input" style="background:#f9f9f9; border:1px solid #eee; border-radius:8px; padding:8px; outline:none; width: 100%; margin-bottom: 0;">
+                            <option value="gpt-4-turbo">gpt-4-turbo</option>
+                        </select>
+
+                        <!-- 温度调节 -->
+                        <div class="api-input-wrapper" style="margin-bottom: 0; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; background: #f9f9f9;">
+                            <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                                <div class="api-input-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"></path></svg>
+                                    温度 (Temperature)
+                                </div>
+                                <span id="tavApiTempValue" style="font-size: 14px; color: #111; font-weight: bold;">0.8</span>
+                            </div>
+                            <input type="range" id="tavApiTemp" min="0" max="2" step="0.1" value="0.8" style="width: 100%; accent-color: #111;" oninput="document.getElementById('tavApiTempValue').innerText = this.value">
+                        </div>
+                    </div>
+                    <div class="tav-ins-btn" style="margin-top: 10px;" onclick="tavSaveApiConfig()">保存线下 API 设置</div>
+                </div>
+
+                <div class="tav-setting-group" style="margin-top: 20px;">
+                    <div class="tav-setting-title">扩展插件 (EXTENSIONS)</div>
+                    <div class="tav-setting-card" style="padding: 5px 15px;">
+                        <div class="tav-setting-row" style="padding: 12px 0; border-bottom: none;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div style="width: 32px; height: 32px; background: #f4f4f4; border-radius: 8px; display: flex; justify-content: center; align-items: center;">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="#111" stroke-width="2" fill="none"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 2px;">
+                                    <span style="font-size: 14px; font-weight: bold; color: #111;">线下记忆库</span>
+                                    <span style="font-size: 11px; color: #888;">Vector Storage (长期记忆)</span>
+                                </div>
+                            </div>
+                                                            <div class="tav-toggle-switch active" id="tavVectorToggle" onclick="this.classList.toggle('active')"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    <!-- 新增：添加状态栏全屏面板 (完美还原截图极简风格) -->
+
+    <div class="theme-panel instant-panel" id="tavAddStatusBarPanel" style="z-index: 3100; background-color: #f9f9f9; display: none;">
+        <div class="panel-header" style="background: #f9f9f9; border-bottom: none; padding-top: calc(20px + env(safe-area-inset-top));">
+            <div class="header-close" onclick="closeTavAddStatusBarPanel()" style="font-size: 15px; color: #888; font-weight: bold;">CANCEL</div>
+            <div class="header-title-wrapper"><div class="header-title" style="box-shadow: none; background: transparent; color: #888; font-size: 14px; padding: 0; transform: none;">添加状态栏</div></div>
+            <div class="header-close" style="font-size: 15px; color: #111; font-weight: bold;" onclick="saveTavStatusBar()">SAVE</div>
+        </div>
+        <div class="panel-content" style="padding: 20px;">
+            <div style="background: #fff; border-radius: 16px; padding: 10px 20px; display: flex; flex-direction: column; gap: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <span style="font-size: 14px; font-weight: bold; color: #111;">状态栏名称</span>
+                    <input type="text" id="tavNewStatusName" style="border: none; outline: none; font-size: 14px; color: #555; padding: 4px 0;" placeholder="例如：金币与负重">
+                </div>
+                <div style="height: 1px; background: #f5f5f5; width: 100%;"></div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <span style="font-size: 14px; font-weight: bold; color: #111;">插入位置</span>
+                    <select id="tavNewStatusPos" style="border: none; outline: none; font-size: 14px; color: #555; padding: 4px 0; background: transparent; appearance: none;">
+                        <option value="floating">全局悬浮可拖动 (小球)</option>
+                        <option value="top">顶部悬浮 (全局)</option>
+                        <option value="bottom">底部悬浮 (全局)</option>
+                        <option value="card_top">消息卡片内部顶部 (跟随消息)</option>
+                        <option value="card_bottom">消息卡片内部底部 (跟随消息)</option>
+                    </select>
+                </div>
+                <div style="height: 1px; background: #f5f5f5; width: 100%;"></div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <span style="font-size: 14px; font-weight: bold; color: #111;">提取规则 (正则/JSON)</span>
+                    <input type="text" id="tavNewStatusRegex" style="border: none; outline: none; font-size: 14px; color: #555; padding: 4px 0;" placeholder="例如：金币:(\d+)">
+                </div>
+                <div style="height: 1px; background: #f5f5f5; width: 100%;"></div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <span style="font-size: 14px; font-weight: bold; color: #111;">HTML 代码</span>
+                    <textarea id="tavNewStatusHtml" style="border: none; outline: none; font-size: 14px; color: #555; padding: 4px 0; height: 80px; resize: none; font-family: monospace;" placeholder="例如：<div>金币: {{1}}</div>"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+    <!-- 预设库弹窗 (使用全局通用样式) -->
+    <div class="preset-modal-overlay" id="tavPresetModalOverlay" onclick="tavClosePresetModal()" style="z-index: 9999;">
+        <div class="preset-modal" style="width: 300px;" onclick="event.stopPropagation()">
+            <div class="preset-modal-title" id="tavPresetModalTitle">预设库</div>
+            <div id="tavPresetModalList" style="width: 100%; max-height: 300px; overflow-y: auto; padding: 10px 20px; display: flex; flex-direction: column; gap: 10px;">
+                <!-- 动态渲染预设列表 -->
+            </div>
+            <div class="preset-modal-actions">
+                <div class="preset-btn-cancel" onclick="tavClosePresetModal()" style="width: 100%; border-right: none;">关闭</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 正则添加弹窗 (使用全局通用样式) -->
+    <div class="preset-modal-overlay" id="tavRegexModalOverlay" onclick="closeTavRegexModal()" style="z-index: 9999;">
+        <div class="preset-modal" style="width: 300px;" onclick="event.stopPropagation()">
+            <div class="preset-modal-title">添加正则规则</div>
+            <div style="width: 100%; padding: 15px 20px; display: flex; flex-direction: column; gap: 10px;">
+                <input type="text" id="tavRegexName" class="preset-modal-input" placeholder="规则名称 (如: 动作描写加粗)" style="width: 100%; margin: 0;">
+                <input type="text" id="tavRegexPattern" class="preset-modal-input" placeholder="正则表达式 (如: \*(.*?)\*)" style="width: 100%; margin: 0;">
+                <input type="text" id="tavRegexReplace" class="preset-modal-input" placeholder="替换内容 (如: <span class='action-text'>*$1*</span>)" style="width: 100%; margin: 0;">
+            </div>
+            <div class="preset-modal-actions">
+                <div class="preset-btn-cancel" onclick="closeTavRegexModal()">取消</div>
+                <div class="preset-btn-confirm" onclick="saveTavRegex()">保存</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 线下 API 预设库弹窗 (使用全局通用样式) -->
+    <div class="preset-modal-overlay" id="tavApiPresetModalOverlay" onclick="tavCloseApiPresetPopup()" style="z-index: 9999;">
+        <div class="preset-modal" style="width: 300px;" onclick="event.stopPropagation()">
+            <div class="preset-modal-title">全局 API 预设库</div>
+            <div id="tavApiPresetList" style="width: 100%; max-height: 300px; overflow-y: auto; padding: 10px 20px; display: flex; flex-direction: column; gap: 10px;">
+                <!-- 动态渲染 -->
+            </div>
+            <div class="preset-modal-actions">
+                <div class="preset-btn-cancel" onclick="tavCloseApiPresetPopup()" style="width: 100%; border-right: none;">关闭</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 酒馆模式世界书选择弹窗 (使用全局通用样式) -->
+    <div class="preset-modal-overlay" id="tavWbSelectModalOverlay" style="z-index: 9999;">
+        <div class="preset-modal" style="width: 320px; max-height: 80vh; display: flex; flex-direction: column; border-radius: 20px; background: #fff; padding: 20px 15px;">
+            <div style="font-size: 16px; font-weight: bold; color: #555; text-align: center; margin-bottom: 15px;">绑定世界书</div>
+            <div id="tavWbSelectList" style="flex: 1; overflow-y: auto; width: 100%; text-align: left; margin-bottom: 15px;">
+                <!-- 动态渲染分组和条目 -->
+            </div>
+            <div style="width: 100%; background: #f0f0f0; color: #333; text-align: center; padding: 12px 0; border-radius: 12px; font-size: 15px; font-weight: bold; cursor: pointer;" onclick="confirmTavWbSelect()">确认</div>
+        </div>
+    </div>
+
+    <!-- 通用确认弹窗 (重新生成/继续生成) -->
+    <div class="preset-modal-overlay" id="tavConfirmModalOverlay" style="z-index: 10000;">
+        <div class="preset-modal" style="width: 260px;">
+            <div class="preset-modal-title" id="tavConfirmTitle">确认操作</div>
+            <div class="preset-modal-desc" id="tavConfirmDesc" style="padding: 15px 20px; color: #555;">是否确认执行此操作？</div>
+            <div class="preset-modal-actions">
+                <div class="preset-btn-cancel" onclick="document.getElementById('tavConfirmModalOverlay').classList.remove('show')">取消</div>
+                <div class="preset-btn-confirm" id="tavConfirmBtn">确认</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑内容弹窗 (消息/状态栏/记忆) -->
+    <div class="preset-modal-overlay" id="tavEditContentModalOverlay" style="z-index: 10000;">
+        <div class="preset-modal" style="width: 300px;">
+            <div class="preset-modal-title" id="tavEditContentTitle">编辑内容</div>
+            <div style="width: 100%; padding: 15px 20px;">
+                <textarea id="tavEditContentTextarea" style="width: 100%; height: 150px; border: 1px solid #eee; border-radius: 8px; padding: 10px; font-size: 14px; outline: none; resize: none; background: #f9f9f9; color: #333;"></textarea>
+            </div>
+            <div class="preset-modal-actions">
+                <div class="preset-btn-cancel" onclick="document.getElementById('tavEditContentModalOverlay').classList.remove('show')">取消</div>
+                <div class="preset-btn-confirm" id="tavEditContentSaveBtn">保存</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 记忆库全屏面板 (极简白底风格) -->
+    <div class="theme-panel instant-panel" id="tavMemoryBankPanel" style="z-index: 3100; background-color: #f9f9f9; display: none;">
+        <div class="panel-header" style="background: #f9f9f9; border-bottom: none; padding-top: calc(20px + env(safe-area-inset-top));">
+            <div class="header-close" onclick="closeTavMemoryBankPanel()" style="font-size: 15px; color: #888; font-weight: bold;">BACK</div>
+            <div class="header-title-wrapper"><div class="header-title" style="box-shadow: none; background: transparent; color: #888; font-size: 14px; padding: 0; transform: none;">线下记忆库</div></div>
+            <div class="header-close" style="visibility: hidden; font-size: 15px;">DONE</div>
+        </div>
+        <div class="panel-content" style="padding: 20px;">
+            <div id="tavMemoryBankList" style="display: flex; flex-direction: column; gap: 15px;">
+                <!-- 动态渲染记忆 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 存档操作菜单弹窗 -->
+    <div class="preset-modal-overlay" id="tavSaveMenuModalOverlay" style="z-index: 10000;">
+        <div class="preset-modal" style="width: 260px;">
+            <div class="preset-modal-title">存档管理</div>
+            <div class="preset-list" style="width: 100%; margin-top: 10px;">
+                <div class="preset-item" onclick="tavSaveAndNew()">
+                    <span class="preset-item-name" style="text-align: center; width: 100%;">保存并开启新对话</span>
+                </div>
+                <div class="preset-item" onclick="tavDirectNew()">
+                    <span class="preset-item-name" style="text-align: center; width: 100%; color: #ff3b30;">直接开启新对话</span>
+                </div>
+                <div class="preset-item" onclick="tavOpenSavesListPanel()">
+                    <span class="preset-item-name" style="text-align: center; width: 100%;">历史保存对话</span>
+                </div>
+            </div>
+            <div class="preset-modal-actions">
+                <div class="preset-btn-cancel" onclick="document.getElementById('tavSaveMenuModalOverlay').classList.remove('show')" style="width: 100%; border-right: none;">取消</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 历史存档列表全屏面板 -->
+    <div class="theme-panel instant-panel" id="tavSavesListPanel" style="z-index: 3100; background-color: #f9f9f9; display: none;">
+        <div class="panel-header" style="background: #f9f9f9; border-bottom: none; padding-top: calc(20px + env(safe-area-inset-top));">
+            <div class="header-close" onclick="closeTavSavesListPanel()" style="font-size: 15px; color: #888; font-weight: bold;">BACK</div>
+            <div class="header-title-wrapper"><div class="header-title" style="box-shadow: none; background: transparent; color: #888; font-size: 14px; padding: 0; transform: none;">历史存档</div></div>
+            <div class="header-close" style="visibility: hidden; font-size: 15px;">DONE</div>
+        </div>
+        <div class="panel-content" style="padding: 20px;">
+            <div id="tavModalSavesList" style="display: flex; flex-direction: column; gap: 15px;">
+                <!-- 动态渲染 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 记忆总结操作菜单弹窗 -->
+    <div class="preset-modal-overlay" id="tavSummaryModalOverlay" style="z-index: 10000;">
+        <div class="preset-modal" style="width: 280px;">
+            <div class="preset-modal-title">生成记忆总结</div>
+            <div class="preset-list" style="width: 100%; margin-top: 10px;">
+                <div class="preset-item" onclick="tavExecuteSummary('ai')">
+                    <span class="preset-item-name" style="text-align: center; width: 100%;">调用 AI 总结当前对话</span>
+                </div>
+                <div class="preset-item" onclick="tavExecuteSummary('vector')">
+                    <span class="preset-item-name" style="text-align: center; width: 100%;">提取最新线下记忆</span>
+                </div>
+            </div>
+            <div class="preset-modal-actions">
+                <div class="preset-btn-cancel" onclick="document.getElementById('tavSummaryModalOverlay').classList.remove('show')" style="width: 100%; border-right: none;">取消</div>
+            </div>
+        </div>
+    </div>
 
     <!-- 隐藏的上传输入框 -->
     <input type="file" id="wallpaperUploadInput" accept="image/*" style="display: none;" onchange="handleWallpaperUpload(event)">
     <input type="file" id="iconUploadInput" accept="image/*" style="display: none;" onchange="handleIconUpload(event)">
     <input type="file" id="widgetBgUploadInput" accept="image/*" style="display: none;" onchange="handleWidgetBgUpload(event)">
-</div> <!-- 👈 闭合 iphone-container -->
 
     <script>
 // PWA Service Worker Registration
@@ -6851,6 +7399,7 @@
 <script src="call.js"></script>
 <script src="sms.js"></script>
 <script src="weibo.js"></script>
+<script src="tavern.js"></script>
 <!-- 引入 Supabase 核心库 -->
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <!-- 引入独立的激活码验证逻辑 -->
