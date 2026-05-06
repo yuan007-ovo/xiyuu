@@ -3300,6 +3300,7 @@ function renderChatHistory(charId, keepScroll = false) {
     let allEntities = getAllEntities();
     const char = allEntities.find(c => c.id === charId);
     const me = allEntities.find(a => a.id === currentLoginId);
+    let remarks = JSON.parse(ChatDB.getItem(`char_remarks_${currentLoginId}`) || '{}');
 
     historyEl.innerHTML = '';
 
@@ -3369,7 +3370,11 @@ function renderChatHistory(charId, keepScroll = false) {
 
         let isContinuous = false;
         if (nextMsg && nextMsg.role === msg.role && (nextMsg.timestamp - msg.timestamp < 5 * 60 * 1000)) {
-            isContinuous = true;
+            if (char && char.isGroup) {
+                if (nextMsg.senderId === msg.senderId) isContinuous = true;
+            } else {
+                isContinuous = true;
+            }
         }
         
         let isFollowUp = false;
@@ -3406,7 +3411,8 @@ function renderChatHistory(charId, keepScroll = false) {
             if (member) {
                 hasAvatar = member.avatarUrl;
                 avatarClass = `cr-avatar-group-${msg.senderId}`;
-                senderNameHtml = `<div style="font-size: 11px; color: #888; margin-bottom: 4px; margin-left: 12px;">${member.netName || member.name}</div>`;
+                const displayName = remarks[member.id] || member.netName || member.name;
+                senderNameHtml = `<div style="font-size: 11px; color: #888; margin-bottom: 4px; margin-left: 12px;">${displayName}</div>`;
             }
         }
         
@@ -3584,10 +3590,11 @@ function renderChatHistory(charId, keepScroll = false) {
             `;
         }
 
+        let isNoTail = isContinuous || (char && char.isGroup);
         const bubbleHtml = `
             <div class="cr-msg-content-wrapper">
                 ${quoteHtml}
-                <div class="cr-bubble ${msg.role === 'user' ? 'cr-bubble-right' : 'cr-bubble-left'} ${isContinuous ? 'no-tail' : ''} ${isImageMsg ? 'cr-bubble-image' : ''} ${isForwardRecord ? 'cr-bubble-forward' : ''} ${isVoiceMsg ? 'cr-bubble-voice-wrap' : ''} ${isTransferMsg ? 'cr-bubble-transfer' : ''} ${isFamilyCardMsg ? 'cr-bubble-family' : ''} ${isMusicInviteMsg ? 'cr-bubble-music-invite' : ''} ${isMusicShareMsg ? 'cr-bubble-music-share' : ''} ${isAppShareMsg ? 'cr-bubble-app-share' : ''} ${isHtmlMsg ? 'cr-bubble-html' : ''} ${isLocationMsg ? 'cr-bubble-location' : ''}" 
+                <div class="cr-bubble ${msg.role === 'user' ? 'cr-bubble-right' : 'cr-bubble-left'} ${isNoTail ? 'no-tail' : ''} ${isImageMsg ? 'cr-bubble-image' : ''} ${isForwardRecord ? 'cr-bubble-forward' : ''} ${isVoiceMsg ? 'cr-bubble-voice-wrap' : ''} ${isTransferMsg ? 'cr-bubble-transfer' : ''} ${isFamilyCardMsg ? 'cr-bubble-family' : ''} ${isMusicInviteMsg ? 'cr-bubble-music-invite' : ''} ${isMusicShareMsg ? 'cr-bubble-music-share' : ''} ${isAppShareMsg ? 'cr-bubble-app-share' : ''} ${isHtmlMsg ? 'cr-bubble-html' : ''} ${isLocationMsg ? 'cr-bubble-location' : ''}" 
                      oncontextmenu="return false;" 
                      ontouchstart="handleBubbleTouchStart(event, ${index})" 
                      ontouchend="handleBubbleTouchEnd()" 
@@ -6014,13 +6021,15 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
         let userAccountNames = [];
         if (char.memberIds) {
             char.memberIds.forEach(mid => {
-                if (mid === currentLoginId) return;
+                if (mid === currentLoginId) return; // 当前登录账号的面具会在下方 <user_settings> 中单独读取，这里直接跳过，防止重复
                 const member = allEntities.find(e => e.id === mid);
                 if (member) {
                     if (member.isAccount) {
+                        // 是用户的其他账号/面具：只记录名字用于防串戏，绝对不读取其人设面具
                         userAccountNames.push(member.netName || member.name);
-                        memberPrompts.push(`- 成员ID: ${member.id} | 名字: ${member.netName || member.name} | 身份: 真实用户（绝对禁止你代替该成员发言！）`);
+                        memberPrompts.push(`- 成员ID: ${member.id} | 名字: ${member.netName || member.name} | 身份: 真实用户（User的其他账号，绝对禁止代替发言，无需读取其人设）`);
                     } else {
+                        // 是群聊里的 Char：正常读取其人设
                         memberPrompts.push(`- 成员ID: ${member.id} | 名字: ${member.netName || member.name} | 设定: ${member.description || '无'}`);
                     }
                 }
@@ -6033,9 +6042,10 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
         
         systemPrompt += `【角色扮演铁律 (最高防串戏警告)】\n`;
         systemPrompt += `你必须严格区分每个人的性格和身份，请严格扮演每个角色的人设，不同角色之间应有明显的性格和语气差异，绝对禁止角色串台词！\n`;
-        systemPrompt += `⚠️【绝对禁止】：群聊中包含真实用户账号，你绝对不能代替任何真实用户（如：${userName}、${userRealName}${userAccountNames.length > 0 ? '，以及 ' + userAccountNames.join('、') : ''}）发言！你只能扮演群里的 char 角色！\n\n`;
+        systemPrompt += `⚠️【绝对禁止】：群聊中包含真实用户账号，你绝对不能代替任何真实用户（如：${userName}、${userRealName}${userAccountNames.length > 0 ? '，以及 ' + userAccountNames.join('、') : ''}）发言！你只能扮演群里的 Char 角色！\n\n`;
         systemPrompt += `【核心规则】\n`;
     } else {
+
         systemPrompt = `你正在一个名为“微信”的线上聊天软件中扮演一个角色。请严格遵守以下规则：\n`;
         systemPrompt += `【核心规则】\n`;
     }
@@ -8938,7 +8948,8 @@ async function executeManualSummary() {
     const personaId = getCurrentPersonaIdForMemory();
     let memory = JSON.parse(ChatDB.getItem(`char_memory_${personaId}_${currentProfileCharId}`) || '{}');
     if (!memory.summary) memory.summary = [];
-    let oldSummary = memory.summary.length > 0 ? memory.summary[0].content : "暂无前情提要。";
+    // 【修复】：读取最新的一条总结作为旧总结参考，而不是永远读第 0 条
+    let oldSummary = memory.summary.length > 0 ? memory.summary[memory.summary.length - 1].content : "暂无前情提要。";
     let customPrompt = (memory.settings && memory.settings.customPrompt) ? memory.settings.customPrompt : "1. 使用第三人称陈述句，保持客观、简短。\n2. 重点记录发生的关键事件、角色之间关系的改变、以及重要的新情报。\n3. 剥离废话，只输出总结的文本，不要输出任何其他格式或多余的解释。";
 
     let chars = JSON.parse(ChatDB.getItem('chat_chars') || '[]');
@@ -8992,7 +9003,8 @@ ${customPrompt}
             const currentLayer = Math.ceil(history.length / 2);
             const finalText = `[当前聊天层数: ${currentLayer} 轮 (共 ${history.length} 条消息)]\n${newSummaryText}`;
             
-            memory.summary = [{ id: Date.now().toString(), content: finalText }];
+            // 【修复】：使用 push 追加到数组末尾，保留历史 Step 记录，而不是直接覆盖清空
+            memory.summary.push({ id: Date.now().toString(), content: finalText });
             ChatDB.setItem(`char_memory_${personaId}_${currentProfileCharId}`, JSON.stringify(memory));
             
             hideToast();
@@ -10175,13 +10187,55 @@ async function generateCharSocialChatAPI() {
                 let history = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${npcId}`) || '[]');
                 let baseTime = Date.now() - session.history.length * 60000; // 模拟过去的时间
                 
+                let groupMemberIds = npc ? (npc.memberIds || []) : [];
+
                 session.history.forEach((msg, idx) => {
-                    history.push({
-                        role: msg.role === 'me' ? 'user' : 'char', // 在当前账号视角，me就是user(自己)，other就是char(对方)
-                        content: msg.content,
+                    let finalContent = msg.content;
+                    let senderId = null;
+
+                    if (session.isGroup && msg.role === 'other') {
+                        const match = finalContent.match(/^([^:：]+)[:：]\s*(.*)$/);
+                        if (match) {
+                            const memberName = match[1].trim();
+                            finalContent = match[2].trim();
+                            
+                            let memberNpc = npcs.find(n => n.name === memberName);
+                            if (!memberNpc) {
+                                memberNpc = {
+                                    id: 'npc_' + Date.now() + Math.random().toString(36).substr(2, 5),
+                                    name: memberName,
+                                    netName: memberName,
+                                    signature: '群聊成员',
+                                    description: '群聊成员',
+                                    group: 'NPC',
+                                    isNPC: true,
+                                    isGroup: false,
+                                    avatarUrl: typeof window.getRandomNpcAvatar === 'function' ? window.getRandomNpcAvatar() : ''
+                                };
+                                npcs.push(memberNpc);
+                            }
+                            senderId = memberNpc.id;
+                            if (!groupMemberIds.includes(senderId)) {
+                                groupMemberIds.push(senderId);
+                            }
+                        }
+                    }
+
+                    let newMsg = {
+                        role: msg.role === 'me' ? 'user' : 'char',
+                        content: finalContent,
                         timestamp: baseTime + idx * 60000
-                    });
+                    };
+                    if (senderId) newMsg.senderId = senderId;
+
+                    history.push(newMsg);
                 });
+
+                if (session.isGroup) {
+                    let targetNpc = npcs.find(n => n.id === npcId);
+                    if (targetNpc) targetNpc.memberIds = groupMemberIds;
+                }
+
                 ChatDB.setItem(`chat_history_${currentLoginId}_${npcId}`, JSON.stringify(history));
             });
 

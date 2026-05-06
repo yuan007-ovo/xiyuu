@@ -53,10 +53,22 @@ window.NPC_AVATARS = [
     "https://i.postimg.cc/ZqxYwrrd/1000037037.jpg",
     "https://i.postimg.cc/jj4qMzzL/1000037038.jpg",
     "https://i.postimg.cc/vmt80WWx/1000037522.jpg",
-    "https://i.postimg.cc/DzPfxqqb/1000037540.jpg"
+    "https://i.postimg.cc/DzPfxqqb/1000037540.jpg",
+    "https://i.postimg.cc/x1DvF65Z/Image-1778077783854-333.jpg",
+    "https://i.postimg.cc/VkQqHKgV/Image-1778077785604-530.jpg",
+    "https://i.postimg.cc/P5sWFSyF/Image-1778077787250-467.jpg",
+    "https://i.postimg.cc/kg3QhTsT/Image-1778077789203-372.jpg",
+    "https://i.postimg.cc/ncQKkyKb/Image-1778077790956-601.jpg",
+    "https://i.postimg.cc/sDZPckYk/Image-1778077792559-757.jpg",
+    "https://i.postimg.cc/CLfCN3Cy/Image-1778077794146-985.jpg",
+    "https://i.postimg.cc/Hs702qwv/Image-1778077795885-287.jpg",
+    "https://i.postimg.cc/CLfCN3GJ/Image-1778077797519-161.jpg",
+    "https://i.postimg.cc/VLb9RxqD/Image-1778077799044-244.jpg",
+    "https://i.postimg.cc/9FqPp6dx/Image-1778077800670-962.jpg"
 ];
 
 window.getRandomNpcAvatar = function() {
+
     return window.NPC_AVATARS[Math.floor(Math.random() * window.NPC_AVATARS.length)];
 };
 
