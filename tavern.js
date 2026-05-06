@@ -244,16 +244,22 @@ function tavSaveAndNew() {
     const title = prompt('请输入存档名称：', `存档 ${new Date().toLocaleString()}`);
     if (title !== null) {
         let saves = JSON.parse(ChatDB.getItem(`tav_chat_saves_${currentLoginId}_${currentChatRoomCharId}`) || '[]');
+        // 新增：读取当前的向量记忆库
+        let currentMemory = JSON.parse(ChatDB.getItem(`tav_memory_${currentChatRoomCharId}`) || '[]');
+        
         saves.push({
             id: Date.now().toString(),
             title: title || '未命名存档',
             timestamp: Date.now(),
-            history: history
+            history: history,
+            memory: currentMemory // 新增：将记忆库一起打包存入存档
         });
         ChatDB.setItem(`tav_chat_saves_${currentLoginId}_${currentChatRoomCharId}`, JSON.stringify(saves));
         
-        // 清空当前
+        // 清空当前聊天记录和向量记忆库
         ChatDB.setItem(`tav_chat_history_${currentLoginId}_${currentChatRoomCharId}`, '[]');
+        ChatDB.setItem(`tav_memory_${currentChatRoomCharId}`, '[]');
+        
         tavRenderChat();
         document.getElementById('tavSaveMenuModalOverlay').classList.remove('show');
         alert('保存成功，已开启新对话！');
@@ -263,7 +269,11 @@ function tavSaveAndNew() {
 function tavDirectNew() {
     if (confirm('确定直接开启新对话吗？当前的聊天记录将会丢失！')) {
         const currentLoginId = ChatDB.getItem('current_login_account');
+        
+        // 清空当前聊天记录和向量记忆库
         ChatDB.setItem(`tav_chat_history_${currentLoginId}_${currentChatRoomCharId}`, '[]');
+        ChatDB.setItem(`tav_memory_${currentChatRoomCharId}`, '[]');
+        
         tavRenderChat();
         document.getElementById('tavSaveMenuModalOverlay').classList.remove('show');
     }
@@ -316,6 +326,9 @@ function tavLoadSave(saveId) {
         const save = saves.find(s => s.id === saveId);
         if (save) {
             ChatDB.setItem(`tav_chat_history_${currentLoginId}_${currentChatRoomCharId}`, JSON.stringify(save.history));
+            
+            // 新增：恢复存档中的向量记忆库 (兼容老存档，如果没有则恢复为空数组)
+            ChatDB.setItem(`tav_memory_${currentChatRoomCharId}`, JSON.stringify(save.memory || []));
             
             // 如果在 Lobby 界面，直接进入聊天
             if (document.getElementById('tavernLobbyPanel').style.display === 'flex') {
@@ -1350,6 +1363,15 @@ async function tavTriggerAI(isRegenerate = false, isContinue = false) {
             sysPrompt += '\n\n【核心记忆库】\n' + memories.map(m => m.text).join('\n');
         }
         sysPrompt += '\n\n【重要指令】请在回复的正文和状态栏之后，总结这一轮对话的核心内容（包括动作、剧情推进、重要信息），并使用 <summary>总结内容</summary> 标签包裹在回复的最末尾。';
+    }
+
+    // 新增：时间感知插件
+    const isTimeAwareEnabled = document.getElementById('tavTimeAwareToggle')?.classList.contains('active');
+    if (isTimeAwareEnabled) {
+        const now = new Date();
+        const days = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+        const timeStr = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${days[now.getDay()]} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        sysPrompt += `\n\n【时间感知】\n当前现实时间是：${timeStr}。请在符合人设和剧情逻辑的前提下，自然地感知并适应这个时间点。`;
     }
 
     // 6. 注入 Chat APP 角色记忆库

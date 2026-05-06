@@ -2121,6 +2121,7 @@
                         <div class="memory-avatar" id="memoryCharAvatar"></div>
                     </div>
                     <div class="memory-char-name" id="memoryCharName">角色名</div>
+                    <div id="memoryChatLayer" style="font-size: 12px; color: #888; margin-bottom: 15px; font-weight: bold;">当前聊天层数: 0 轮</div>
                 </div>
 
                 <!-- 横向熊耳标签栏 -->
@@ -2137,7 +2138,7 @@
             </div>
 
             <!-- 底部悬浮添加按钮 -->
-            <div style="position: absolute; bottom: 40px; right: 20px; width: 50px; height: 50px; background: #111; border-radius: 25px; display: flex; justify-content: center; align-items: center; color: #fff; font-size: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); cursor: pointer; z-index: 10;" onclick="openMemoryEditModal()">+</div>
+            <div style="position: absolute; bottom: 40px; left: 20px; width: 50px; height: 50px; background: #111; border-radius: 25px; display: flex; justify-content: center; align-items: center; color: #fff; font-size: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); cursor: pointer; z-index: 10;" onclick="openMemoryEditModal()">+</div>
         </div>
     </div>
 
@@ -7338,7 +7339,8 @@
                 <div class="tav-setting-group" style="margin-top: 20px;">
                     <div class="tav-setting-title">扩展插件 (EXTENSIONS)</div>
                     <div class="tav-setting-card" style="padding: 5px 15px;">
-                        <div class="tav-setting-row" style="padding: 12px 0; border-bottom: none;">
+                        <!-- 向量记忆库 -->
+                        <div class="tav-setting-row" style="padding: 12px 0;">
                             <div style="display: flex; align-items: center; gap: 12px;">
                                 <div style="width: 32px; height: 32px; background: #f4f4f4; border-radius: 8px; display: flex; justify-content: center; align-items: center;">
                                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="#111" stroke-width="2" fill="none"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
@@ -7348,16 +7350,25 @@
                                     <span style="font-size: 11px; color: #888;">Vector Storage (长期记忆)</span>
                                 </div>
                             </div>
-                                                            <div class="tav-toggle-switch active" id="tavVectorToggle" onclick="this.classList.toggle('active')"></div>
+                            <div class="tav-toggle-switch active" id="tavVectorToggle" onclick="this.classList.toggle('active')"></div>
+                        </div>
+                        <!-- 时间感知 -->
+                        <div class="tav-setting-row" style="padding: 12px 0; border-bottom: none;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div style="width: 32px; height: 32px; background: #f4f4f4; border-radius: 8px; display: flex; justify-content: center; align-items: center;">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="#111" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 2px;">
+                                    <span style="font-size: 14px; font-weight: bold; color: #111;">时间感知</span>
+                                    <span style="font-size: 11px; color: #888;">Time Awareness (现实时间)</span>
+                                </div>
                             </div>
+                            <div class="tav-toggle-switch" id="tavTimeAwareToggle" onclick="this.classList.toggle('active')"></div>
                         </div>
                     </div>
                 </div>
-
             </div>
-
         </div>
-
     <!-- 新增：添加状态栏全屏面板 (完美还原截图极简风格) -->
 
     <div class="theme-panel instant-panel" id="tavAddStatusBarPanel" style="z-index: 3100; background-color: #f9f9f9; display: none;">

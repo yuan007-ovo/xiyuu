@@ -8742,6 +8742,15 @@ function openMemoryPanel() {
         if (nameEl) nameEl.innerText = char.netName || char.name || '未命名';
     }
     
+    // 计算并显示当前聊天层数
+    const currentLoginId = ChatDB.getItem('current_login_account');
+    let history = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${currentProfileCharId}`) || '[]');
+    const currentLayer = Math.ceil(history.length / 2);
+    const layerEl = document.getElementById('memoryChatLayer');
+    if (layerEl) {
+        layerEl.innerText = `当前聊天层数: ${currentLayer} 轮 (共 ${history.length} 条消息)`;
+    }
+    
     document.getElementById('charMemoryPanel').style.display = 'flex';
     switchMemoryTab('summary'); // 默认打开总结 Tab
 }
@@ -8972,7 +8981,11 @@ ${customPrompt}
             const data = await response.json();
             const newSummaryText = data.choices[0].message.content.trim();
             
-            memory.summary = [{ id: Date.now().toString(), content: newSummaryText }];
+            // 计算当前聊天层数（轮数）并拼接到总结内容开头
+            const currentLayer = Math.ceil(history.length / 2);
+            const finalText = `[当前聊天层数: ${currentLayer} 轮 (共 ${history.length} 条消息)]\n${newSummaryText}`;
+            
+            memory.summary = [{ id: Date.now().toString(), content: finalText }];
             ChatDB.setItem(`char_memory_${personaId}_${currentProfileCharId}`, JSON.stringify(memory));
             
             hideToast();
