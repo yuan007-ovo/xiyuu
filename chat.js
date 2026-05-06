@@ -4990,6 +4990,20 @@ function openChatSettingsPanel() {
                 alert('只有群主或管理员可以修改群头像！');
             }
         };
+        
+        // 控制解散/退出群聊按钮
+        const groupActionBtnWrap = document.getElementById('csGroupActionBtnWrap');
+        const groupActionBtn = document.getElementById('csGroupActionBtn');
+        if (groupActionBtnWrap && groupActionBtn) {
+            groupActionBtnWrap.style.display = 'flex';
+            if (char.ownerId === currentLoginId || !char.ownerId) {
+                groupActionBtn.innerText = '解散群聊';
+                groupActionBtn.onclick = disbandGroupChat;
+            } else {
+                groupActionBtn.innerText = '退出群聊';
+                groupActionBtn.onclick = quitGroupChat;
+            }
+        }
     } else {
         document.getElementById('csUserAvatarWrap').style.display = 'flex';
         document.getElementById('csInteractionBadgeWrap').style.display = 'flex';
@@ -5372,6 +5386,83 @@ function confirmGroupAdmin() {
         openChatSettingsPanel();
     }
     closeGroupAdminModal();
+}
+
+function quitGroupChat() {
+    const currentLoginId = ChatDB.getItem('current_login_account');
+    let allEntities = getAllEntities();
+    const char = allEntities.find(c => c.id === currentChatRoomCharId);
+    
+    if (!char || !char.isGroup) return;
+
+    if (confirm(`确定要退出群聊 [${char.name}] 吗？\n退出后将不再接收此群聊的消息。`)) {
+        // 1. 从群聊的 memberIds 和 adminIds 中移除自己
+        let npcs = JSON.parse(ChatDB.getItem('chat_npcs') || '[]');
+        const index = npcs.findIndex(n => n.id === currentChatRoomCharId);
+        if (index !== -1) {
+            if (npcs[index].memberIds) {
+                npcs[index].memberIds = npcs[index].memberIds.filter(id => id !== currentLoginId);
+            }
+            if (npcs[index].adminIds) {
+                npcs[index].adminIds = npcs[index].adminIds.filter(id => id !== currentLoginId);
+            }
+            ChatDB.setItem('chat_npcs', JSON.stringify(npcs));
+        }
+
+        // 2. 从自己的通讯录和会话列表中移除该群聊
+        let mContacts = JSON.parse(ChatDB.getItem(`contacts_${currentLoginId}`) || '[]');
+        mContacts = mContacts.filter(id => id !== currentChatRoomCharId);
+        ChatDB.setItem(`contacts_${currentLoginId}`, JSON.stringify(mContacts));
+        
+        let mSessions = JSON.parse(ChatDB.getItem(`chat_sessions_${currentLoginId}`) || '[]');
+        mSessions = mSessions.filter(id => id !== currentChatRoomCharId);
+        ChatDB.setItem(`chat_sessions_${currentLoginId}`, JSON.stringify(mSessions));
+
+        alert('已退出群聊！');
+        closeChatSettingsPanel();
+        closeChatRoom();
+        switchWechatTab('chat');
+        if (typeof renderChatList === 'function') renderChatList();
+        if (typeof renderContactList === 'function') renderContactList();
+    }
+}
+
+function disbandGroupChat() {
+    const currentLoginId = ChatDB.getItem('current_login_account');
+    let allEntities = getAllEntities();
+    const char = allEntities.find(c => c.id === currentChatRoomCharId);
+    
+    if (!char || !char.isGroup) return;
+    if (char.ownerId && char.ownerId !== currentLoginId) {
+        return alert('只有群主可以解散群聊！');
+    }
+
+    if (confirm(`确定要解散群聊 [${char.name}] 吗？\n此操作不可恢复，所有成员将被移出群聊，且聊天记录将被清空。`)) {
+        // 1. 从所有成员的通讯录和会话列表中移除该群聊
+        if (char.memberIds) {
+            char.memberIds.forEach(memberId => {
+                let mContacts = JSON.parse(ChatDB.getItem(`contacts_${memberId}`) || '[]');
+                mContacts = mContacts.filter(id => id !== currentChatRoomCharId);
+                ChatDB.setItem(`contacts_${memberId}`, JSON.stringify(mContacts));
+                
+                let mSessions = JSON.parse(ChatDB.getItem(`chat_sessions_${memberId}`) || '[]');
+                mSessions = mSessions.filter(id => id !== currentChatRoomCharId);
+                ChatDB.setItem(`chat_sessions_${memberId}`, JSON.stringify(mSessions));
+            });
+        }
+
+        // 2. 从 chat_npcs 中彻底删除该群聊
+        let npcs = JSON.parse(ChatDB.getItem('chat_npcs') || '[]');
+        npcs = npcs.filter(n => n.id !== currentChatRoomCharId);
+        ChatDB.setItem('chat_npcs', JSON.stringify(npcs));
+
+        alert('群聊已解散！');
+        closeChatSettingsPanel();
+        closeChatRoom();
+        switchWechatTab('chat');
+        if (typeof renderChatList === 'function') renderChatList();
+        if (typeof renderContactList === 'function') renderContactList();
+    }
 }
 
 function openGroupWbSelectModal() {
