@@ -1366,7 +1366,20 @@ async function tavTriggerAI(isRegenerate = false, isContinue = false) {
         sysPrompt += `\n\n【作者备注 (全局)】\n${chatAppMemory.note.map(m => m.content).join('\n')}`;
     }
 
-    // 7. 移除线上微信聊天记录注入 (线下模式不再读取线上聊天记录)
+    // 7. 注入线上微信聊天记录
+    const onlineHistoryLen = parseInt(ChatDB.getItem('tav_online_chat_history_length') || '10');
+    if (onlineHistoryLen > 0) {
+        let onlineHistory = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${currentChatRoomCharId}`) || '[]');
+        let recentOnlineHistory = onlineHistory.slice(-onlineHistoryLen);
+        if (recentOnlineHistory.length > 0) {
+            sysPrompt += `\n\n【线上聊天记录回顾】\n以下是你和 ${userRealName} 在线上聊天软件中的近期聊天记录，作为背景参考：\n`;
+            recentOnlineHistory.forEach(msg => {
+                let senderName = msg.role === 'user' ? userRealName : charName;
+                let content = msg.content.replace(/<[^>]+>/g, ''); // 简单过滤HTML
+                sysPrompt += `${senderName}: ${content}\n`;
+            });
+        }
+    }
 
     // 新增：注入线下记忆总结 (线下模式读取所有线下记忆)
     let tavMemories = JSON.parse(ChatDB.getItem(`tav_offline_memories_${currentLoginId}_${currentChatRoomCharId}`) || '[]');
