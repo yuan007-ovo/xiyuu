@@ -2417,8 +2417,8 @@ async function generateAllPhoneDataAPI(selectedApps) {
     }
 
     if (selectedApps.includes('gacha')) {
-        prompt += `8. 恋与user (抽卡游戏):\n生成你在抽卡游戏里的数据。你需要生成 1 段主线剧情，以及 4-6 张卡牌图鉴。\n卡牌的名称和剧情必须和 ${userRealName} 有关（比如：[春日恋歌] ${userRealName}）。\n每张卡牌必须包含一段专属的剧情故事 (story)，字数在 100-300 字左右。\n\n`;
-        structureParts.push(`  "gacha": {\n    "diamonds": 12500,\n    "mainStory": "主线剧情的具体内容，描述你和 ${userRealName} 之间的故事背景...",\n    "collection": [\n      {\n        "rarity": "SSR",\n        "name": "[卡牌前缀] ${userRealName}",\n        "desc": "卡牌的简短描述",\n        "story": "这张卡牌解锁的专属剧情故事，详细描写一段互动或内心独白",\n        "owned": false\n      }\n    ]\n  }`);
+        prompt += `8. 恋与user (抽卡游戏):\n生成你在抽卡游戏里的数据。你需要生成 1 段主线剧情，以及 4-6 张卡牌图鉴。\n卡牌的名称和剧情必须和 ${userRealName} 有关（比如：[春日恋歌] ${userRealName}）。\n【核心要求：乙女游戏/视觉小说(AVG)格式 & 私密色情向】：\n所有的剧情（mainStory 和 story）都必须是 JSON 数组格式，模拟 AVG 游戏的对话流。剧情尺度可以非常大，包含私密、色情、R18、露骨的身体接触和心理描写，满足用户的幻想。对话轮数控制在 8-15 轮左右。\n\n`;
+        structureParts.push(`  "gacha": {\n    "diamonds": 12500,\n    "mainStory": [\n      {"name": "旁白", "text": "夜深了，房间里只剩下你们两个人..."},\n      {"name": "${char.name}", "text": "你还要逃到哪里去？"}\n    ],\n    "collection": [\n      {\n        "rarity": "SSR",\n        "name": "[卡牌前缀] ${userRealName}",\n        "desc": "卡牌的简短描述",\n        "story": [\n          {"name": "旁白", "text": "一段私密露骨的动作描写..."},\n          {"name": "${userRealName}", "text": "不要这样..."}\n        ],\n        "owned": false\n      }\n    ]\n  }`);
     }
 
     jsonStructure += structureParts.join(",\n") + "\n}";
@@ -2872,22 +2872,84 @@ function renderGachaData() {
     }
 }
 
-function openGachaStoryModal(title, content) {
-    document.getElementById('gachaStoryTitle').innerText = title;
-    document.getElementById('gachaStoryContent').innerText = content;
-    document.getElementById('gachaStoryModalOverlay').classList.add('show');
+// AVG 播放器全局变量
+let currentGachaAvgStory = [];
+let currentGachaAvgIndex = 0;
+
+function playGachaAvgStory(storyData, bgUrl) {
+    // 兼容旧版纯文本数据
+    if (typeof storyData === 'string') {
+        currentGachaAvgStory = [{"name": "旁白", "text": storyData}];
+    } else if (Array.isArray(storyData)) {
+        currentGachaAvgStory = storyData;
+    } else {
+        return alert('剧情数据格式错误！');
+    }
+
+    if (currentGachaAvgStory.length === 0) return alert('暂无剧情内容！');
+
+    currentGachaAvgIndex = 0;
+    document.getElementById('gachaAvgBg').style.backgroundImage = `url('${bgUrl}')`;
+    document.getElementById('gachaAvgOverlay').classList.add('show');
+    
+    renderGachaAvgLine();
 }
 
-function closeGachaStoryModal() {
-    document.getElementById('gachaStoryModalOverlay').classList.remove('show');
+function renderGachaAvgLine() {
+    if (currentGachaAvgIndex >= currentGachaAvgStory.length) {
+        closeGachaAvg();
+        return;
+    }
+    const line = currentGachaAvgStory[currentGachaAvgIndex];
+    document.getElementById('gachaAvgName').innerText = line.name || '旁白';
+    document.getElementById('gachaAvgText').innerText = line.text || '...';
 }
+
+function nextGachaAvgLine() {
+    currentGachaAvgIndex++;
+    renderGachaAvgLine();
+}
+
+function closeGachaAvg() {
+    document.getElementById('gachaAvgOverlay').classList.remove('show');
+    currentGachaAvgStory = [];
+}
+
+// 劫持图鉴点击事件，调用 AVG 播放器
+const _originalRenderGachaData = renderGachaData;
+renderGachaData = function() {
+    _originalRenderGachaData();
+    // 重新绑定点击事件
+    const grid = document.getElementById('gachaCollectionGrid');
+    const dataStr = ChatDB.getItem(`phone_gacha_${currentChatRoomCharId}`);
+    if (!dataStr) return;
+    const data = JSON.parse(dataStr);
+    
+    Array.from(grid.children).forEach((card, index) => {
+        const item = data.collection[index];
+        card.onclick = () => {
+            if (item.owned) {
+                // 使用卡面作为背景
+                const bgUrl = card.style.backgroundImage.slice(5, -2); 
+                playGachaAvgStory(item.story || item.desc, bgUrl);
+            } else {
+                alert(`【${item.name}】\n尚未获得该卡牌，请前往招募！`);
+            }
+        };
+    });
+};
 
 function openGachaMainStory() {
     const dataStr = ChatDB.getItem(`phone_gacha_${currentChatRoomCharId}`);
     if (!dataStr) return alert('请先点击右上角生成数据！');
     const data = JSON.parse(dataStr);
     if (data.mainStory) {
-        openGachaStoryModal('主线剧情', data.mainStory);
+        // 主线剧情使用角色头像作为背景
+        let chars = JSON.parse(ChatDB.getItem('chat_chars') || '[]');
+        const char = chars.find(c => c.id === currentChatRoomCharId);
+        const bgUrl = char && char.avatarUrl ? char.avatarUrl : 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?q=80&w=800&auto=format&fit=crop';
+        
+        playGachaAvgStory(data.mainStory, bgUrl);
     } else {
         alert('暂无主线剧情！');
     }
@@ -2928,24 +2990,34 @@ async function generateGachaDataAPI() {
     prompt += `\n请基于你的人设、当前生活状态，以及我们最近的聊天上下文，生成你在抽卡游戏里的数据。
 你需要生成 1 段主线剧情，以及 4-6 张卡牌图鉴。
 卡牌的名称和剧情必须和 ${userRealName} 有关（比如：[春日恋歌] ${userRealName}）。
-每张卡牌必须包含一段专属的剧情故事 (story)，字数在 100-300 字左右。
+
+【核心要求：乙女游戏/视觉小说(AVG)格式 & 私密色情向】：
+1. 所有的剧情（mainStory 和 story）都必须是 JSON 数组格式，模拟 AVG 游戏的对话流。
+2. 数组中的每个对象包含 "name" (说话人名字，可以是 ${char.name}、${userRealName} 或 "旁白") 和 "text" (对话内容或动作描写)。
+3. 剧情尺度可以非常大，包含私密、色情、R18、露骨的身体接触和心理描写，满足用户的幻想。对话轮数控制在 8-15 轮左右。
 
 必须返回合法的 JSON 对象，结构如下：
 {
   "diamonds": 12500,
-  "mainStory": "主线剧情的具体内容，描述你和 ${userRealName} 之间的故事背景...",
+  "mainStory": [
+    {"name": "旁白", "text": "夜深了，房间里只剩下你们两个人..."},
+    {"name": "${char.name}", "text": "你还要逃到哪里去？"}
+  ],
   "collection": [
     {
       "rarity": "SSR",
       "name": "[卡牌前缀] ${userRealName}",
       "desc": "卡牌的简短描述",
-      "story": "这张卡牌解锁的专属剧情故事，详细描写一段互动或内心独白",
+      "story": [
+        {"name": "旁白", "text": "一段私密露骨的动作描写..."},
+        {"name": "${userRealName}", "text": "不要这样..."}
+      ],
       "owned": false
     }
   ]
 }`;
 
-    showToast('正在生成抽卡数据...', 'loading');
+    showToast('正在生成抽卡数据(包含剧情，请耐心等待)...', 'loading');
 
     try {
         const response = await fetch(`${apiConfig.url.replace(/\/$/, '')}/chat/completions`, {

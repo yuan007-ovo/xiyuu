@@ -5177,16 +5177,22 @@
                             <div class="gacha-summon-text">Summoning...</div>
                         </div>
 
-                        <!-- 剧情展示弹窗 -->
-                        <div class="gacha-story-modal-overlay" id="gachaStoryModalOverlay">
-                            <div class="gacha-story-modal">
-                                <div class="gacha-story-header">
-                                    <div class="gacha-story-title" id="gachaStoryTitle">剧情标题</div>
-                                    <div class="gacha-story-close" onclick="closeGachaStoryModal()">×</div>
-                                </div>
-                                <div class="gacha-story-content" id="gachaStoryContent">
-                                    <!-- 剧情内容 -->
-                                </div>
+                        <!-- 新增：AVG 文游形式剧情播放界面 -->
+                        <div class="gacha-avg-overlay" id="gachaAvgOverlay" onclick="nextGachaAvgLine()">
+                            <!-- 背景图层 -->
+                            <div class="gacha-avg-bg" id="gachaAvgBg"></div>
+                            
+                            <!-- 退出按钮 -->
+                            <div class="gacha-avg-close" onclick="event.stopPropagation(); closeGachaAvg()">
+                                <svg viewBox="0 0 24 24" width="24" height="24" stroke="#fff" stroke-width="2" fill="none"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                                退出剧情
+                            </div>
+
+                            <!-- 底部对话框 -->
+                            <div class="gacha-avg-dialogue-box">
+                                <div class="gacha-avg-name-tag" id="gachaAvgName">名字</div>
+                                <div class="gacha-avg-text-content" id="gachaAvgText">对话内容...</div>
+                                <div class="gacha-avg-next-hint">点击屏幕继续 ▼</div>
                             </div>
                         </div>
                     </div>
