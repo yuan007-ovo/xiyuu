@@ -6011,12 +6011,18 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
         systemPrompt += `群成员：\n`;
         
         let memberPrompts = [];
+        let userAccountNames = [];
         if (char.memberIds) {
             char.memberIds.forEach(mid => {
                 if (mid === currentLoginId) return;
                 const member = allEntities.find(e => e.id === mid);
                 if (member) {
-                    memberPrompts.push(`- 成员ID: ${member.id} | 名字: ${member.netName || member.name} | 设定: ${member.description || '无'}`);
+                    if (member.isAccount) {
+                        userAccountNames.push(member.netName || member.name);
+                        memberPrompts.push(`- 成员ID: ${member.id} | 名字: ${member.netName || member.name} | 身份: 真实用户（绝对禁止你代替该成员发言！）`);
+                    } else {
+                        memberPrompts.push(`- 成员ID: ${member.id} | 名字: ${member.netName || member.name} | 设定: ${member.description || '无'}`);
+                    }
                 }
             });
         }
@@ -6026,7 +6032,8 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
         systemPrompt += `这是一个多人活跃群聊！当 User（${userName}）发话时，绝对不能只有一个人回复！你必须让群里**至少 2 个不同的成员**出来接话。群成员之间也必须互相回复、吐槽、接梗，同时也不要只围着 User 转！如果某个成员说了一句话，其他成员可以针对这句话进行反驳或赞同，但是也不能完全不理User！禁止自说自话！严禁冷场！\n\n`;
         
         systemPrompt += `【角色扮演铁律 (最高防串戏警告)】\n`;
-        systemPrompt += `你必须严格区分每个人的性格和身份，请严格扮演每个角色的人设，不同角色之间应有明显的性格和语气差异，绝对禁止角色串台词！\n\n`;
+        systemPrompt += `你必须严格区分每个人的性格和身份，请严格扮演每个角色的人设，不同角色之间应有明显的性格和语气差异，绝对禁止角色串台词！\n`;
+        systemPrompt += `⚠️【绝对禁止】：群聊中包含真实用户账号，你绝对不能代替任何真实用户（如：${userName}、${userRealName}${userAccountNames.length > 0 ? '，以及 ' + userAccountNames.join('、') : ''}）发言！你只能扮演群里的 char 角色！\n\n`;
         systemPrompt += `【核心规则】\n`;
     } else {
         systemPrompt = `你正在一个名为“微信”的线上聊天软件中扮演一个角色。请严格遵守以下规则：\n`;
