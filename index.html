@@ -4377,6 +4377,15 @@
                             <div class="app-icon" id="app-icon-4"><svg viewBox="0 0 24 24" fill="none" stroke="#ff5000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg></div>
                             <div class="app-name">商城</div>
                         </div>
+                        <!-- 新增：第5行第2列 恋与user APP -->
+                        <div class="desktop-app" style="grid-row: 5; grid-column: 2;" onclick="openPhoneGacha()">
+                            <div class="app-icon" id="app-icon-gacha" style="background: #fff; border: 1px solid #eaeaea; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                                </svg>
+                            </div>
+                            <div class="app-name">恋与U</div>
+                        </div>
                     </div>
 
                     <!-- Dock 栏 (3个 APP) -->
@@ -5075,6 +5084,112 @@
                         </div>
                     </div>
 
+                    <!-- 新增：恋与user APP 主界面 -->
+                    <div class="phone-gacha-app" id="phoneGachaApp">
+                        <div class="gacha-bg-pattern"></div>
+                        <div id="gacha-sakura-container"></div>
+
+                        <!-- 1. 主界面 (Home) -->
+                        <div id="gacha-page-home" class="gacha-page active">
+                            <div class="gacha-top-bar">
+                                <div class="gacha-player-info">
+                                    <div class="gacha-player-avatar" id="gachaHomeAvatar"></div>
+                                    <div class="gacha-player-details">
+                                        <span class="gacha-player-name" id="gachaHomeName">User</span>
+                                        <span class="gacha-player-level">Lv. 42</span>
+                                    </div>
+                                </div>
+                                <div class="gacha-resources">
+                                    <div class="gacha-res-item"><span style="color: #00f0ff;">💎</span> <span id="gachaHomeDiamond">12,500</span></div>
+                                    <div class="gacha-res-item" style="cursor: pointer; background: var(--gacha-primary); color: #fff; border-color: #fff;" onclick="generateGachaDataAPI()" title="生成数据">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="gacha-home-ui">
+                                <div class="gacha-home-menu">
+                                    <div class="gacha-home-btn highlight" onclick="switchGachaPage('gacha-page-gacha')">祈愿招募</div>
+                                    <div class="gacha-home-btn" onclick="switchGachaPage('gacha-page-collection')">角色图鉴</div>
+                                    <div class="gacha-home-btn" onclick="openGachaMainStory()">主线剧情</div>
+                                    <div class="gacha-home-btn" onclick="closePhoneGacha()">退出</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. 抽卡界面 (Gacha) -->
+                        <div id="gacha-page-gacha" class="gacha-page">
+                            <div class="gacha-character-art" id="gachaPoolArt"></div>
+                            <div class="gacha-top-bar">
+                                <div class="gacha-back-btn" onclick="switchGachaPage('gacha-page-home')">
+                                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polyline points="15 18 9 12 15 6"></polyline></svg> 返回
+                                </div>
+                                <div class="gacha-resources">
+                                    <div class="gacha-res-item"><span style="color: #00f0ff;">💎</span> <span id="gachaPoolDiamond">12,500</span></div>
+                                </div>
+                            </div>
+                            
+                            <div class="gacha-info-box">
+                                <div class="gacha-type-tag">期間限定</div>
+                                <div class="gacha-pool-title">樱色之约 · 命运邂逅</div>
+                                <div class="gacha-char-name" id="gachaPoolCharName">SSR [春日恋歌] 角色名</div>
+                                <div class="gacha-pickup-badge">出现概率大幅 UP!</div>
+                            </div>
+
+                            <div class="gacha-bottom-bar" style="justify-content: flex-end;">
+                                <div class="gacha-action-btns">
+                                    <div class="gacha-summon-btn single" onclick="doGachaSummon(1)">
+                                        <div class="gacha-btn-text">1回招募</div>
+                                        <div class="gacha-btn-cost">💎 150</div>
+                                    </div>
+                                    <div class="gacha-summon-btn ten" onclick="doGachaSummon(10)">
+                                        <div class="gacha-btn-text">10回招募</div>
+                                        <div class="gacha-btn-cost">💎 1500</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. 抽卡结果页 (Result) -->
+                        <div id="gacha-page-result" class="gacha-page" onclick="switchGachaPage('gacha-page-gacha')">
+                            <div class="gacha-result-card-container" id="gachaResultCardContainer">
+                                <!-- 动态插入卡片 -->
+                            </div>
+                            <div class="gacha-click-to-continue">点击屏幕任意处继续</div>
+                        </div>
+
+                        <!-- 4. 图鉴页 (Collection) -->
+                        <div id="gacha-page-collection" class="gacha-page">
+                            <div class="gacha-top-bar">
+                                <div class="gacha-back-btn" onclick="switchGachaPage('gacha-page-home')">
+                                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polyline points="15 18 9 12 15 6"></polyline></svg> 返回主页
+                                </div>
+                                <div style="font-size: 16px; font-weight: bold; letter-spacing: 2px;">角色图鉴</div>
+                                <div style="width: 60px;"></div>
+                            </div>
+                            <div class="gacha-collection-grid" id="gachaCollectionGrid">
+                                <!-- 动态渲染图鉴 -->
+                            </div>
+                        </div>
+
+                        <!-- 抽卡加载与白屏动画遮罩 -->
+                        <div class="gacha-summon-overlay" id="gachaSummonOverlay">
+                            <div class="gacha-magic-circle"></div>
+                            <div class="gacha-summon-text">Summoning...</div>
+                        </div>
+
+                        <!-- 剧情展示弹窗 -->
+                        <div class="gacha-story-modal-overlay" id="gachaStoryModalOverlay">
+                            <div class="gacha-story-modal">
+                                <div class="gacha-story-header">
+                                    <div class="gacha-story-title" id="gachaStoryTitle">剧情标题</div>
+                                    <div class="gacha-story-close" onclick="closeGachaStoryModal()">×</div>
+                                </div>
+                                <div class="gacha-story-content" id="gachaStoryContent">
+                                    <!-- 剧情内容 -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -5135,6 +5250,9 @@
                 </label>
                 <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: #333; cursor: pointer;">
                     <input type="checkbox" class="phone-gen-checkbox" value="doubao" checked style="width: 16px; height: 16px; accent-color: #111;"> 豆豆Ai
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: #333; cursor: pointer;">
+                    <input type="checkbox" class="phone-gen-checkbox" value="gacha" checked style="width: 16px; height: 16px; accent-color: #111;"> 恋与U
                 </label>
             </div>
             <div class="preset-modal-actions">

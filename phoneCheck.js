@@ -411,7 +411,7 @@ async function generateTiktokDataAPI() {
     prompt += `\n请基于你的人设、当前生活状态，以及我们最近的聊天上下文，生成该角色手机里 TikTok (抖音) 的相关数据。
 【核心生成要求】：
 1. 首页推荐 (foryou)：生成 3-5 个视频。必须是其他NPC/路人发布的视频（绝对不能是你自己）。内容必须和最近聊天的话题相关，或者是你潜意识里关注的事物。必须生成 5 条具体的网友评论。
-2. 个人主页 (profile)：生成你自己发布的 4 个视频。这些视频的文案(desc)和画面(videoContent)都必须和 User(${userName}) 有关，表达对 User 的真实情绪，或者是记录 User 相关的事情！必须生成 5 条具体的网友评论。
+2. 个人主页 (profile)：生成你自己发布的 4 个视频。这些视频的文案(desc)和画面(videoContent)都必须和 ${userRealName} 有关，表达对 ${userRealName} 的真实情绪，或者是记录 ${userRealName} 相关的事情！必须生成 5 条具体的网友评论。
 3. 抖音热搜 (trending)：生成 4-6 个热搜标题。符合当前世界观或你的兴趣。
 4. 私信消息 (inbox)：生成 2-4 条私信。【重点】：私信内容必须是路人或熟人对你在个人主页 (profile) 发布的视频的反应或搭讪！
 
@@ -435,8 +435,8 @@ async function generateTiktokDataAPI() {
   ],
   "profile": [
     {
-      "videoContent": "视频画面内容的详细描述(必须与${userName}有关)",
-      "desc": "视频文案(必须与${userName}有关)",
+      "videoContent": "视频画面内容的详细描述(必须与${userRealName}有关)",
+      "desc": "视频文案(必须与${userRealName}有关)",
       "likes": "10K",
       "commentsCount": "120",
       "comments": [
@@ -901,7 +901,7 @@ async function generatePhoneNotesAPI() {
     }
 
     prompt += `\n请基于你的人设、当前生活状态，以及我们最近的聊天上下文，生成你手机里“备忘录”APP的相关数据。
-备忘录的内容应该非常私密、真实，可以包含你对 ${userName} 的吐槽、暗恋、计划，或者你自己的日常琐事、购物清单、日记等。
+备忘录的内容应该非常私密、真实，可以包含你对 ${userRealName} 的吐槽、暗恋、计划，或者你自己的日常琐事、购物清单、日记等。
 必须返回合法的 JSON 数组，包含 4-6 个文件夹（每个文件夹对应一篇详细的备忘录），结构如下：
 [
   {
@@ -1120,7 +1120,7 @@ async function generatePhoneShopAPI() {
     }
 
     prompt += `\n请基于你的人设、当前生活状态，以及我们最近的聊天上下文，生成你手机里“Shopping (商城/外卖)”APP的相关数据。
-商品内容应该符合该角色的消费习惯、兴趣爱好、经济水平，或者可能包含准备买给 ${userName} 的礼物。
+商品内容应该符合该角色的消费习惯、兴趣爱好、经济水平，或者可能包含准备买给 ${userRealName} 的礼物。
 
 【重要新增要求】：这个 APP 不仅可以买实物商品，还可以点外卖！请在生成的首页推荐、购物车、最近订单中，**务必混合包含一些外卖/餐饮相关的条目**（例如：奶茶、烧烤、炸鸡、咖啡、轻食等）。外卖订单的状态可以是“派送中”、“已送达”等。
 
@@ -1128,7 +1128,7 @@ async function generatePhoneShopAPI() {
 这段详情需要包含：
 1. 商品的卖点、材质、口味、功能介绍（符合商城或外卖平台的语气）。
 2. 买家秀评价（可以编造几个有趣的评价）。
-3. 【最重要】：以 ${char.name} 的内心独白形式，写一段为什么想买这个东西的想法（比如：觉得很适合 ${userName} 想买来送礼，或者是自己最近刚好需要，或者是半夜饿了想吃宵夜）。
+3. 【最重要】：以 ${char.name} 的内心独白形式，写一段为什么想买这个东西的想法（比如：觉得很适合 ${userRealName} 想买来送礼，或者是自己最近刚好需要，或者是半夜饿了想吃宵夜）。
 
 必须返回合法的 JSON 对象，结构如下：
 {
@@ -1494,12 +1494,12 @@ async function generatePhoneGalleryAPI() {
     }
 
     prompt += `\n请基于你的人设、当前生活状态，以及我们最近的聊天上下文，生成你手机里“相册(Gallery)”和“录音(Voice Memos)”APP的相关数据。
-内容应该非常私密、真实，可以包含你对 ${userName} 的偷拍、合照、或者是你自己的日常照片；录音可以是你的随手记、唱歌、或者是想对 ${userName} 说的话。
+内容应该非常私密、真实，可以包含你对 ${userRealName} 的偷拍、合照、或者是你自己的日常照片；录音可以是你的随手记、唱歌、或者是想对 ${userRealName} 说的话。
 {
   "recentMemories": [ // 3张最近的照片 (与下方相册内容不同)
     {
       "time": "照片时间(如: Today)",
-      "desc": "照片画面的详细文字描述，例如：一张在咖啡馆偷拍 ${userName} 侧脸的照片"
+      "desc": "照片画面的详细文字描述，例如：一张在咖啡馆偷拍 ${userRealName} 侧脸的照片"
     }
   ],
   "albums": [ // 4-6个相册文件夹
@@ -1895,14 +1895,14 @@ async function generatePhoneBrowserAPI() {
     }
 
     prompt += `\n请基于你的人设、当前生活状态，以及我们最近的聊天上下文，生成你手机浏览器里的数据。
-内容应该符合你的性格、职业、当前的烦恼，或者可能包含你为了 ${userName} 而去搜索的内容（比如查攻略、查礼物、查情感问题等）。
+内容应该符合你的性格、职业、当前的烦恼，或者可能包含你为了 ${userRealName} 而去搜索的内容（比如查攻略、查礼物、查情感问题等）。
 
 必须返回合法的 JSON 对象，包含 "history" (搜索记录) 和 "tabs" (保留的论坛帖子标签页)，结构如下：
 {
   "history": [
     {
       "keyword": "搜索关键词(如: 附近好吃的火锅店)",
-      "thought": "你搜索这个词时的内心真实想法(如: 听说这家店不错，下次带${userName}去吃看看)"
+      "thought": "你搜索这个词时的内心真实想法(如: 听说这家店不错，下次带${userRealName}去吃看看)"
     }
   ],
   "tabs": [
@@ -2126,7 +2126,7 @@ async function generatePhoneDoubaoAPI() {
 
     prompt += `\n请基于你的人设、当前生活状态，以及我们最近的聊天上下文，生成你手机里“豆豆Ai”APP（一个AI助手合集）的聊天记录。
 包含三个 AI 助手的对话，每个助手生成 4-15 条对话（一问一答）。
-注意：在这些对话中，你是提问者(role: "user")，AI 是回答者(role: "ai")。你的提问内容应该围绕你最近的烦恼、对 ${userName} 的看法、或者符合你人设的奇怪问题。
+注意：在这些对话中，你是提问者(role: "user")，AI 是回答者(role: "ai")。你的提问内容应该围绕你最近的烦恼、对 ${userRealName} 的看法、或者符合你人设的奇怪问题。
 
 【三个 AI 助手的人设要求】：
 1. 豆豆 (doudou)：很热心并且言听计从并且非常支持char但是很愚蠢，笨笨的，非常不靠谱，总会出馊主意，出错了或者被骂了喜欢说“对不起，我错了，这次我一定给你最直白，最清晰，最完整最不绕弯子的答案”类似这样的道歉话语（注意不可以完全照搬这个道歉话语，可以根据场景改成符合场景的道歉话语）。
@@ -2268,7 +2268,7 @@ async function generatePhoneIcityAPI() {
     }
 
     prompt += `\n请基于你的人设、当前生活状态，以及我们最近的聊天上下文，生成一篇你写在 "icity" (一个私密日记APP) 里的日记。
-日记的内容应该非常私密、真实，反映你此刻最真实的内心活动、情绪波动，或者对 ${userName} 的看法、纠结、暗恋等。
+日记的内容应该非常私密、真实，反映你此刻最真实的内心活动、情绪波动，或者对 ${userRealName} 的看法、纠结、暗恋等。
 语气要符合你的人设，不要像机器生成的，要像一个活人在深夜写下的碎碎念。
 
 必须返回合法的 JSON 对象，结构如下：
@@ -2382,38 +2382,43 @@ async function generateAllPhoneDataAPI(selectedApps) {
     let structureParts = [];
 
     if (selectedApps.includes('tiktok')) {
-        prompt += `1. TikTok (抖音):\n【核心生成要求】：\n- 首页推荐 (foryou)：生成 3-5 个视频。必须是其他NPC/路人发布的视频（绝对不能是你自己）。内容必须和最近聊天的话题相关，或者是你潜意识里关注的事物。必须生成 5 条具体的网友评论。\n- 个人主页 (profile)：生成你自己发布的 4 个视频。这些视频的文案(desc)和画面(videoContent)都必须和 User(${userName}) 有关，表达对 User 的真实情绪，或者是记录 User 相关的事情！必须生成 5 条具体的网友评论。\n- 抖音热搜 (trending)：生成 4-6 个热搜标题。符合当前世界观或你的兴趣。\n- 私信消息 (inbox)：生成 2-4 条私信。【重点】：私信内容必须是路人或熟人对你在个人主页 (profile) 发布的视频的反应或搭讪！\n\n`;
-        structureParts.push(`  "tiktok": {\n    "foryou": [\n      {\n        "author": "路人作者名",\n        "videoContent": "视频画面内容的详细描述",\n        "desc": "视频文案",\n        "likes": "1.2M",\n        "commentsCount": "45K",\n        "music": "音乐名",\n        "comments": [\n          {"user": "网友A", "content": "评论内容"}\n        ]\n      }\n    ],\n    "trending": [\n      {"title": "热搜标题", "hot": "123W"}\n    ],\n    "profile": [\n      {\n        "videoContent": "视频画面内容的详细描述(必须与${userName}有关)",\n        "desc": "视频文案(必须与${userName}有关)",\n        "likes": "10K",\n        "commentsCount": "120",\n        "comments": [\n          {"user": "网友B", "content": "评论内容"}\n        ]\n      }\n    ],\n    "inbox": [\n      {\n        "name": "发件人(路人/熟人)",\n        "lastMsg": "最后一条消息",\n        "time": "1h",\n        "history": [\n          {"role": "other", "content": "针对你发布的某个视频的搭讪或反应"},\n          {"role": "me", "content": "你的回复"}\n        ]\n      }\n    ],\n    "drafts": [\n      {"desc": "草稿描述，例如：尝试了新的猫咪特效，太搞笑了"}\n    ]\n  }`);
+        prompt += `1. TikTok (抖音):\n【核心生成要求】：\n- 首页推荐 (foryou)：生成 3-5 个视频。必须是其他NPC/路人发布的视频（绝对不能是你自己）。内容必须和最近聊天的话题相关，或者是你潜意识里关注的事物。必须生成 5 条具体的网友评论。\n- 个人主页 (profile)：生成你自己发布的 4 个视频。这些视频的文案(desc)和画面(videoContent)都必须和 User(${userRealName}) 有关，表达对 User 的真实情绪，或者是记录 User 相关的事情！必须生成 5 条具体的网友评论。\n- 抖音热搜 (trending)：生成 4-6 个热搜标题。符合当前世界观或你的兴趣。\n- 私信消息 (inbox)：生成 2-4 条私信。【重点】：私信内容必须是路人或熟人对你在个人主页 (profile) 发布的视频的反应或搭讪！\n\n`;
+        structureParts.push(`  "tiktok": {\n    "foryou": [\n      {\n        "author": "路人作者名",\n        "videoContent": "视频画面内容的详细描述",\n        "desc": "视频文案",\n        "likes": "1.2M",\n        "commentsCount": "45K",\n        "music": "音乐名",\n        "comments": [\n          {"user": "网友A", "content": "评论内容"}\n        ]\n      }\n    ],\n    "trending": [\n      {"title": "热搜标题", "hot": "123W"}\n    ],\n    "profile": [\n      {\n        "videoContent": "视频画面内容的详细描述(必须与${userRealName}有关)",\n        "desc": "视频文案(必须与${userRealName}有关)",\n        "likes": "10K",\n        "commentsCount": "120",\n        "comments": [\n          {"user": "网友B", "content": "评论内容"}\n        ]\n      }\n    ],\n    "inbox": [\n      {\n        "name": "发件人(路人/熟人)",\n        "lastMsg": "最后一条消息",\n        "time": "1h",\n        "history": [\n          {"role": "other", "content": "针对你发布的某个视频的搭讪或反应"},\n          {"role": "me", "content": "你的回复"}\n        ]\n      }\n    ],\n    "drafts": [\n      {"desc": "草稿描述，例如：尝试了新的猫咪特效，太搞笑了"}\n    ]\n  }`);
     }
 
     if (selectedApps.includes('notes')) {
-        prompt += `2. Notes (备忘录):\n备忘录的内容应该非常私密、真实，可以包含你对 ${userName} 的吐槽、暗恋、计划，或者你自己的日常琐事、购物清单、日记等。\n包含 4-6 个文件夹（每个文件夹对应一篇详细的备忘录）。\n\n`;
+        prompt += `2. Notes (备忘录):\n备忘录的内容应该非常私密、真实，可以包含你对 ${userRealName} 的吐槽、暗恋、计划，或者你自己的日常琐事、购物清单、日记等。\n包含 4-6 个文件夹（每个文件夹对应一篇详细的备忘录）。\n\n`;
         structureParts.push(`  "notes": [\n    {\n      "title": "文件夹标题(如: 购物清单)",\n      "count": "3 个备忘录",\n      "detailTitle": "备忘录详细标题",\n      "detailTime": "2023年10月25日 14:30",\n      "detailContent": "备忘录的具体内容，可以包含换行符\\\\n，内容要符合该角色的人设和日常生活。"\n    }\n  ]`);
     }
 
     if (selectedApps.includes('shop')) {
-        prompt += `3. Shopping (商城/外卖):\n商品内容应该符合该角色的消费习惯、兴趣爱好、经济水平，或者可能包含准备买给 ${userName} 的礼物。\n【重要新增要求】：这个 APP 不仅可以买实物商品，还可以点外卖！请在生成的首页推荐、购物车、最近订单中，**务必混合包含一些外卖/餐饮相关的条目**（例如：奶茶、烧烤、炸鸡、咖啡、轻食等）。外卖订单的状态可以是“派送中”、“已送达”等。\n【重要要求】：对于每一个商品或外卖，你必须同时生成一段详细的 "description" (商品详情)。\n这段详情需要包含：\n1. 商品的卖点、材质、口味、功能介绍（符合商城或外卖平台的语气）。\n2. 买家秀评价（可以编造几个有趣的评价）。\n3. 【最重要】：以 ${char.name} 的内心独白形式，写一段为什么想买这个东西的想法（比如：觉得很适合 ${userName} 想买来送礼，或者是自己最近刚好需要，或者是半夜饿了想吃宵夜）。\n\n`;
+        prompt += `3. Shopping (商城/外卖):\n商品内容应该符合该角色的消费习惯、兴趣爱好、经济水平，或者可能包含准备买给 ${userRealName} 的礼物。\n【重要新增要求】：这个 APP 不仅可以买实物商品，还可以点外卖！请在生成的首页推荐、购物车、最近订单中，**务必混合包含一些外卖/餐饮相关的条目**（例如：奶茶、烧烤、炸鸡、咖啡、轻食等）。外卖订单的状态可以是“派送中”、“已送达”等。\n【重要要求】：对于每一个商品或外卖，你必须同时生成一段详细的 "description" (商品详情)。\n这段详情需要包含：\n1. 商品的卖点、材质、口味、功能介绍（符合商城或外卖平台的语气）。\n2. 买家秀评价（可以编造几个有趣的评价）。\n3. 【最重要】：以 ${char.name} 的内心独白形式，写一段为什么想买这个东西的想法（比如：觉得很适合 ${userRealName} 想买来送礼，或者是自己最近刚好需要，或者是半夜饿了想吃宵夜）。\n\n`;
         structureParts.push(`  "shop": {\n    "home": [\n      {\n        "title": "商品名称", \n        "price": "199.00", \n        "imageDesc": "图片画面的详细文字描述",\n        "desc": "商品本身的卖点、材质、功能介绍等客观描述，可以使用 \\\\n 进行换行分段。",\n        "reviews": [\n          {"user": "买家A", "content": "评价内容..."}\n        ],\n        "thought": "角色想买这个东西的内心独白"\n      }\n    ],\n    "cart": [\n      {\n        "title": "商品名称", \n        "sku": "颜色/尺码等规格", \n        "price": "99.00", \n        "qty": 1, \n        "imageDesc": "图片画面的详细文字描述",\n        "desc": "商品本身的卖点、材质、功能介绍等客观描述，可以使用 \\\\n 进行换行分段。",\n        "reviews": [\n          {"user": "买家A", "content": "评价内容..."}\n        ],\n        "thought": "角色想买这个东西的内心独白"\n      }\n    ],\n    "orders": [\n      {\n        "title": "商品名称", \n        "status": "待发货/待收货/已完成", \n        "price": "299.00", \n        "imageDesc": "图片画面的详细文字描述",\n        "desc": "商品本身的卖点、材质、功能介绍等客观描述，可以使用 \\\\n 进行换行分段。",\n        "reviews": [\n          {"user": "买家A", "content": "评价内容..."}\n        ],\n        "thought": "角色想买这个东西的内心独白"\n      }\n    ]\n  }`);
     }
 
     if (selectedApps.includes('gallery')) {
-        prompt += `4. Gallery (相册与录音):\n内容应该非常私密、真实，可以包含你对 ${userName} 的偷拍、合照、或者是你自己的日常照片；录音可以是你的随手记、唱歌、或者是想对 ${userName} 说的话。\n\n`;
-        structureParts.push(`  "gallery": {\n    "recentMemories": [\n      {\n        "time": "照片时间(如: Today)",\n        "desc": "照片画面的详细文字描述，例如：一张在咖啡馆偷拍 ${userName} 侧脸的照片"\n      }\n    ],\n    "albums": [\n      {\n        "title": "相册名称(如: Favorites, 偷拍的某人)",\n        "time": "相册创建或最新更新时间(如: 2023-10-25)",\n        "coverDesc": "相册封面的详细文字描述"\n      }\n    ],\n    "records": [\n      {\n        "title": "录音标题(如: 睡前想说的话, 随便哼的歌)",\n        "time": "录音时间(如: Today, 9:00 AM 或 Yesterday, 8:30 PM)",\n        "duration": "录音时长(如: 00:03:45)",\n        "size": "文件大小(如: 2.4 MB)",\n        "content": "录音的具体文本内容，比如角色的自言自语、哼唱的歌词等，要符合人设，字数在20-50字左右。"\n      }\n    ]\n  }`);
+        prompt += `4. Gallery (相册与录音):\n内容应该非常私密、真实，可以包含你对 ${userRealName} 的偷拍、合照、或者是你自己的日常照片；录音可以是你的随手记、唱歌、或者是想对 ${userRealName} 说的话。\n\n`;
+        structureParts.push(`  "gallery": {\n    "recentMemories": [\n      {\n        "time": "照片时间(如: Today)",\n        "desc": "照片画面的详细文字描述，例如：一张在咖啡馆偷拍 ${userRealName} 侧脸的照片"\n      }\n    ],\n    "albums": [\n      {\n        "title": "相册名称(如: Favorites, 偷拍的某人)",\n        "time": "相册创建或最新更新时间(如: 2023-10-25)",\n        "coverDesc": "相册封面的详细文字描述"\n      }\n    ],\n    "records": [\n      {\n        "title": "录音标题(如: 睡前想说的话, 随便哼的歌)",\n        "time": "录音时间(如: Today, 9:00 AM 或 Yesterday, 8:30 PM)",\n        "duration": "录音时长(如: 00:03:45)",\n        "size": "文件大小(如: 2.4 MB)",\n        "content": "录音的具体文本内容，比如角色的自言自语、哼唱的歌词等，要符合人设，字数在20-50字左右。"\n      }\n    ]\n  }`);
     }
 
     if (selectedApps.includes('browser')) {
-        prompt += `5. Browser (浏览器):\n内容应该符合你的性格、职业、当前的烦恼，或者可能包含你为了 ${userName} 而去搜索的内容（比如查攻略、查礼物、查情感问题等）。\n注意：history 生成 4-6 条，tabs 生成 3-5 条。\n\n`;
-        structureParts.push(`  "browser": {\n    "history": [\n      {\n        "keyword": "搜索关键词(如: 附近好吃的火锅店)",\n        "thought": "你搜索这个词时的内心真实想法(如: 听说这家店不错，下次带${userName}去吃看看)"\n      }\n    ],\n    "tabs": [\n      {\n        "title": "帖子标题(如: 如何向喜欢的人自然地搭话 - 情感问答)",\n        "content": "楼主的详细提问内容或帖子正文，可以包含换行符\\\\n",\n        "comments": [\n          {"user": "网友A", "text": "直接上啊！"},\n          {"user": "网友B", "text": "先从共同话题聊起吧。"}\n        ]\n      }\n    ]\n  }`);
+        prompt += `5. Browser (浏览器):\n内容应该符合你的性格、职业、当前的烦恼，或者可能包含你为了 ${userRealName} 而去搜索的内容（比如查攻略、查礼物、查情感问题等）。\n注意：history 生成 4-6 条，tabs 生成 3-5 条。\n\n`;
+        structureParts.push(`  "browser": {\n    "history": [\n      {\n        "keyword": "搜索关键词(如: 附近好吃的火锅店)",\n        "thought": "你搜索这个词时的内心真实想法(如: 听说这家店不错，下次带${userRealName}去吃看看)"\n      }\n    ],\n    "tabs": [\n      {\n        "title": "帖子标题(如: 如何向喜欢的人自然地搭话 - 情感问答)",\n        "content": "楼主的详细提问内容或帖子正文，可以包含换行符\\\\n",\n        "comments": [\n          {"user": "网友A", "text": "直接上啊！"},\n          {"user": "网友B", "text": "先从共同话题聊起吧。"}\n        ]\n      }\n    ]\n  }`);
     }
 
     if (selectedApps.includes('icity')) {
-        prompt += `6. icity (私密日记):\n日记的内容应该非常私密、真实，反映你此刻最真实的内心活动、情绪波动，或者对 ${userName} 的看法、纠结、暗恋等。\n语气要符合你的人设，不要像机器生成的，要像一个活人在深夜写下的碎碎念。\n字数必须在100字以上，禁止少于100字。\n\n`;
+        prompt += `6. icity (私密日记):\n日记的内容应该非常私密、真实，反映你此刻最真实的内心活动、情绪波动，或者对 ${userRealName} 的看法、纠结、暗恋等。\n语气要符合你的人设，不要像机器生成的，要像一个活人在深夜写下的碎碎念。\n字数必须在100字以上，禁止少于100字。\n\n`;
         structureParts.push(`  "icity": {\n    "content": "日记的具体内容，可以包含换行符\\\\n，字数必须在100字以上，禁止少于100字",\n    "time": "写下这篇日记的时间，格式如：2025-11-14 21:52"\n  }`);
     }
 
     if (selectedApps.includes('doubao')) {
-        prompt += `7. 豆豆Ai (AI助手合集):\n包含三个 AI 助手的对话，每个助手生成 4-15 条对话（一问一答）。\n注意：在这些对话中，你是提问者(role: "user")，AI 是回答者(role: "ai")。你的提问内容应该围绕你最近的烦恼、对 ${userName} 的看法、或者符合你人设的奇怪问题。\n【三个 AI 助手的人设要求】：\n1. 豆豆 (doudou)：很热心并且言听计从并且非常支持char但是很愚蠢，笨笨的，非常不靠谱，总会出馊主意，出错了或者被骂了喜欢说“对不起，我错了，这次我一定给你最直白，最清晰，最完整最不绕弯子的答案”类似这样的道歉话语（注意不可以完全照搬这个道歉话语，可以根据场景改成符合场景的道歉话语）。\n2. 塔罗师 (tarot)：神秘、神神叨叨，喜欢用塔罗牌的意象（如愚者、恋人、高塔等）来解读你的情感或生活问题，给出模棱两可但听起来很厉害的建议，但其实依旧不靠谱\n3. 答案之书 (answer)：极其简短、高冷、玄学。每次只回答一两个词或一句话（如“去做吧”、“不要犹豫”、“时机未到”），还是不靠谱。\n\n`;
+        prompt += `7. 豆豆Ai (AI助手合集):\n包含三个 AI 助手的对话，每个助手生成 4-15 条对话（一问一答）。\n注意：在这些对话中，你是提问者(role: "user")，AI 是回答者(role: "ai")。你的提问内容应该围绕你最近的烦恼、对 ${userRealName} 的看法、或者符合你人设的奇怪问题。\n【三个 AI 助手的人设要求】：\n1. 豆豆 (doudou)：很热心并且言听计从并且非常支持char但是很愚蠢，笨笨的，非常不靠谱，总会出馊主意，出错了或者被骂了喜欢说“对不起，我错了，这次我一定给你最直白，最清晰，最完整最不绕弯子的答案”类似这样的道歉话语（注意不可以完全照搬这个道歉话语，可以根据场景改成符合场景的道歉话语）。\n2. 塔罗师 (tarot)：神秘、神神叨叨，喜欢用塔罗牌的意象（如愚者、恋人、高塔等）来解读你的情感或生活问题，给出模棱两可但听起来很厉害的建议，但其实依旧不靠谱\n3. 答案之书 (answer)：极其简短、高冷、玄学。每次只回答一两个词或一句话（如“去做吧”、“不要犹豫”、“时机未到”），还是不靠谱。\n\n`;
         structureParts.push(`  "doubao": {\n    "doubao": [\n      {"role": "user", "content": "你的提问"},\n      {"role": "ai", "content": "豆豆的愚蠢回答"}\n    ],\n    "tarot": [\n      {"role": "user", "content": "你的提问"},\n      {"role": "ai", "content": "塔罗师的神秘回答"}\n    ],\n    "answer": [\n      {"role": "user", "content": "你的提问"},\n      {"role": "ai", "content": "答案之书的简短回答"}\n    ]\n  }`);
+    }
+
+    if (selectedApps.includes('gacha')) {
+        prompt += `8. 恋与user (抽卡游戏):\n生成你在抽卡游戏里的数据。你需要生成 1 段主线剧情，以及 4-6 张卡牌图鉴。\n卡牌的名称和剧情必须和 ${userRealName} 有关（比如：[春日恋歌] ${userRealName}）。\n每张卡牌必须包含一段专属的剧情故事 (story)，字数在 100-300 字左右。\n\n`;
+        structureParts.push(`  "gacha": {\n    "diamonds": 12500,\n    "mainStory": "主线剧情的具体内容，描述你和 ${userRealName} 之间的故事背景...",\n    "collection": [\n      {\n        "rarity": "SSR",\n        "name": "[卡牌前缀] ${userRealName}",\n        "desc": "卡牌的简短描述",\n        "story": "这张卡牌解锁的专属剧情故事，详细描写一段互动或内心独白",\n        "owned": false\n      }\n    ]\n  }`);
     }
 
     jsonStructure += structureParts.join(",\n") + "\n}";
@@ -2442,6 +2447,7 @@ async function generateAllPhoneDataAPI(selectedApps) {
             if (selectedApps.includes('gallery') && parsed.gallery) ChatDB.setItem(`phone_gallery_${currentChatRoomCharId}`, JSON.stringify(parsed.gallery));
             if (selectedApps.includes('icity') && parsed.icity) ChatDB.setItem(`phone_icity_${currentChatRoomCharId}`, JSON.stringify(parsed.icity));
             if (selectedApps.includes('doubao') && parsed.doubao) ChatDB.setItem(`phone_doubao_${currentChatRoomCharId}`, JSON.stringify(parsed.doubao));
+            if (selectedApps.includes('gacha') && parsed.gacha) ChatDB.setItem(`phone_gacha_${currentChatRoomCharId}`, JSON.stringify(parsed.gacha));
             
             if (selectedApps.includes('browser') && parsed.browser) {
                 if (parsed.browser.history) ChatDB.setItem(`browser_history_${currentChatRoomCharId}`, JSON.stringify(parsed.browser.history));
@@ -2748,4 +2754,291 @@ function confirmUniversalShare(targetCharId) {
     
     alert('分享成功！');
     closeUniversalShareModal();
+}
+// ==========================================
+// 查手机 - 恋与user (Gacha) APP 交互逻辑
+// ==========================================
+
+function openPhoneGacha() {
+    if (!currentChatRoomCharId) return alert('请先进入聊天室！');
+    
+    // 获取当前登录用户的面具和账号信息
+    const currentLoginId = ChatDB.getItem('current_login_account');
+    let accounts = JSON.parse(ChatDB.getItem('chat_accounts') || '[]');
+    const account = accounts.find(a => a.id === currentLoginId);
+    let personas = JSON.parse(ChatDB.getItem('chat_personas') || '[]');
+    const persona = personas.find(p => p.id === (account ? account.personaId : null));
+    
+    const maskAvatar = persona && persona.avatarUrl ? persona.avatarUrl : 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?q=80&w=800&auto=format&fit=crop';
+    const accountAvatar = account && account.avatarUrl ? account.avatarUrl : 'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=800&auto=format&fit=crop';
+    const realName = persona && persona.realName ? persona.realName : (account ? account.netName : 'User');
+
+    // 首页背景封面显示 user 面具头像
+    document.getElementById('gacha-page-home').style.backgroundImage = `url('${maskAvatar}')`;
+    
+    // 祈愿招募使用 user 账号头像和真名
+    document.getElementById('gachaPoolArt').style.backgroundImage = `url('${accountAvatar}')`;
+    document.getElementById('gachaPoolCharName').innerText = `SSR [命运邂逅] ${realName}`;
+
+    // 动态加载当前角色的头像和名字 (显示在左上角玩家信息处)
+    let chars = JSON.parse(ChatDB.getItem('chat_chars') || '[]');
+    const char = chars.find(c => c.id === currentChatRoomCharId);
+    if (char) {
+        const charAvatarUrl = char.avatarUrl || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=100&auto=format&fit=crop';
+        const charName = char.netName || char.name || 'Player';
+        document.getElementById('gachaHomeAvatar').style.backgroundImage = `url('${charAvatarUrl}')`;
+        document.getElementById('gachaHomeName').innerText = charName;
+    }
+
+    // 初始化樱花特效
+    const sakuraContainer = document.getElementById('gacha-sakura-container');
+    if (sakuraContainer.children.length === 0) {
+        for (let i = 0; i < 30; i++) {
+            const sakura = document.createElement('div');
+            sakura.classList.add('gacha-sakura');
+            const size = Math.random() * 10 + 6;
+            const left = Math.random() * 100;
+            const duration = Math.random() * 5 + 4;
+            const delay = Math.random() * 5;
+            sakura.style.width = `${size}px`;
+            sakura.style.height = `${size}px`;
+            sakura.style.left = `${left}vw`;
+            sakura.style.animationDuration = `${duration}s, 2s`;
+            sakura.style.animationDelay = `${delay}s, 0s`;
+            sakuraContainer.appendChild(sakura);
+        }
+    }
+
+    document.getElementById('phoneGachaApp').classList.add('show');
+    switchGachaPage('gacha-page-home');
+    renderGachaData();
+}
+
+function closePhoneGacha() {
+    document.getElementById('phoneGachaApp').classList.remove('show');
+}
+
+function switchGachaPage(pageId) {
+    document.querySelectorAll('.gacha-page').forEach(page => {
+        page.classList.remove('active');
+    });
+    document.getElementById(pageId).classList.add('active');
+}
+
+function renderGachaData() {
+    const dataStr = ChatDB.getItem(`phone_gacha_${currentChatRoomCharId}`);
+    let diamonds = 12500;
+    let collection = [];
+
+    if (dataStr) {
+        const data = JSON.parse(dataStr);
+        if (data.diamonds !== undefined) diamonds = data.diamonds;
+        if (data.collection) collection = data.collection;
+    }
+
+    document.getElementById('gachaHomeDiamond').innerText = diamonds.toLocaleString();
+    document.getElementById('gachaPoolDiamond').innerText = diamonds.toLocaleString();
+
+    const grid = document.getElementById('gachaCollectionGrid');
+    grid.innerHTML = '';
+    
+    if (collection.length === 0) {
+        grid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: #aaa; font-size: 12px; margin-top: 40px;">点击右上角生成数据</div>';
+    } else {
+        collection.forEach(item => {
+            const card = document.createElement('div');
+            // 判断是否已拥有
+            const isOwned = item.owned;
+            card.className = `gacha-collection-item ${isOwned ? 'owned' : 'unowned'}`;
+            
+            // 获取 User 账号头像作为卡面
+            const currentLoginId = ChatDB.getItem('current_login_account');
+            let accounts = JSON.parse(ChatDB.getItem('chat_accounts') || '[]');
+            const account = accounts.find(a => a.id === currentLoginId);
+            const accountAvatar = account && account.avatarUrl ? account.avatarUrl : 'https://images.unsplash.com/photo-1518020382113-a7e8fc38eac9?q=80&w=400&auto=format&fit=crop';
+            
+            card.style.backgroundImage = `url('${accountAvatar}')`;
+            card.innerHTML = `<div class="gacha-col-rarity">${item.rarity || 'SSR'}</div>`;
+            
+            card.onclick = () => {
+                if (isOwned) {
+                    openGachaStoryModal(item.name, item.story || item.desc);
+                } else {
+                    alert(`【${item.name}】\n尚未获得该卡牌，请前往招募！`);
+                }
+            };
+            grid.appendChild(card);
+        });
+    }
+}
+
+function openGachaStoryModal(title, content) {
+    document.getElementById('gachaStoryTitle').innerText = title;
+    document.getElementById('gachaStoryContent').innerText = content;
+    document.getElementById('gachaStoryModalOverlay').classList.add('show');
+}
+
+function closeGachaStoryModal() {
+    document.getElementById('gachaStoryModalOverlay').classList.remove('show');
+}
+
+function openGachaMainStory() {
+    const dataStr = ChatDB.getItem(`phone_gacha_${currentChatRoomCharId}`);
+    if (!dataStr) return alert('请先点击右上角生成数据！');
+    const data = JSON.parse(dataStr);
+    if (data.mainStory) {
+        openGachaStoryModal('主线剧情', data.mainStory);
+    } else {
+        alert('暂无主线剧情！');
+    }
+}
+
+async function generateGachaDataAPI() {
+    if (!currentChatRoomCharId) return;
+    const apiConfig = JSON.parse(ChatDB.getItem('current_api_config') || '{}');
+    if (!apiConfig.url || !apiConfig.key || !apiConfig.model) return alert('请先配置 API！');
+
+    let chars = JSON.parse(ChatDB.getItem('chat_chars') || '[]');
+    const char = chars.find(c => c.id === currentChatRoomCharId);
+    if (!char) return;
+
+    const currentLoginId = ChatDB.getItem('current_login_account');
+    let accounts = JSON.parse(ChatDB.getItem('chat_accounts') || '[]');
+    const account = accounts.find(a => a.id === currentLoginId);
+    let personas = JSON.parse(ChatDB.getItem('chat_personas') || '[]');
+    const persona = personas.find(p => p.id === (account ? account.personaId : null));
+    const userDesc = persona ? persona.persona : '普通用户';
+    const userName = account ? (account.netName || 'User') : 'User';
+    const userRealName = persona ? (persona.realName || userName) : userName;
+
+    let activeWbs = [];
+    let wbData = JSON.parse(ChatDB.getItem('worldbook_data')) || { entries: [] };
+    let entries = wbData.entries.filter(e => (char.wbEntries && char.wbEntries.includes(e.id)) || e.constant);
+    entries.forEach(entry => { activeWbs.push(entry.content); });
+
+    let history = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${currentChatRoomCharId}`) || '[]');
+    let recentHistory = history.slice(-30).map(m => `${m.role === 'user' ? userName : char.name}: ${m.content}`).join('\n');
+
+    let prompt = `你现在正在扮演角色：${char.name}。\n`;
+    prompt += `【你的设定】：${char.description || '无'}\n`;
+    prompt += `【用户身份】：用户的网名是：【${userName}】，真实名字是：【${userRealName}】。请严格区分网名和真名。TA在你的生活中的角色/人设是：${userDesc}。\n`;
+    if (activeWbs.length > 0) prompt += `【世界书背景】：\n${activeWbs.join('\n')}\n`;
+    if (recentHistory) prompt += `【最近的聊天记录参考】：\n${recentHistory}\n`;
+
+    prompt += `\n请基于你的人设、当前生活状态，以及我们最近的聊天上下文，生成你在抽卡游戏里的数据。
+你需要生成 1 段主线剧情，以及 4-6 张卡牌图鉴。
+卡牌的名称和剧情必须和 ${userRealName} 有关（比如：[春日恋歌] ${userRealName}）。
+每张卡牌必须包含一段专属的剧情故事 (story)，字数在 100-300 字左右。
+
+必须返回合法的 JSON 对象，结构如下：
+{
+  "diamonds": 12500,
+  "mainStory": "主线剧情的具体内容，描述你和 ${userRealName} 之间的故事背景...",
+  "collection": [
+    {
+      "rarity": "SSR",
+      "name": "[卡牌前缀] ${userRealName}",
+      "desc": "卡牌的简短描述",
+      "story": "这张卡牌解锁的专属剧情故事，详细描写一段互动或内心独白",
+      "owned": false
+    }
+  ]
+}`;
+
+    showToast('正在生成抽卡数据...', 'loading');
+
+    try {
+        const response = await fetch(`${apiConfig.url.replace(/\/$/, '')}/chat/completions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.key}` },
+            body: JSON.stringify({ model: apiConfig.model, messages: [{ role: 'user', content: prompt }], temperature: 0.8 })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            let replyRaw = data.choices[0].message.content.trim();
+            replyRaw = replyRaw.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
+            
+            const parsed = JSON.parse(replyRaw);
+            ChatDB.setItem(`phone_gacha_${currentChatRoomCharId}`, JSON.stringify(parsed));
+            
+            renderGachaData();
+            hideToast();
+            alert('抽卡数据生成成功！');
+        } else {
+            throw new Error('API 请求失败');
+        }
+    } catch (e) {
+        hideToast();
+        alert('生成失败，请检查 API 配置或重试。');
+    }
+}
+
+function doGachaSummon(times) {
+    const dataStr = ChatDB.getItem(`phone_gacha_${currentChatRoomCharId}`);
+    if (!dataStr) return alert('请先点击右上角生成数据！');
+    let data = JSON.parse(dataStr);
+    
+    if (data.diamonds < times * 150) {
+        return alert('钻石不足！');
+    }
+    
+    data.diamonds -= times * 150;
+    
+    // 找出未拥有的卡牌
+    let unownedCards = data.collection.filter(c => !c.owned);
+    let drawnCard = null;
+    
+    if (unownedCards.length > 0) {
+        // 随机抽一张未拥有的
+        let randomIndex = Math.floor(Math.random() * unownedCards.length);
+        drawnCard = unownedCards[randomIndex];
+        // 在原数组中标记为已拥有
+        let originalCard = data.collection.find(c => c.name === drawnCard.name);
+        if (originalCard) originalCard.owned = true;
+    } else {
+        // 如果全收集了，随机抽一张已拥有的
+        let randomIndex = Math.floor(Math.random() * data.collection.length);
+        drawnCard = data.collection[randomIndex];
+    }
+    
+    ChatDB.setItem(`phone_gacha_${currentChatRoomCharId}`, JSON.stringify(data));
+    renderGachaData(); // 更新钻石和图鉴状态
+
+    const overlay = document.getElementById('gachaSummonOverlay');
+    overlay.classList.add('active');
+    overlay.classList.remove('flash');
+    
+    // 模拟加载特效动画 1.5秒
+    setTimeout(() => {
+        overlay.classList.add('flash'); // 触发白屏闪烁
+        
+        setTimeout(() => {
+            switchGachaPage('gacha-page-result');
+            
+            // 获取 User 账号头像和真名
+            const currentLoginId = ChatDB.getItem('current_login_account');
+            let accounts = JSON.parse(ChatDB.getItem('chat_accounts') || '[]');
+            const account = accounts.find(a => a.id === currentLoginId);
+            let personas = JSON.parse(ChatDB.getItem('chat_personas') || '[]');
+            const persona = personas.find(p => p.id === (account ? account.personaId : null));
+            
+            const accountAvatar = account && account.avatarUrl ? account.avatarUrl : 'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=800&auto=format&fit=crop';
+            const realName = persona && persona.realName ? persona.realName : (account ? account.netName : 'User');
+
+            const container = document.getElementById('gachaResultCardContainer');
+            container.innerHTML = `
+                <div class="gacha-result-card" style="background-image: url('${accountAvatar}');">
+                    <div class="gacha-result-rarity">${drawnCard ? drawnCard.rarity : 'SSR'}</div>
+                    <div class="gacha-result-name-strip">${drawnCard ? drawnCard.name : '[命运邂逅] ' + realName}</div>
+                </div>
+            `;
+            
+            setTimeout(() => {
+                overlay.classList.remove('active');
+                overlay.classList.remove('flash');
+            }, 500);
+
+        }, 500); // 白屏持续时间
+    }, 1500); // 加载动画持续时间
 }
