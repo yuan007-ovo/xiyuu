@@ -128,9 +128,17 @@ function updateAppViewportVars() {
         window.scrollTo(0, 0);
         document.body.scrollTop = 0;
     } else {
-        // 🤖 安卓及其他设备逻辑：安卓键盘弹出时会自动调整 innerHeight，直接使用即可
-        const fallbackHeight = window.innerHeight;
-        docStyle.setProperty('--app-height', `${fallbackHeight}px`);
+        // 🤖 安卓及其他设备逻辑：Edge PWA 等环境下防止键盘弹出导致输入框溢出
+        if (!window.initialAndroidHeight || window.innerHeight > window.initialAndroidHeight) {
+            window.initialAndroidHeight = window.innerHeight;
+        }
+        // 如果当前高度小于初始高度的 80%，说明键盘弹出了
+        if (window.innerHeight < window.initialAndroidHeight * 0.8) {
+            // 键盘弹出时，保持原高度，让浏览器原生滚动处理，防止 UI 挤压溢出
+            docStyle.setProperty('--app-height', `${window.initialAndroidHeight}px`);
+        } else {
+            docStyle.setProperty('--app-height', `${window.innerHeight}px`);
+        }
     }
 }
 
