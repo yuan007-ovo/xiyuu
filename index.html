@@ -7055,13 +7055,16 @@
         </div>
 
         <!-- 顶部导航栏 -->
-        <header class="tav-chat-header">
-            <div class="tav-header-btn-text" onclick="closeTavernMode()">BACK</div>
-            <div class="tav-header-center">
-                <div class="tav-header-avatar" id="tavHeaderAvatar"></div>
-                <div class="tav-header-name" id="tavHeaderName">Name</div>
+        <header class="tav-chat-header panel-header" style="background: #fff; border-bottom: 1px solid #f0f0f0; z-index: 50; position: relative; padding-top: calc(20px + env(safe-area-inset-top)); height: auto; min-height: auto;">
+            <div class="header-close" onclick="closeTavernMode()" style="font-size: 15px; color: #8888; padding: 10px; cursor: pointer; font-weight: bold;">BACK</div>
+            <!-- 将 transform: translate(-50%, 15px) 改为 transform: translate(-50%, 0px) 使其整体上移 -->
+            <div class="header-title-wrapper" style="flex-direction: column; gap: 4px; transform: translate(-50%, 0px);">
+                <div class="cr-header-avatars">
+                    <div class="cr-header-avatar" id="tavHeaderAvatar" style="margin-left: 0;"></div>
+                </div>
+                <div class="header-title" id="tavHeaderName" style="cursor: default; transform: none; padding: 4px 16px; color: #888;">Name</div>
             </div>
-            <div class="tav-header-btn-text" onclick="tavToggleSettings()">SETTING</div>
+            <div class="header-close" onclick="tavToggleSettings()" style="font-size: 14px; color: #bbb; font-weight: 900; letter-spacing: 1px; cursor: pointer; padding: 10px;">SETTING</div>
         </header>
 
         <!-- 中间主剧情区 -->
@@ -7095,7 +7098,7 @@
          ========================================= -->
 
     <!-- 全屏设置中心 (移出酒馆模式面板，使其在全局可用) -->
-    <div class="tav-sidebar-right" id="tavSidebarRight" style="z-index: 3000;">
+<div class="tav-sidebar-right" id="tavSidebarRight" style="display: none; z-index: 3000;">
         <div class="tav-sidebar-header">
                 <div class="tav-sidebar-close"  style="font-size: 14px; color: #8888;" onclick="tavToggleSettings()">BACK</div>
                 <div class="tav-sidebar-title" style="font-size: 14px; color: #8888;">SETTING</div>

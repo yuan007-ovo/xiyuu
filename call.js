@@ -709,6 +709,8 @@ function callEndCall(isRejected = false) {
             let contentStr = isRejected === true ? '对方已拒绝接听。' : '无通话内容记录。';
             if (currentCallTranscript.length > 0) {
                 contentStr = currentCallTranscript.map(m => `${m.role === 'user' ? '我' : '对方'}: ${m.content}`).join('\n');
+                // 自动总结通话记录并存入记忆库
+                autoSummarizeCallToMemory(currentLoginId, currentCallTargetId, contentStr);
             }
 
             let history = JSON.parse(ChatDB.getItem(`call_history_${currentLoginId}`) || '[]');
@@ -1248,3 +1250,47 @@ window.addEventListener('ChatDBReady', () => {
         }
     }
 });
+
+// --- 自动总结通话记录并存入记忆库 ---
+async function autoSummarizeCallToMemory(userId, charId, transcript) {
+    const apiConfig = JSON.parse(ChatDB.getItem('current_api_config') || '{}');
+    if (!apiConfig.url || !apiConfig.key || !apiConfig.model) return;
+
+    let accounts = JSON.parse(ChatDB.getItem('chat_accounts') || '[]');
+    const account = accounts.find(a => a.id === userId);
+    const personaId = account ? account.personaId : userId;
+
+    const prompt = `请根据以下语音通话记录，用第三人称简短总结一下通话内容和发生的重要事件。只输出总结文本，不要任何多余的解释。\n\n【通话记录】：\n${transcript}`;
+
+    try {
+        const response = await fetch(`${apiConfig.url.replace(/\/$/, '')}/chat/completions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.key}` },
+            body: JSON.stringify({
+                model: apiConfig.model,
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0.5
+            })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            const summaryText = data.choices[0].message.content.trim();
+            
+            let memory = JSON.parse(ChatDB.getItem(`char_memory_${personaId}_${charId}`) || 'null');
+            if (!memory) {
+                memory = { summary: [], core: [], note: [], settings: {} };
+            }
+            
+            const finalSummary = `[语音通话总结] ${summaryText}`;
+            
+            if (!memory.summary) memory.summary = [];
+            // 将通话总结追加到 summary 数组的开头
+            memory.summary.unshift({ id: Date.now().toString(), content: finalSummary });
+            
+            ChatDB.setItem(`char_memory_${personaId}_${charId}`, JSON.stringify(memory));
+        }
+    } catch (e) {
+        console.error('自动总结通话记录失败:', e);
+    }
+}

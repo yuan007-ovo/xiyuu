@@ -113,7 +113,7 @@ html, body {
     margin: 0;
     padding: 0;
     overflow: hidden;
-    background-color: #FFFFFF; /* 防止 iOS 全屏模式下露出黑色系统背景 */
+    background-color: #fff; /* 修复底部白边：改为黑色，防止 iOS 全屏模式下露出白色缝隙 */
     overscroll-behavior: none; /* 阻止橡皮筋效果 */
     -webkit-overflow-scrolling: touch;
     touch-action: manipulation;
@@ -921,6 +921,9 @@ input, textarea, select {
    ========================================= */
 /* 当开启全屏（沉浸模式）时 */
 body.ios-standalone .iphone.immersive-mode { 
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
     width: 100vw !important; 
     height: var(--app-height, 100vh) !important; 
     border: none !important; 
@@ -8200,7 +8203,7 @@ body.ios-standalone .status-bar {
 
 /* ================= 顶部导航栏 ================= */
 .tav-chat-header {
-    height: 85px; /* 增加顶栏高度 */
+    height: 70px; /* 增加顶栏高度 */
     background-color: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(15px);
     -webkit-backdrop-filter: blur(15px);

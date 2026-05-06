@@ -224,6 +224,8 @@ function tavEnterChat() {
 function closeTavernMode() {
     document.getElementById('tavernModePanel').style.display = 'none';
     document.getElementById('tavernLobbyPanel').style.display = 'flex';
+    document.getElementById('tavSidebarRight').style.display = 'none';
+    document.getElementById('tavSidebarRight').classList.remove('show');
     tavRenderLobby(); // 退出时刷新大厅
 }
 
@@ -358,8 +360,12 @@ function tavDeleteSave(saveId) {
 // 控制右侧设置抽屉的滑入滑出
 function tavToggleSettings() {
     const sidebar = document.getElementById('tavSidebarRight');
-    sidebar.classList.toggle('show');
     if (sidebar.classList.contains('show')) {
+        sidebar.classList.remove('show');
+        sidebar.style.display = 'none';   // 彻底隐藏，防止意外聚焦
+    } else {
+        sidebar.classList.add('show');
+        sidebar.style.display = 'flex';   // 显示时恢复弹性布局
         const historyLen = ChatDB.getItem('tav_chat_history_length') || '20';
         const lenInput = document.getElementById('tavChatHistoryLength');
         if (lenInput) lenInput.value = historyLen;
@@ -855,11 +861,17 @@ function renderTavStatusBars() {
                 </div>
                 <div class="tav-setting-row-col">
                     <span>提取规则</span>
-                    <div style="font-size:13px; color:#888; margin-top:4px; font-family:monospace;">${sb.regex}</div>
+                    <input type="text" class="tav-ins-input" value="${sb.regex.replace(/"/g, '&quot;')}" onchange="updateTavStatusBar('${sb.id}', 'regex', this.value)" style="font-family:monospace; margin-top:4px;">
                 </div>
                 <div class="tav-setting-row-col">
                     <span>HTML 代码</span>
-                    <div style="font-size:13px; color:#888; margin-top:4px; font-family:monospace; white-space:pre-wrap; word-break:break-all;">${sb.html.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+                    <textarea class="tav-ins-textarea" onchange="updateTavStatusBar('${sb.id}', 'html', this.value); this.parentElement.nextElementSibling.querySelector('.tav-status-preview-box').innerHTML = this.value;" style="font-family:monospace; margin-top:4px; height: 120px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;">${sb.html.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+                </div>
+                <div class="tav-setting-row-col">
+                    <span>HTML 预览</span>
+                    <div class="tav-status-preview-box" style="margin-top:4px; padding:10px; background:#f9f9f9; border-radius:8px; border:1px dashed #ccc; overflow-x:auto; min-height: 40px;">
+                        ${sb.html}
+                    </div>
                 </div>
                 <div style="padding: 15px 0; border-top: 1px solid var(--tav-border-color); margin-top: 10px;">
                     <div class="tav-ins-btn outline" style="color: #ff3b30; border-color: #ff3b30;" onclick="deleteTavStatusBar('${sb.id}')">删除此状态栏</div>
@@ -886,6 +898,15 @@ function deleteTavStatusBar(id) {
         statusBars = statusBars.filter(s => s.id !== id);
         ChatDB.setItem('tav_status_bars', JSON.stringify(statusBars));
         renderTavStatusBars();
+    }
+}
+
+function updateTavStatusBar(id, field, value) {
+    let statusBars = JSON.parse(ChatDB.getItem('tav_status_bars') || '[]');
+    const sb = statusBars.find(s => s.id === id);
+    if (sb) {
+        sb[field] = value;
+        ChatDB.setItem('tav_status_bars', JSON.stringify(statusBars));
     }
 }
 
@@ -958,11 +979,11 @@ function renderTavRegexList() {
             <div class="tav-status-body">
                 <div class="tav-setting-row-col">
                     <span>正则表达式</span>
-                    <input type="text" class="tav-ins-input" value="${r.pattern}" readonly style="color: #888; background: #f9f9f9;">
+                    <input type="text" class="tav-ins-input" value="${r.pattern.replace(/"/g, '&quot;')}" onchange="updateTavRegex('${r.id}', 'pattern', this.value)" style="color: #333; background: #fff;">
                 </div>
                 <div class="tav-setting-row-col">
                     <span>替换内容</span>
-                    <input type="text" class="tav-ins-input" value="${r.replace.replace(/</g, '&lt;').replace(/>/g, '&gt;')}" readonly style="color: #888; background: #f9f9f9;">
+                    <input type="text" class="tav-ins-input" value="${r.replace.replace(/"/g, '&quot;')}" onchange="updateTavRegex('${r.id}', 'replace', this.value)" style="color: #333; background: #fff;">
                 </div>
                 <div style="padding: 15px 0; border-top: 1px solid var(--tav-border-color); margin-top: 10px;">
                     <div class="tav-ins-btn outline" style="color: #ff3b30; border-color: #ff3b30;" onclick="deleteTavRegex('${r.id}')">DELETE</div>
@@ -1141,6 +1162,16 @@ function deleteTavRegex(id) {
         renderTavRegexList();
     }
 }
+
+function updateTavRegex(id, field, value) {
+    let regexList = JSON.parse(ChatDB.getItem('tav_regex_list') || '[]');
+    const r = regexList.find(x => x.id === id);
+    if (r) {
+        r[field] = value;
+        ChatDB.setItem('tav_regex_list', JSON.stringify(regexList));
+    }
+}
+
 
 // ==========================================
 // 聊天流渲染逻辑 (Chat Stream)
