@@ -558,6 +558,8 @@ let swmGameState = {
     upgrades: { autoCut: false, syrup: false, priceBonus: 0 }
 };
 
+let swmSessionEarnings = 0;
+
 let swmCustomers = [
     { active: false, order: { sandwich: [], drink: false }, patience: 100, timer: null },
     { active: false, order: { sandwich: [], drink: false }, patience: 100, timer: null }
@@ -575,9 +577,22 @@ function closeShawarmaGame() {
     document.getElementById('shawarmaPanel').classList.remove('show');
     clearInterval(swmAutoCutInterval);
     swmCustomers.forEach(c => clearInterval(c.timer));
+    
+    if (typeof swmSessionEarnings !== 'undefined' && swmSessionEarnings > 0 && currentAlipayLoginId) {
+        let alipayBalance = parseFloat(ChatDB.getItem(`alipay_balance_${currentAlipayLoginId}`) || '0');
+        alipayBalance += swmSessionEarnings;
+        ChatDB.setItem(`alipay_balance_${currentAlipayLoginId}`, alipayBalance.toFixed(2));
+        addAlipayRecord(currentAlipayLoginId, 'in', '沙威玛传奇营业收入', swmSessionEarnings);
+        if (document.getElementById('alipay-page-me').classList.contains('active')) {
+            renderAlipayData();
+        }
+        alert(`本次营业结束，共赚取 ${swmSessionEarnings} 元，已存入支付宝余额！`);
+        swmSessionEarnings = 0;
+    }
 }
 
 function swmInit() {
+    swmSessionEarnings = 0;
     swmGameState = {
         day: 1, coins: 0, meatInTray: 0, friesState: 'empty', friesInTray: 0, drinkState: 'empty',
         plate: [], plateStatus: 'empty', upgrades: { autoCut: false, syrup: false, priceBonus: 0 }
@@ -911,15 +926,9 @@ function swmCheckOrderComplete(index) {
             setTimeout(() => swmShowFloatingText(`+${patienceBonus} 小费`, `swmCustomer${index}`), 500);
         }
         
-        // 核心：将赚到的钱同步到支付宝余额
-        let alipayBalance = parseFloat(ChatDB.getItem(`alipay_balance_${currentAlipayLoginId}`) || '0');
-        // 假设这单总共赚了 (沙威玛钱 + 饮料钱 + 小费)，为了简化，我们直接给支付宝加 10 元作为完成一单的奖励
-        alipayBalance += 10;
-        ChatDB.setItem(`alipay_balance_${currentAlipayLoginId}`, alipayBalance.toFixed(2));
-        addAlipayRecord(currentAlipayLoginId, 'in', '沙威玛传奇营业收入', 10);
-        if (document.getElementById('alipay-page-me').classList.contains('active')) {
-            renderAlipayData();
-        }
+        // 核心：将赚到的钱记录到本次营业总收益中，退出时统一结算
+        // 假设这单总共赚了 (沙威玛钱 + 饮料钱 + 小费)，为了简化，我们直接给收益加 10 元作为完成一单的奖励
+        swmSessionEarnings += 10;
         
         swmUpdateUI();
         document.getElementById(`swmCustomer${index}`).classList.remove('active');
