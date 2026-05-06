@@ -2871,8 +2871,8 @@ let importedWidgets = JSON.parse(localStorage.getItem('imported_widgets') || '[]
 
 function renderImportedWidgets() {
     const content = document.getElementById('widgetModalContent');
-    // 保留第一个默认组件，清除后面动态添加的
-    while (content.children.length > 1) {
+    // 【关键修复】：保留前2个内置组件（默认组件和拍立得组件），清除后面动态导入的
+    while (content.children.length > 2) {
         content.removeChild(content.lastChild);
     }
     
@@ -3001,7 +3001,7 @@ function addWidgetToDesktop(type) {
                         <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                     </svg>
                 </div>
-                <div class="widget-btn" contenteditable="true" spellcheck="false"># ◍⁰ᯅ⁰◍ .ᐟ.ᐟ</div>
+                <div class="widget-btn" contenteditable="true" spellcheck="false">#记录你有关的萌点</div>
             </div>
             <div class="widget-music">
                 <div class="music-cover uploadable-img"></div>
@@ -3011,7 +3011,7 @@ function addWidgetToDesktop(type) {
                 </div>
             </div>
             <div class="widget-search">
-                <span contenteditable="true" spellcheck="false">永远纠缠在一起吧 发丝 命运 我和你</span>
+                <span contenteditable="true" spellcheck="false">索菲亚公主的午后芭蕾茶话会</span>
                 <span style="background:#888; color:#fff; border-radius:50%; width:20px; height:20px; text-align:center; line-height:20px;">↑</span>
             </div>
             <div class="widget-gallery">
@@ -3039,10 +3039,83 @@ function addWidgetToDesktop(type) {
         closeWidgetModal();
         bindDesktopLongPress();
         // 注意：这里不再自动保存，必须用户点击“保存”才会生效
+    } else if (type === 'polaroid') {
+        // 检查是否已经存在
+        if (document.getElementById('polaroid-widget-container')) {
+            alert('拍立得小组件已经在桌面上了！');
+            return;
+        }
+
+        // 获取真实日期并格式化 (例如: Apr29)
+        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const now = new Date();
+        const dateStr = months[now.getMonth()] + now.getDate();
+
+        // 插入 4x4 布局的小组件，包含 contenteditable 和 uploadable-img
+        const polaroidWidgetHTML = `
+        <div class="widget-container custom-desktop-widget is-transparent-widget" id="polaroid-widget-container" style="background: transparent; padding: 0;">
+            <div class="widget-delete-btn" onclick="deleteDesktopWidget(this)" style="z-index: 20;">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#ff3b30"></circle><line x1="8" y1="12" x2="16" y2="12" stroke="#fff" stroke-width="2"></line></svg>
+            </div>
+            <div class="widget-polaroid-container">
+                <svg class="wp-bg-star wp-star1" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                <svg class="wp-bg-star wp-star2" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                <svg class="wp-bg-star wp-star3" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                <svg class="wp-bg-star wp-star4" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                <svg class="wp-bg-star wp-star5" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                <svg class="wp-bg-star wp-star6" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                <svg class="wp-bg-star wp-star7" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                
+                <div class="wp-bubble wp-bubble-black" contenteditable="true" spellcheck="false">ハ>_&lt;マ★!!</div>
+                <div class="wp-bubble wp-bubble-gray" contenteditable="true" spellcheck="false">(=^人^=)</div>
+                
+                <div class="wp-polaroid wp-photo-right">
+                    <div class="wp-photo-img uploadable-img" style="background-image: url('https://images.unsplash.com/photo-1585314062340-f1a5a7c9328d?q=80&w=300&auto=format&fit=crop');"></div>
+                </div>
+                <!-- 右侧照片包裹星星 -->
+                <svg class="wp-wrap-star wp-ws-r1" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                <svg class="wp-wrap-star wp-ws-r2" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                <svg class="wp-wrap-star wp-ws-r3" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                
+                <div class="wp-polaroid wp-photo-left">
+                    <div class="wp-photo-img uploadable-img" style="background-image: url('https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?q=80&w=300&auto=format&fit=crop');"></div>
+                    <div class="wp-photo-caption" contenteditable="true" spellcheck="false">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="#333"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                        🎀* yummy ₊⁺
+                    </div>
+                </div>
+                <!-- 左侧照片包裹星星 -->
+                <svg class="wp-wrap-star wp-ws-l1" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                <svg class="wp-wrap-star wp-ws-l2" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                <svg class="wp-wrap-star wp-ws-l3" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                
+                <div class="wp-date-text" contenteditable="true" spellcheck="false">${dateStr}</div>
+                <div class="wp-note-icon"><svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></div>
+            </div>
+        </div>`;
+
+        const wrapper = document.getElementById('homeScreenWrapper');
+        const isPage2 = wrapper && wrapper.scrollLeft > wrapper.clientWidth / 2;
+        const targetBgId = isPage2 ? 'desktopGridBg2' : 'desktopGridBg';
+        
+        document.getElementById(targetBgId).insertAdjacentHTML('afterend', polaroidWidgetHTML);
+        
+        // 绑定图片上传事件
+        document.querySelectorAll('#polaroid-widget-container .uploadable-img').forEach(el => {
+            handleImageUpload(el, (imgUrl, targetEl) => {
+                targetEl.style.backgroundImage = `url(${imgUrl})`;
+                targetEl.classList.add('has-image');
+            });
+        });
+        
+        fillDesktopPlaceholders();
+        closeWidgetModal();
+        bindDesktopLongPress();
     }
 }
 
 // ========== MCP 配置管理 ==========
+
 function getMcpConfig() {
     return {
         address: localStorage.getItem('mcpAddress') || '',
