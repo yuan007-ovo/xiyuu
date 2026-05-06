@@ -1202,11 +1202,50 @@ function renderMallAddress() {
     });
 }
 
+let mallMapInstance = null;
+
+function initMallRealMap() {
+    if (!mallMapInstance) {
+        mallMapInstance = new maplibregl.Map({
+            container: 'mallRealMapContainer',
+            style: {
+                'version': 8,
+                'sources': {
+                    'raster-tiles': {
+                        'type': 'raster',
+                        'tiles': ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                        'tileSize': 256,
+                        'attribution': '© OpenStreetMap'
+                    }
+                },
+                'layers': [{
+                    'id': 'simple-tiles',
+                    'type': 'raster',
+                    'source': 'raster-tiles',
+                    'minzoom': 0,
+                    'maxzoom': 22
+                }]
+            },
+            center: [116.4074, 39.9042],
+            zoom: 14,
+            pitch: 0,
+            bearing: 0
+        });
+        mallMapInstance.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
+    }
+    setTimeout(() => {
+        mallMapInstance.resize();
+        getMallRealLocation();
+    }, 300);
+}
+
 function openMallAddressAddPage() {
     document.getElementById('mallAddrName').value = '';
     document.getElementById('mallAddrPhone').value = '';
     document.getElementById('mallAddrDetail').value = '';
+    document.getElementById('mallLocationSearchInput').value = '';
     document.getElementById('mallSubPageAddressAdd').classList.add('show');
+    initMallRealMap();
 }
 
 function saveMallAddress() {
@@ -1237,31 +1276,70 @@ function deleteMallAddress(index) {
     }
 }
 
-function getRealLocation() {
+async function getMallRealLocation() {
+    const updateLocationUI = (lat, lng, source) => {
+        if (mallMapInstance) {
+            mallMapInstance.flyTo({ center: [lng, lat], zoom: 15, speed: 1.5 });
+        }
+        document.getElementById('mallLocationSearchInput').value = `我的当前位置`;
+        document.getElementById('mallAddrDetail').value = `我的当前位置`;
+    };
+
     if ("geolocation" in navigator) {
-        document.getElementById('mallAddrDetail').value = "正在获取定位...";
-        navigator.geolocation.getCurrentPosition(function(position) {
-            const lat = position.coords.latitude.toFixed(4);
-            const lon = position.coords.longitude.toFixed(4);
-            document.getElementById('mallAddrDetail').value = `真实定位 (Lat: ${lat}, Lon: ${lon})`;
-        }, function(error) {
-            alert("获取定位失败，请检查浏览器权限！");
-            document.getElementById('mallAddrDetail').value = "";
-        });
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                updateLocationUI(position.coords.latitude, position.coords.longitude, "GPS");
+            },
+            async (error) => {
+                console.warn("GPS定位失败，尝试网络IP定位兜底...", error);
+                try {
+                    const res = await fetch('https://freeipapi.com/api/json');
+                    const data = await res.json();
+                    if (data.latitude && data.longitude) {
+                        updateLocationUI(data.latitude, data.longitude, "网络定位");
+                    } else {
+                        throw new Error("IP定位无坐标");
+                    }
+                } catch (e) {
+                    alert("获取定位彻底失败，请手动滑动地图选择位置。");
+                }
+            },
+            { timeout: 4000, enableHighAccuracy: true }
+        );
     } else {
-        alert("您的浏览器不支持地理定位！");
+        try {
+            const res = await fetch('https://freeipapi.com/api/json');
+            const data = await res.json();
+            updateLocationUI(data.latitude, data.longitude, "网络定位");
+        } catch (e) {
+            alert("设备不支持且网络定位失败，请手动滑动地图。");
+        }
     }
 }
 
-function getVirtualLocation() {
-    const virtualAddresses = [
-        "北京市 朝阳区 三里屯 SOHO 8号楼",
-        "上海市 浦东新区 陆家嘴 环球金融中心",
-        "广东省 深圳市 南山区 科技园 腾讯大厦",
-        "四川省 成都市 锦江区 春熙路 IFS"
-    ];
-    const randomAddr = virtualAddresses[Math.floor(Math.random() * virtualAddresses.length)];
-    document.getElementById('mallAddrDetail').value = randomAddr;
+async function searchMallLocation() {
+    const query = document.getElementById('mallLocationSearchInput').value.trim();
+    if (!query) return alert('请输入要搜索的位置！');
+    
+    try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+        const data = await res.json();
+        
+        if (data && data.length > 0) {
+            const lat = parseFloat(data[0].lat);
+            const lon = parseFloat(data[0].lon);
+            if (mallMapInstance) {
+                mallMapInstance.flyTo({ center: [lon, lat], zoom: 15, speed: 1.5 });
+            }
+            const displayName = data[0].display_name.split(',')[0];
+            document.getElementById('mallLocationSearchInput').value = displayName;
+            document.getElementById('mallAddrDetail').value = displayName;
+        } else {
+            alert('未找到该位置，请尝试更换关键词。');
+        }
+    } catch (e) {
+        alert('搜索失败，请检查网络连接。');
+    }
 }
 
 function renderMallProfile(accountId) {

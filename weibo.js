@@ -9,7 +9,6 @@ window.NPC_AVATARS = [
     "https://i.postimg.cc/Px6d7G6T/Image-1771583329136-980.jpg",
     "https://i.postimg.cc/cLyBThqx/mmexport1769155014910.jpg",
     "https://i.postimg.cc/SxFfVrB1/Image-1769156350487-536.jpg",
-    "https://i.postimg.cc/htW1MsFS/Image-1769156011072-571.jpg",
     "https://i.postimg.cc/MKq0P42L/mmexport1768319124859.jpg",
     "https://i.postimg.cc/0NQkLzyW/mmexport1747984914914.jpg",
     "https://i.postimg.cc/vmBYp4Z2/mmexport1766595771777.jpg",
@@ -64,7 +63,17 @@ window.NPC_AVATARS = [
     "https://i.postimg.cc/Hs702qwv/Image-1778077795885-287.jpg",
     "https://i.postimg.cc/CLfCN3GJ/Image-1778077797519-161.jpg",
     "https://i.postimg.cc/VLb9RxqD/Image-1778077799044-244.jpg",
-    "https://i.postimg.cc/9FqPp6dx/Image-1778077800670-962.jpg"
+    "https://i.postimg.cc/9FqPp6dx/Image-1778077800670-962.jpg",
+    "https://i.postimg.cc/3JDhhQDH/Image-1778089742333-456.jpg",
+    "https://i.postimg.cc/sDZzzCZr/Image-1778089750321-443.jpg",
+     "https://i.postimg.cc/BQ133f1s/Image-1778089779746-119.jpg",
+     "https://i.postimg.cc/CLf00pfS/Image-1778089796903-248.jpg",
+     "https://i.postimg.cc/28BYYNLc/Image-1778089800110-309.jpg",
+     "https://i.postimg.cc/Hs7mm18P/Image-1778089906800-133.jpg",
+     "https://i.postimg.cc/4NhGGRH8/Image-1778089912035-381.jpg",
+     "https://i.postimg.cc/zXRNNYHQ/Image-1778089924984-147.jpg",
+     "https://i.postimg.cc/6pJX5bds/mmexport1734243101813.jpg",
+     "https://i.postimg.cc/zGZrX2nZ/mmexport1734243356178.jpg",
 ];
 
 window.getRandomNpcAvatar = function() {
@@ -1277,40 +1286,49 @@ function renderWeiboHotBoard() {
 // 渲染视频页
 function renderWeiboVideoFeed() {
     const currentLoginId = ChatDB.getItem('weibo_current_account');
-    const container = document.getElementById('wb-page-video');
+    const container = document.getElementById('wbVideoScrollContainer');
+    if (!container) return;
+    container.innerHTML = '';
     let videos = JSON.parse(ChatDB.getItem(`weibo_videos_${currentLoginId}`) || '[]');
     
-    if (videos.length > 0) {
-        const v = videos[0]; // 简单展示第一个
-        const randomCover = `https://source.unsplash.com/random/400x800/?${v.authorName}`;
+    if (videos.length === 0) {
+        container.innerHTML = '<div style="display:flex; justify-content:center; align-items:center; height:100%; color:#888; font-size:14px;">暂无视频，点击首页右上角生成</div>';
+        return;
+    }
+
+    videos.forEach(v => {
+        const randomCover = typeof window.getRandomNpcAvatar === 'function' ? window.getRandomNpcAvatar() : `https://source.unsplash.com/random/400x800/?${v.authorName}`;
+        const item = document.createElement('div');
+        item.className = 'wb-video-item';
         
-        container.innerHTML = `
-            <div class="wb-video-container" style="padding: 0;">
+        item.innerHTML = `
+            <div class="wb-video-container" style="padding: 0; height: 100%; position: relative;">
                 <div class="wb-video-cover-bg" style="background-image: url('${randomCover}');"></div>
                 <div class="wb-video-overlay-gradient"></div>
                 
-                <!-- 中间显示视频画面描述，替换掉原来的大播放按钮 -->
+                <!-- 中间显示视频画面描述 -->
                 <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); padding: 20px; border-radius: 16px; text-align: center; z-index: 5; border: 1px solid rgba(255,255,255,0.1);">
                     <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 8px; font-weight: bold; letter-spacing: 2px;">[ 视频画面 ]</div>
                     <div style="font-size: 15px; color: #fff; line-height: 1.6;">${v.desc || '暂无描述'}</div>
                 </div>
 
-                <!-- 右侧操作栏上移到 120px，防止和底部文字重叠 -->
-                <div class="wb-video-right-actions" style="bottom: 120px; z-index: 10;">
-                    <div class="wb-video-avatar" style="background-image: url('${v.authorAvatar || ''}'); background-size: cover;"></div>
-                    <div class="wb-video-action" onclick="toggleWeiboLike(this)"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg><span class="wb-like-count">${v.likes || '1.2w'}</span></div>
-                    <div class="wb-video-action" onclick="openWbVideoComments('${v.id}')"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>${v.comments || 856}</div>
-                    <div class="wb-video-action"><svg viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>转发</div>
+                <!-- 右侧操作栏 -->
+                <div class="wb-video-right-actions" style="bottom: 120px; z-index: 10; position: absolute; right: 15px; display: flex; flex-direction: column; gap: 25px; align-items: center;">
+                    <div class="wb-video-avatar" style="background-image: url('${v.authorAvatar || ''}'); background-size: cover; width: 44px; height: 44px; border-radius: 50%; border: 2px solid #fff; margin-bottom: 10px;"></div>
+                    <div class="wb-video-action" onclick="toggleWeiboLike(this)" style="display: flex; flex-direction: column; align-items: center; gap: 4px; color: #fff; font-size: 12px; font-weight: bold; cursor: pointer;"><svg viewBox="0 0 24 24" style="width: 32px; height: 32px; stroke: #fff; stroke-width: 1.5; fill: none;"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg><span class="wb-like-count">${v.likes || '1.2w'}</span></div>
+                    <div class="wb-video-action" onclick="openWbVideoComments('${v.id}')" style="display: flex; flex-direction: column; align-items: center; gap: 4px; color: #fff; font-size: 12px; font-weight: bold; cursor: pointer;"><svg viewBox="0 0 24 24" style="width: 32px; height: 32px; stroke: #fff; stroke-width: 1.5; fill: none;"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>${v.comments || 856}</div>
+                    <div class="wb-video-action" style="display: flex; flex-direction: column; align-items: center; gap: 4px; color: #fff; font-size: 12px; font-weight: bold; cursor: pointer;"><svg viewBox="0 0 24 24" style="width: 32px; height: 32px; stroke: #fff; stroke-width: 1.5; fill: none;"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>转发</div>
                 </div>
                 
-                <!-- 底部信息区增加 margin-bottom 到 90px，完美避开底栏遮挡 -->
-                <div class="wb-video-info" style="margin-bottom: 90px; padding: 0 15px; position: relative; z-index: 10;">
-                    <div class="wb-video-username">${v.authorName || '@未知'}</div>
-                    <div class="wb-video-desc" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${v.desc || '暂无描述'}</div>
+                <!-- 底部信息区 -->
+                <div class="wb-video-info" style="margin-bottom: 90px; padding: 0 15px; position: absolute; bottom: 0; left: 0; width: 80%; z-index: 10;">
+                    <div class="wb-video-username" style="font-size: 16px; font-weight: bold; margin-bottom: 8px; color: #fff;">${v.authorName || '@未知'}</div>
+                    <div class="wb-video-desc" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 14px; line-height: 1.5; opacity: 0.9; color: #fff;">${v.desc || '暂无描述'}</div>
                 </div>
             </div>
         `;
-    }
+        container.appendChild(item);
+    });
 }
 
 function openWbVideoComments(videoId) {
@@ -1416,16 +1434,178 @@ function renderWeiboFollowList() {
 
         const item = document.createElement('div');
         item.className = 'wb-follow-item';
+        item.style.cursor = 'pointer';
+        item.onclick = () => openWeiboCharProfile(char.id); // 点击进入角色主页
         item.innerHTML = `
             <div class="wb-follow-avatar" style="background-image: url('${char.avatarUrl || ''}');"></div>
             <div class="wb-follow-info">
                 <div class="wb-follow-name">${displayName}</div>
                 <div class="wb-follow-desc">${char.description || '这个人很懒，什么都没写~'}</div>
             </div>
-            <div class="wb-follow-btn ${btnClass}" onclick="toggleWeiboFollow('${char.id}')">${btnText}</div>
+            <div class="wb-follow-btn ${btnClass}" onclick="event.stopPropagation(); toggleWeiboFollow('${char.id}')">${btnText}</div>
         `;
         listEl.appendChild(item);
     });
+}
+
+// ==========================================
+// 微博角色主页与专属生成逻辑
+// ==========================================
+let currentWeiboViewCharId = null;
+
+function openWeiboCharProfile(charId) {
+    currentWeiboViewCharId = charId;
+    const currentLoginId = ChatDB.getItem('weibo_current_account');
+    let allChars = JSON.parse(ChatDB.getItem('chat_chars') || '[]');
+    let weiboNpcs = JSON.parse(ChatDB.getItem('weibo_npcs') || '[]');
+    let combinedChars = [...allChars, ...weiboNpcs];
+    let char = combinedChars.find(c => c.id === charId);
+    if (!char) return;
+
+    let remarks = JSON.parse(ChatDB.getItem(`char_remarks_${currentLoginId}`) || '{}');
+    const displayName = remarks[char.id] || char.netName || char.name;
+
+    document.getElementById('wbCharProfileName').innerText = displayName;
+    document.getElementById('wbCharProfileBio').innerText = char.description ? `简介：${char.description.substring(0, 50)}...` : '简介：这个人很懒，什么都没写~';
+    document.getElementById('wbCharProfileAvatar').style.backgroundImage = `url('${char.avatarUrl || ''}')`;
+    
+    // 统计数据
+    let posts = JSON.parse(ChatDB.getItem(`weibo_posts_${currentLoginId}`) || '[]');
+    let charPosts = posts.filter(p => p.authorId === charId);
+    document.getElementById('wbCharProfilePostCount').innerText = charPosts.length;
+    
+    // 随机生成关注和粉丝数，让主页看起来更真实
+    const randomFollow = Math.floor(Math.random() * 300) + 50;
+    const randomFans = (Math.random() * 100 + 1).toFixed(1) + '万';
+    document.getElementById('wbCharProfileFollowCount').innerText = randomFollow;
+    document.getElementById('wbCharProfileFansCount').innerText = randomFans;
+
+    renderWeiboCharProfileFeed(charId);
+    document.getElementById('weiboCharProfilePanel').style.display = 'flex';
+}
+
+function closeWeiboCharProfile() {
+    document.getElementById('weiboCharProfilePanel').style.display = 'none';
+    currentWeiboViewCharId = null;
+}
+
+function renderWeiboCharProfileFeed(charId) {
+    const currentLoginId = ChatDB.getItem('weibo_current_account');
+    const container = document.getElementById('wbCharProfileFeedList');
+    let posts = JSON.parse(ChatDB.getItem(`weibo_posts_${currentLoginId}`) || '[]');
+    let charPosts = posts.filter(p => p.authorId === charId);
+    renderPostsToContainer(charPosts, container, "该角色暂无微博内容");
+}
+
+function openWeiboCharPostGenModal() {
+    if (!currentWeiboViewCharId) return;
+    document.getElementById('weiboCharPostGenModalOverlay').classList.add('show');
+}
+
+function closeWeiboCharPostGenModal() {
+    document.getElementById('weiboCharPostGenModalOverlay').classList.remove('show');
+}
+
+async function generateWeiboCharPostAPI() {
+    if (!currentWeiboViewCharId) return;
+    const currentLoginId = ChatDB.getItem('weibo_current_account');
+    if (!currentLoginId) return alert('请先登录微博！');
+
+    const postCount = document.getElementById('wbCharGenPostCount').value || 3;
+    const commentCount = document.getElementById('wbCharGenCommentCount').value || 2;
+
+    closeWeiboCharPostGenModal();
+
+    let allChars = JSON.parse(ChatDB.getItem('chat_chars') || '[]');
+    let weiboNpcs = JSON.parse(ChatDB.getItem('weibo_npcs') || '[]');
+    let combinedChars = [...allChars, ...weiboNpcs];
+    let char = combinedChars.find(c => c.id === currentWeiboViewCharId);
+    if (!char) return;
+
+    let remarks = JSON.parse(ChatDB.getItem(`char_remarks_${currentLoginId}`) || '{}');
+    const charName = remarks[char.id] || char.netName || char.name;
+
+    // 获取世界书
+    let wbText = "无特定世界书设定。";
+    const selectedWbIds = JSON.parse(ChatDB.getItem(`weibo_wb_entries_${currentLoginId}`) || '[]');
+    if (selectedWbIds.length > 0) {
+        const wbData = JSON.parse(ChatDB.getItem('worldbook_data')) || { entries: [] };
+        const entries = wbData.entries.filter(e => selectedWbIds.includes(e.id));
+        wbText = entries.map(e => `[${e.title}]: ${e.content}`).join('\n');
+    }
+
+    // 获取记忆库
+    let memoryText = "无特定记忆。";
+    let memory = JSON.parse(ChatDB.getItem(`char_memory_${currentLoginId}_${currentWeiboViewCharId}`) || 'null');
+    if (memory && memory.summary && memory.summary.length > 0) {
+        memoryText = memory.summary[memory.summary.length - 1].content;
+    }
+
+    // 获取最新聊天记录
+    let historyText = "无聊天记录。";
+    let history = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${currentWeiboViewCharId}`) || '[]');
+    if (history.length > 0) {
+        let recentHistory = history.slice(-10);
+        historyText = recentHistory.map(m => `${m.role === 'user' ? 'User' : charName}: ${m.content.replace(/<[^>]+>/g, '')}`).join('\n');
+    }
+
+    const prompt = `你是一个微博数据生成器。请根据以下信息，为角色【${charName}】生成微博内容。
+角色设定：${char.description || '无'}
+世界书设定：
+${wbText}
+角色记忆库总结：
+${memoryText}
+最近聊天记录：
+${historyText}
+
+请生成 ${postCount} 条微博 (posts)，发帖人必须是【${charName}】本人。内容要符合其人设、记忆和最近的聊天状态。
+每条微博包含 ${commentCount} 条网友评论 (commentsList)。
+
+必须返回严格的 JSON 格式，不要有任何 markdown 标记，格式如下：
+{
+    "posts": [
+        { 
+            "content": "微博内容", 
+            "likes": 123, 
+            "comments": ${commentCount},
+            "commentsList": [
+                { "authorName": "网友网名", "content": "评论内容" }
+            ]
+        }
+    ]
+}`;
+
+    showToast('正在生成角色微博...', 'loading');
+    try {
+        const res = await callLLM(prompt);
+        const data = JSON.parse(res);
+        
+        let existingPosts = JSON.parse(ChatDB.getItem(`weibo_posts_${currentLoginId}`) || '[]');
+
+        data.posts.forEach(p => {
+            p.id = 'post_' + Date.now() + Math.floor(Math.random() * 1000);
+            p.time = Date.now();
+            p.authorId = char.id;
+            p.authorName = charName;
+            p.authorAvatar = char.avatarUrl;
+            if (!p.commentsList) p.commentsList = [];
+            p.commentsList.forEach(c => {
+                c.authorAvatar = getRandomNpcAvatar();
+                c.time = Date.now();
+            });
+            existingPosts.unshift(p);
+        });
+
+        ChatDB.setItem(`weibo_posts_${currentLoginId}`, JSON.stringify(existingPosts));
+
+        hideToast();
+        showToast('生成成功！', 'success');
+        setTimeout(() => hideToast(), 2000);
+        renderWeiboCharProfileFeed(currentWeiboViewCharId);
+    } catch (e) {
+        hideToast();
+        alert('生成失败：' + e.message);
+    }
 }
 
 function toggleWeiboFollow(charId) {
@@ -1486,10 +1666,6 @@ async function generateWeiboPostAPI() {
     let following = JSON.parse(ChatDB.getItem(`weibo_following_${currentLoginId}`) || '[]');
     let allChars = JSON.parse(ChatDB.getItem('chat_chars') || '[]');
     let followChars = allChars.filter(c => following.includes(c.id));
-    
-    if (followChars.length === 0) {
-        return alert('您还没有关注任何角色，无法生成内容！请先去关注一些角色。');
-    }
 
     // 获取世界书
     let wbText = "无特定世界书设定。";
@@ -1504,7 +1680,7 @@ async function generateWeiboPostAPI() {
     const profile = getWeiboProfile(currentLoginId);
     const personaText = profile.persona ? `当前用户的微博人设/身份：${profile.persona}` : "当前用户无特定人设。";
 
-    let charsText = followChars.map(c => `角色名:${c.netName||c.name}, 设定:${c.description}`).join('; ');
+    let charsText = followChars.length > 0 ? followChars.map(c => `角色名:${c.netName||c.name}, 设定:${c.description}`).join('; ') : "无特定关注角色";
 
     const prompt = `你是一个微博数据生成器。请根据以下世界书设定、当前用户人设和关注的角色列表，生成微博内容。
 世界书设定：
@@ -1516,8 +1692,8 @@ ${personaText}
 ${charsText}
 
 请生成以下内容：
-1. ${postCount}条普通微博 (posts)，内容必须是关于【关注的角色列表】的讨论、动态或互动。发帖人可以是随机生成的网友、粉丝，也可以是角色本人。每条微博包含 ${commentCount} 条评论 (commentsList)。
-2. ${videoCount}条微博视频 (videos)，包含描述和各项数据，评论数请设定为 ${videoCommentCount} 左右，并生成 ${commentCount} 条评论 (commentsList)。
+1. ${postCount}条普通微博 (posts)，内容必须是关于【关注的角色列表】（如果有）或世界书设定的讨论、动态或互动。发帖人必须是随机生成的网友、粉丝、路人等，绝对不可以是关注的角色本人，也绝对不可以是当前用户本人。每条微博包含 ${commentCount} 条评论 (commentsList)。
+2. ${videoCount}条微博视频 (videos)，包含描述和各项数据，评论数请设定为 ${videoCommentCount} 左右，并生成 ${commentCount} 条评论 (commentsList)。发帖人同样必须是随机生成的网友。
 3. ${hotCount}条微博热搜 (hotTopics)，需符合世界书背景，tag可选"热","新","沸"或空。
 
 必须返回严格的 JSON 格式，不要有任何 markdown 标记，格式如下：
@@ -1763,6 +1939,7 @@ ${descText}
 ${wbText}
 
 ${associatedText}
+注意：发帖人必须是随机生成的网友NpC、粉丝、路人等，绝对不可以是角色本人，也绝对不可以是当前用户本人。
 
 必须返回严格的 JSON 格式，不要有任何 markdown 标记，格式如下：
 {
@@ -1844,6 +2021,7 @@ async function generateWeiboHotTopicPostsAPI() {
     if (!topicName) return;
 
     const prompt = `请为微博热搜“${topicName}”生成3条相关的网友讨论帖子。
+注意：发帖人必须是随机生成的网友、粉丝、路人等，绝对不可以是角色本人，也绝对不可以是当前用户本人。
 必须返回严格的 JSON 格式，不要有任何 markdown 标记，格式如下：
 {
     "posts": [

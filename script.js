@@ -2125,13 +2125,17 @@ function captureFullState() {
         apps: {},
         texts: Array.from(document.querySelectorAll('[contenteditable="true"]')).map(el => el.innerText)
     };
-    for (let i = 1; i <= 10; i++) {
-        let appId = i === 5 ? 'app-dock1' : (i === 6 ? 'app-dock-music' : (i === 7 ? 'app-mall' : (i === 8 ? 'app-dock-call' : (i === 9 ? 'app-dock-sms' : (i === 10 ? 'app-weibo' : `app${i}`)))));
-        state.apps[appId] = {
-            icon: document.getElementById(`icon-${appId}`).style.backgroundImage,
-            name: document.getElementById(`name-${appId}`).innerText
-        };
-    }
+    const appIds = ['app1', 'app2', 'app3', 'app4', 'app-dock1', 'app-dock-music', 'app-mall', 'app-dock-call', 'app-dock-sms', 'app-weibo', 'app-alipay'];
+    appIds.forEach(appId => {
+        const iconEl = document.getElementById(`icon-${appId}`);
+        const nameEl = document.getElementById(`name-${appId}`);
+        if (iconEl && nameEl) {
+            state.apps[appId] = {
+                icon: iconEl.style.backgroundImage,
+                name: nameEl.innerText
+            };
+        }
+    });
 
     return state;
 }
@@ -2193,8 +2197,8 @@ function applyFullState(state) {
         });
     }
     
-    for (let i = 1; i <= 10; i++) {
-        let appId = i === 5 ? 'app-dock1' : (i === 6 ? 'app-dock-music' : (i === 7 ? 'app-mall' : (i === 8 ? 'app-dock-call' : (i === 9 ? 'app-dock-sms' : (i === 10 ? 'app-weibo' : `app${i}`)))));
+    const appIds = ['app1', 'app2', 'app3', 'app4', 'app-dock1', 'app-dock-music', 'app-mall', 'app-dock-call', 'app-dock-sms', 'app-weibo', 'app-alipay'];
+    appIds.forEach(appId => {
         const appData = state.apps[appId];
         if (appData) {
             const appIconEl = document.getElementById(`icon-${appId}`);
@@ -2225,7 +2229,7 @@ function applyFullState(state) {
                 if (nameInput) nameInput.value = appData.name;
             }
         }
-    }
+    });
 
     const textEls = document.querySelectorAll('[contenteditable="true"]');
     if (state.texts) {
@@ -2276,7 +2280,8 @@ async function confirmResetDefault() {
             { id: 'app-dock-music', name: 'Music' },
             { id: 'app-dock-call', name: 'Call' },
             { id: 'app-dock-sms', name: 'message' },
-            { id: 'app-weibo', name: 'Weibo' }
+            { id: 'app-weibo', name: 'Weibo' },
+            { id: 'app-alipay', name: 'Alipay' }
         ];
 
         defaultApps.forEach(app => {
@@ -2505,77 +2510,100 @@ let desktopPressTimer;
 const homeScreen = document.getElementById('homeScreen');
 const gridBg = document.getElementById('desktopGridBg');
 
-// 动态生成 28 个网格单元格
-for (let i = 0; i < 28; i++) {
+// 动态生成 56 个网格单元格 (两页)
+for (let i = 0; i < 56; i++) {
     const cell = document.createElement('div');
     cell.className = 'grid-cell';
-    gridBg.appendChild(cell);
+    const gridBg1 = document.getElementById('desktopGridBg');
+    const gridBg2 = document.getElementById('desktopGridBg2');
+    if (i < 28 && gridBg1) gridBg1.appendChild(cell);
+    else if (i >= 28 && gridBg2) gridBg2.appendChild(cell);
 }
 
 let dragEl = null;
 let desktopDragStartX = 0, desktopDragStartY = 0;
 let initialDesktopHTML = ''; // 用于记录编辑前的状态，方便取消时回滚
 
-// 自动计算并填满桌面的空位
+// 自动计算并填满桌面的空位 (支持多页，绝对不破坏现有占位符)
 function fillDesktopPlaceholders() {
-    const homeScreen = document.getElementById('homeScreen');
-    if (!homeScreen) return;
-    
-    // 清除旧的占位符
-    const existingPlaceholders = homeScreen.querySelectorAll('.app-placeholder');
-    existingPlaceholders.forEach(p => p.remove());
+    ['homeScreen', 'homeScreen2'].forEach(pageId => {
+        const page = document.getElementById(pageId);
+        if (!page) return;
 
-    let usedSlots = 0;
-    const items = homeScreen.querySelectorAll('.app-item, .widget-container');
-    items.forEach(item => {
-        if (item.closest('.dock-container')) return; // 排除底栏的 APP
-        if (item.classList.contains('widget-container')) {
-            usedSlots += 16; // 小组件占 4x4 = 16 格
-        } else if (item.classList.contains('app-item')) {
-            usedSlots += 1; // APP 占 1 格
+        let usedSlots = 0;
+        // 计算当前页面已经占用的格子（包括现有的占位符）
+        const items = page.querySelectorAll('.app-item, .widget-container, .app-placeholder');
+        items.forEach(item => {
+            if (item.closest('.dock-container')) return;
+            if (item.classList.contains('widget-container')) {
+                usedSlots += 16; // 小组件占 16 格
+            } else {
+                usedSlots += 1; // APP 和 占位符 都占 1 格
+            }
+        });
+
+        const totalSlots = 28; // 每页 28 格
+        const emptySlots = totalSlots - usedSlots;
+
+        // 只在末尾补充缺失的占位符，绝对不删除中间已有的占位符！防止顺位补齐！
+        for (let i = 0; i < emptySlots; i++) {
+            const placeholder = document.createElement('div');
+            placeholder.className = 'app-placeholder';
+            placeholder.style.minHeight = '80px';
+            page.appendChild(placeholder);
+        }
+        
+        // 如果超出了 28 格（比如添加了小组件导致溢出），需要把末尾多余的占位符删掉
+        if (emptySlots < 0) {
+            let toRemove = Math.abs(emptySlots);
+            const placeholders = Array.from(page.querySelectorAll('.app-placeholder'));
+            for (let i = placeholders.length - 1; i >= 0 && toRemove > 0; i--) {
+                placeholders[i].remove();
+                toRemove--;
+            }
         }
     });
-
-    const totalSlots = 28; // 桌面总共 4x7 = 28 格
-    const emptySlots = totalSlots - usedSlots;
-
-    // 填充空位
-    for (let i = 0; i < emptySlots; i++) {
-        const placeholder = document.createElement('div');
-        placeholder.className = 'app-placeholder';
-        placeholder.style.minHeight = '80px'; // 确保空位有高度，方便拖拽命中
-        homeScreen.appendChild(placeholder);
-    }
 }
 
-// 恢复保存的桌面布局顺序（完美恢复小组件和APP）
+// 恢复保存的桌面布局顺序（支持多页）
 function restoreDesktopOrder() {
     const orderStr = ChatDB.getItem('desktop_order') || localStorage.getItem('desktop_order');
     if (!orderStr) return;
     const order = JSON.parse(orderStr);
-    const homeScreen = document.getElementById('homeScreen');
+    const page1 = document.getElementById('homeScreen');
+    const page2 = document.getElementById('homeScreen2');
     
     const elements = { app: {} };
     
-    // 收集当前桌面上的 APP
-    Array.from(homeScreen.children).forEach(child => {
-        if (child.classList.contains('app-item')) {
-            const iconEl = child.querySelector('.app-icon');
-            if (iconEl) elements.app[iconEl.id] = child;
-        }
+    // 收集当前桌面上的 APP (两页都找)
+    [page1, page2].forEach(page => {
+        if(!page) return;
+        Array.from(page.children).forEach(child => {
+            if (child.classList.contains('app-item')) {
+                const iconEl = child.querySelector('.app-icon');
+                if (iconEl) elements.app[iconEl.id] = child;
+            }
+        });
     });
 
     // 清空桌面（保留 grid-bg）
-    const gridBg = document.getElementById('desktopGridBg');
-    homeScreen.innerHTML = '';
-    if (gridBg) homeScreen.appendChild(gridBg);
+    const gridBg1 = document.getElementById('desktopGridBg');
+    const gridBg2 = document.getElementById('desktopGridBg2');
+    if(page1) { page1.innerHTML = ''; if (gridBg1) page1.appendChild(gridBg1); }
+    if(page2) { page2.innerHTML = ''; if (gridBg2) page2.appendChild(gridBg2); }
     
+    let currentSlot = 0;
+
     // 按照保存的顺序重新排列 DOM
     order.forEach(item => {
+        let slotsUsed = 1;
+        if (item.type === 'widget') slotsUsed = 16;
+        
+        const targetPage = (currentSlot < 28) ? page1 : page2;
+        if (!targetPage) return;
+
         if (item.type === 'widget') {
             const temp = document.createElement('div');
-            
-            // 如果是带有动态脚本的自定义小组件，重新注入原始 content 触发脚本
             if (item.isCustom && item.rawContent) {
                 const transparentClass = item.isTransparent ? 'is-transparent-widget' : '';
                 temp.innerHTML = `
@@ -2586,14 +2614,11 @@ function restoreDesktopOrder() {
                     ${decodeURIComponent(item.rawContent)}
                 </div>`;
             } else {
-                // 普通小组件直接恢复 HTML
                 temp.innerHTML = item.html;
             }
-            
             const widget = temp.firstElementChild;
-            homeScreen.appendChild(widget);
+            targetPage.appendChild(widget);
             
-            // 重新绑定小组件内的图片上传事件
             widget.querySelectorAll('.uploadable-img').forEach(el => {
                 handleImageUpload(el, (imgUrl, targetEl) => {
                     targetEl.style.backgroundImage = `url(${imgUrl})`;
@@ -2601,34 +2626,37 @@ function restoreDesktopOrder() {
                 });
             });
         } else if (item.type === 'app' && elements.app[item.id]) {
-            homeScreen.appendChild(elements.app[item.id]);
-            delete elements.app[item.id]; // 标记已使用
+            targetPage.appendChild(elements.app[item.id]);
+            delete elements.app[item.id];
         } else if (item.type === 'placeholder') {
             const placeholder = document.createElement('div');
             placeholder.className = 'app-placeholder';
             placeholder.style.minHeight = '80px';
-            homeScreen.appendChild(placeholder);
+            targetPage.appendChild(placeholder);
         }
+        currentSlot += slotsUsed;
     });
     
-    // 把没匹配上的新 APP 追加到最后
-    Object.values(elements.app).forEach(el => homeScreen.appendChild(el));
+    // 把没匹配上的新 APP 追加到第一页最后
+    Object.values(elements.app).forEach(el => {
+        if(page1) page1.appendChild(el);
+    });
 }
 
 // 拦截编辑模式下的点击事件，防止进入 APP
-homeScreen.addEventListener('click', function(e) {
-    if (homeScreen.classList.contains('is-desktop-editing')) {
-        // 如果点击的不是删除按钮，则阻止默认跳转
+const wrapperEl = document.getElementById('homeScreenWrapper') || document.getElementById('homeScreen');
+wrapperEl.addEventListener('click', function(e) {
+    if (this.classList.contains('is-desktop-editing')) {
         if (!e.target.closest('.widget-delete-btn')) {
             e.preventDefault();
             e.stopPropagation();
         }
     }
-}, true); // 使用捕获阶段拦截
+}, true);
 
 function bindDesktopLongPress() {
-    fillDesktopPlaceholders(); // 每次绑定前确保空位被填满
-    const items = homeScreen.querySelectorAll('.app-item, .widget-container');
+    fillDesktopPlaceholders();
+    const items = document.querySelectorAll('.home-screen .app-item, .home-screen .widget-container');
     items.forEach(item => {
         item.removeEventListener('touchstart', handleTouchStart);
         item.removeEventListener('touchmove', handleTouchMove);
@@ -2652,7 +2680,8 @@ function handleTouchStart(e) {
     desktopDragStartX = touch.clientX;
     desktopDragStartY = touch.clientY;
 
-    if (!homeScreen.classList.contains('is-desktop-editing')) {
+    const wrapper = document.getElementById('homeScreenWrapper') || document.getElementById('homeScreen');
+    if (!wrapper.classList.contains('is-desktop-editing')) {
         desktopPressTimer = setTimeout(() => {
             enterDesktopEditMode();
         }, 800);
@@ -2667,15 +2696,15 @@ function handleTouchStart(e) {
     dragEl.classList.add('dragging');
 }
 
-let currentDropTarget = null; // 记录当前悬停的目标
+let currentDropTarget = null;
 
 function handleTouchMove(e) {
     const touch = e.touches ? e.touches[0] : e;
     const currentX = touch.clientX;
     const currentY = touch.clientY;
+    const wrapper = document.getElementById('homeScreenWrapper') || document.getElementById('homeScreen');
 
-    if (!homeScreen.classList.contains('is-desktop-editing')) {
-        // 增加防抖：只有手指移动超过 10px 才取消长按，防止误触
+    if (!wrapper.classList.contains('is-desktop-editing')) {
         if (Math.abs(currentX - desktopDragStartX) > 10 || Math.abs(currentY - desktopDragStartY) > 10) {
             clearTimeout(desktopPressTimer);
         }
@@ -2685,7 +2714,27 @@ function handleTouchMove(e) {
     if (!dragEl) return;
     e.preventDefault();
 
-    // 让元素跟随手指移动，并确保在最上层
+    // 新增：边缘检测自动翻页逻辑
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const edgeThreshold = 40; // 距离边缘 40px 触发翻页
+    
+    if (!window.isAutoScrolling) {
+        // 拖到右边缘，且还没到最后一页
+        if (currentX > wrapperRect.right - edgeThreshold && wrapper.scrollLeft < wrapper.scrollWidth - wrapper.clientWidth) {
+            window.isAutoScrolling = true;
+            wrapper.scrollBy({ left: wrapper.clientWidth, behavior: 'auto' });
+            desktopDragStartX -= wrapper.clientWidth; // 补偿滚动偏移，防止图标乱跳
+            setTimeout(() => window.isAutoScrolling = false, 500); // 冷却时间，防止连续翻页
+        } 
+        // 拖到左边缘，且还没到第一页
+        else if (currentX < wrapperRect.left + edgeThreshold && wrapper.scrollLeft > 0) {
+            window.isAutoScrolling = true;
+            wrapper.scrollBy({ left: -wrapper.clientWidth, behavior: 'auto' });
+            desktopDragStartX += wrapper.clientWidth; // 补偿滚动偏移
+            setTimeout(() => window.isAutoScrolling = false, 500);
+        }
+    }
+
     const deltaX = currentX - desktopDragStartX;
     const deltaY = currentY - desktopDragStartY;
     dragEl.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(1.05)`;
@@ -2697,15 +2746,14 @@ function handleTouchMove(e) {
 
     if (targetEl) {
         const dropTarget = targetEl.closest('.app-item, .widget-container, .app-placeholder');
-        if (dropTarget && dropTarget !== dragEl && dropTarget.parentNode === homeScreen) {
-            // 如果悬停到了新目标，添加高亮提示
+        // 允许跨页拖拽 (只要在 home-screen 内部即可)
+        if (dropTarget && dropTarget !== dragEl && dropTarget.closest('.home-screen')) {
             if (currentDropTarget !== dropTarget) {
                 if (currentDropTarget) currentDropTarget.classList.remove('drag-over');
                 currentDropTarget = dropTarget;
                 currentDropTarget.classList.add('drag-over');
             }
         } else {
-            // 移出目标区域时，清除高亮
             if (currentDropTarget) {
                 currentDropTarget.classList.remove('drag-over');
                 currentDropTarget = null;
@@ -2717,9 +2765,7 @@ function handleTouchMove(e) {
 function handleTouchEnd(e) {
     clearTimeout(desktopPressTimer);
     if (dragEl) {
-        // 松开手指时，如果停留在有效目标上，才执行位置交换
         if (currentDropTarget && currentDropTarget !== dragEl) {
-            // 核心修复：精准互换两个 DOM 节点的位置，其他元素绝对不移动！
             const parentA = dragEl.parentNode;
             const siblingA = dragEl.nextSibling === currentDropTarget ? dragEl : dragEl.nextSibling;
             
@@ -2730,7 +2776,7 @@ function handleTouchEnd(e) {
             currentDropTarget = null;
         }
 
-        dragEl.style.transform = ''; // 清除位移
+        dragEl.style.transform = '';
         dragEl.style.zIndex = '';
         dragEl.classList.remove('dragging');
         dragEl = null;
@@ -2738,29 +2784,22 @@ function handleTouchEnd(e) {
 }
 
 function enterDesktopEditMode() {
-    const homeScreen = document.getElementById('homeScreen');
-    // 记录进入编辑模式前的桌面 HTML，用于取消时回滚
-    initialDesktopHTML = homeScreen.innerHTML;
-    
-    homeScreen.classList.add('is-desktop-editing');
+    const wrapper = document.getElementById('homeScreenWrapper') || document.getElementById('homeScreen');
+    initialDesktopHTML = wrapper.innerHTML;
+    wrapper.classList.add('is-desktop-editing');
     document.getElementById('desktopEditCapsule').classList.add('show');
 }
 
 function cancelDesktopEdit() {
-    const homeScreen = document.getElementById('homeScreen');
-    homeScreen.classList.remove('is-desktop-editing');
+    const wrapper = document.getElementById('homeScreenWrapper') || document.getElementById('homeScreen');
+    wrapper.classList.remove('is-desktop-editing');
     document.getElementById('desktopEditCapsule').classList.remove('show');
     
-    // 如果点击了取消，恢复到进入编辑模式前的 HTML 状态
     if (initialDesktopHTML) {
-        homeScreen.innerHTML = initialDesktopHTML;
+        wrapper.innerHTML = initialDesktopHTML;
         initialDesktopHTML = '';
-        
-        // 重新绑定长按拖拽事件
         bindDesktopLongPress();
-        
-        // 重新绑定小组件图片上传事件
-        homeScreen.querySelectorAll('.uploadable-img').forEach(el => {
+        wrapper.querySelectorAll('.uploadable-img').forEach(el => {
             handleImageUpload(el, (imgUrl, targetEl) => {
                 targetEl.style.backgroundImage = `url(${imgUrl})`;
                 targetEl.classList.add('has-image');
@@ -2770,34 +2809,36 @@ function cancelDesktopEdit() {
 }
 
 function saveDesktopEdit() {
-    initialDesktopHTML = ''; // 清除回滚记录，确认保存
+    initialDesktopHTML = ''; 
     
-    const homeScreen = document.getElementById('homeScreen');
-    homeScreen.classList.remove('is-desktop-editing');
+    const wrapper = document.getElementById('homeScreenWrapper') || document.getElementById('homeScreen');
+    wrapper.classList.remove('is-desktop-editing');
     document.getElementById('desktopEditCapsule').classList.remove('show');
     
-    // 记录当前 DOM 顺序并保存到本地
     const order = [];
-    const items = homeScreen.querySelectorAll('.app-item, .widget-container, .app-placeholder');
-    items.forEach(item => {
-        if (item.classList.contains('widget-container')) {
-            // 保存小组件的完整 HTML 及原始脚本内容，确保刷新后动态脚本能再次执行
-            const rawContent = item.getAttribute('data-raw-content') || '';
-            order.push({ 
-                type: 'widget', 
-                id: item.id || '', 
-                html: item.outerHTML,
-                rawContent: rawContent,
-                isCustom: item.classList.contains('custom-desktop-widget'),
-                isTransparent: item.classList.contains('is-transparent-widget'),
-                bgColor: item.style.background
-            });
-        } else if (item.classList.contains('app-item')) {
-            const iconEl = item.querySelector('.app-icon');
-            order.push({ type: 'app', id: iconEl ? iconEl.id : '' });
-        } else if (item.classList.contains('app-placeholder')) {
-            order.push({ type: 'placeholder' });
-        }
+    ['homeScreen', 'homeScreen2'].forEach(pageId => {
+        const page = document.getElementById(pageId);
+        if(!page) return;
+        const items = page.querySelectorAll('.app-item, .widget-container, .app-placeholder');
+        items.forEach(item => {
+            if (item.classList.contains('widget-container')) {
+                const rawContent = item.getAttribute('data-raw-content') || '';
+                order.push({ 
+                    type: 'widget', 
+                    id: item.id || '', 
+                    html: item.outerHTML,
+                    rawContent: rawContent,
+                    isCustom: item.classList.contains('custom-desktop-widget'),
+                    isTransparent: item.classList.contains('is-transparent-widget'),
+                    bgColor: item.style.background
+                });
+            } else if (item.classList.contains('app-item')) {
+                const iconEl = item.querySelector('.app-icon');
+                order.push({ type: 'app', id: iconEl ? iconEl.id : '' });
+            } else if (item.classList.contains('app-placeholder')) {
+                order.push({ type: 'placeholder' });
+            }
+        });
     });
     ChatDB.setItem('desktop_order', JSON.stringify(order));
     
@@ -2807,9 +2848,19 @@ function saveDesktopEdit() {
 
 function deleteDesktopWidget(btn) {
     if(confirm('确定要删除该小组件吗？')) {
-        btn.closest('.widget-container').remove();
-        fillDesktopPlaceholders(); // 删除后重新计算空位
-        // 注意：这里不再自动保存，必须用户点击“保存”才会生效，点击“取消”会恢复
+        const widget = btn.closest('.widget-container');
+        const parent = widget.parentNode;
+        
+        // 核心修复：删除小组件时，在原位置精准插入 16 个占位符，绝对不让后面的 APP 顺位补齐！
+        for (let i = 0; i < 16; i++) {
+            const placeholder = document.createElement('div');
+            placeholder.className = 'app-placeholder';
+            placeholder.style.minHeight = '80px';
+            parent.insertBefore(placeholder, widget);
+        }
+        
+        widget.remove();
+        fillDesktopPlaceholders(); // 校验一下总数
     }
 }
 
@@ -2921,11 +2972,15 @@ function addImportedWidgetToDesktop(index) {
         ${innerContent}
     </div>`;
     
-    document.getElementById('desktopGridBg').insertAdjacentHTML('afterend', widgetHTML);
+    // 核心修复：判断当前滑动到了哪一页，就把小组件加到哪一页
+    const wrapper = document.getElementById('homeScreenWrapper');
+    const isPage2 = wrapper && wrapper.scrollLeft > wrapper.clientWidth / 2;
+    const targetBgId = isPage2 ? 'desktopGridBg2' : 'desktopGridBg';
+    
+    document.getElementById(targetBgId).insertAdjacentHTML('afterend', widgetHTML);
     fillDesktopPlaceholders(); // 重新计算空位
     closeWidgetModal();
     bindDesktopLongPress();
-    // 注意：这里不再自动保存，必须用户点击“保存”才会生效
 }
 
 function addWidgetToDesktop(type) {
@@ -2946,7 +3001,7 @@ function addWidgetToDesktop(type) {
                         <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                     </svg>
                 </div>
-                <div class="widget-btn" contenteditable="true" spellcheck="false">#记录你有关的萌点</div>
+                <div class="widget-btn" contenteditable="true" spellcheck="false"># ◍⁰ᯅ⁰◍ .ᐟ.ᐟ</div>
             </div>
             <div class="widget-music">
                 <div class="music-cover uploadable-img"></div>
@@ -2956,7 +3011,7 @@ function addWidgetToDesktop(type) {
                 </div>
             </div>
             <div class="widget-search">
-                <span contenteditable="true" spellcheck="false">索菲亚公主的午后芭蕾茶话会</span>
+                <span contenteditable="true" spellcheck="false">永远纠缠在一起吧 发丝 命运 我和你</span>
                 <span style="background:#888; color:#fff; border-radius:50%; width:20px; height:20px; text-align:center; line-height:20px;">↑</span>
             </div>
             <div class="widget-gallery">
@@ -2966,7 +3021,12 @@ function addWidgetToDesktop(type) {
             </div>
         </div>`;
         
-        document.getElementById('desktopGridBg').insertAdjacentHTML('afterend', defaultWidgetHTML);
+        // 核心修复：判断当前滑动到了哪一页，就把小组件加到哪一页
+        const wrapper = document.getElementById('homeScreenWrapper');
+        const isPage2 = wrapper && wrapper.scrollLeft > wrapper.clientWidth / 2;
+        const targetBgId = isPage2 ? 'desktopGridBg2' : 'desktopGridBg';
+        
+        document.getElementById(targetBgId).insertAdjacentHTML('afterend', defaultWidgetHTML);
         
         document.querySelectorAll('#main-widget-container .uploadable-img').forEach(el => {
             handleImageUpload(el, (imgUrl, targetEl) => {

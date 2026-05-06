@@ -23,6 +23,9 @@
     <!-- Web App Manifest -->
     <link rel="manifest" href="manifest.json">
 
+    <!-- 引入 Google 像素字体 (俄罗斯方块专属) -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
     <!-- 引入外部 CSS 文件 -->
     <link rel="stylesheet" href="style.css">    
     <!-- 引入 MapLibre 原生 3D 真实地图库 -->
@@ -317,88 +320,109 @@
         </div>
     </div>
 
-    <!-- 桌面区域 -->
-    <div class="home-screen" id="homeScreen">
-        <!-- 新增：编辑模式下的网格背景 -->
-        <div class="desktop-grid-bg" id="desktopGridBg"></div>
-        
-        <div class="widget-container" id="main-widget-container">
-            <!-- 新增：小组件删除按钮 -->
-            <div class="widget-delete-btn" onclick="deleteDesktopWidget(this)">
-                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#ff3b30"></circle><line x1="8" y1="12" x2="16" y2="12" stroke="#fff" stroke-width="2"></line></svg>
-            </div>
-            <div class="widget-top-bar">
+    <!-- 桌面区域 (支持左右滑动的多页容器) -->
+    <div class="home-screen-wrapper" id="homeScreenWrapper">
+        <!-- 第 1 页 -->
+        <div class="home-screen" id="homeScreen">
+            <!-- 新增：编辑模式下的网格背景 -->
+            <div class="desktop-grid-bg" id="desktopGridBg"></div>
+            
+            <div class="widget-container" id="main-widget-container">
+                <!-- 新增：小组件删除按钮 -->
+                <div class="widget-delete-btn" onclick="deleteDesktopWidget(this)">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#ff3b30"></circle><line x1="8" y1="12" x2="16" y2="12" stroke="#fff" stroke-width="2"></line></svg>
+                </div>
+                <div class="widget-top-bar">
 
-                <div class="widget-btn icon-btn">
-                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="#666" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    <div class="widget-btn icon-btn">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="#666" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                    </div>
+                    <div class="widget-btn" contenteditable="true" spellcheck="false">#记录你有关的萌点</div>
+                </div>
+                <div class="widget-music">
+                    <div class="music-cover uploadable-img"></div>
+                    <div class="music-info">
+                        <div class="music-title" contenteditable="true" spellcheck="false">DorisWorld</div>
+                        <div class="music-sub" contenteditable="true" spellcheck="false">Doris<br>Music</div>
+                    </div>
+                </div>
+                <div class="widget-search">
+                    <span contenteditable="true" spellcheck="false">索菲亚公主的午后芭蕾茶话会</span>
+                    <span style="background:#888; color:#fff; border-radius:50%; width:20px; height:20px; text-align:center; line-height:20px;">↑</span>
+                </div>
+                <div class="widget-gallery">
+                    <div class="gallery-item-widget uploadable-img">love</div>
+                    <div class="gallery-item-widget uploadable-img">Cherish</div>
+                    <div class="gallery-item-widget uploadable-img">|||||||</div>
+                </div>
+            </div>
+
+            <!-- 桌面 APP -->
+            <div class="app-item" onclick="openThemePanel()">
+                <div class="app-icon" id="icon-app1">
+                    <svg viewBox="0 0 24 24" width="28" height="28"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                </div>
+                <div class="app-name" id="name-app1">theme</div>
+            </div>
+            <!-- 移到桌面的 Music APP (自然排在第五行第二个) -->
+            <div class="app-item" onclick="openMusicApp()">
+                <div class="app-icon" id="icon-app-dock-music">
+                    <svg viewBox="0 0 24 24" width="28" height="28"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+                </div>
+                <div class="app-name" id="name-app-dock-music">Music</div>
+            </div>
+            <div class="app-item" onclick="openSettingsPanel()">
+                <div class="app-icon" id="icon-app2">
+                    <svg viewBox="0 0 24 24" width="28" height="28"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                </div>
+                <div class="app-name" id="name-app2">settings</div>
+            </div>
+            <!-- 新增：Alipay APP (第五行第四个) -->
+            <div class="app-item" onclick="openAlipayPanel()">
+                <div class="app-icon" id="icon-app-alipay">
+                    <svg viewBox="0 0 24 24" width="28" height="28" stroke="#8e8e93" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+                        <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+                        <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+                        <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+                        <rect x="7" y="7" width="10" height="10" rx="2"></rect>
                     </svg>
                 </div>
-                <div class="widget-btn" contenteditable="true" spellcheck="false">#记录你有关的萌点</div>
+                <div class="app-name" id="name-app-alipay">Alipay</div>
             </div>
-            <div class="widget-music">
-                <div class="music-cover uploadable-img"></div>
-                <div class="music-info">
-                    <div class="music-title" contenteditable="true" spellcheck="false">DorisWorld</div>
-                    <div class="music-sub" contenteditable="true" spellcheck="false">Doris<br>Music</div>
+            <!-- 微博 APP (顺延至第六行第一个) -->
+            <div class="app-item" onclick="openWeiboPanel()">
+                <div class="app-icon" id="icon-app-weibo">
+                    <svg viewBox="0 0 24 24" width="28" height="28" stroke="#8e8e93" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"></path></svg>
                 </div>
+                <div class="app-name" id="name-app-weibo">Weibo</div>
             </div>
-            <div class="widget-search">
-                <span contenteditable="true" spellcheck="false">索菲亚公主的午后芭蕾茶话会</span>
-                <span style="background:#888; color:#fff; border-radius:50%; width:20px; height:20px; text-align:center; line-height:20px;">↑</span>
+            <div class="app-item" onclick="openWorldbookPanel()">
+                <div class="app-icon" id="icon-app3">
+                    <svg viewBox="0 0 24 24" width="28" height="28"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                </div>
+                <div class="app-name" id="name-app3">worldbook</div>
             </div>
-            <div class="widget-gallery">
-                <div class="gallery-item-widget uploadable-img">love</div>
-                <div class="gallery-item-widget uploadable-img">Cherish</div>
-                <div class="gallery-item-widget uploadable-img">|||||||</div>
+            <div class="app-item" onclick="openChatPanel()">
+                <div class="app-icon" id="icon-app4">
+                    <svg viewBox="0 0 24 24" width="28" height="28"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                </div>
+                <div class="app-name" id="name-app4">chat</div>
+            </div>
+            <!-- 去除 style 锁定，让商城APP可以自由拖动 -->
+            <div class="app-item" id="app-mall" onclick="openMallApp()">
+                <div class="app-icon" id="icon-app-mall">
+                    <svg viewBox="0 0 24 24" width="28" height="28" stroke="#8e8e93" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+                </div>
+                <div class="app-name" id="name-app-mall">Shopping</div>
             </div>
         </div>
-
-        <!-- 桌面 APP -->
-        <div class="app-item" onclick="openThemePanel()">
-            <div class="app-icon" id="icon-app1">
-                <svg viewBox="0 0 24 24" width="28" height="28"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-            </div>
-            <div class="app-name" id="name-app1">theme</div>
-        </div>
-        <!-- 移到桌面的 Music APP (自然排在第五行第二个) -->
-        <div class="app-item" onclick="openMusicApp()">
-            <div class="app-icon" id="icon-app-dock-music">
-                <svg viewBox="0 0 24 24" width="28" height="28"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
-            </div>
-            <div class="app-name" id="name-app-dock-music">Music</div>
-        </div>
-        <div class="app-item" onclick="openSettingsPanel()">
-            <div class="app-icon" id="icon-app2">
-                <svg viewBox="0 0 24 24" width="28" height="28"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-            </div>
-            <div class="app-name" id="name-app2">settings</div>
-        </div>
-        <!-- 新增：微博 APP (第五行第四个) -->
-        <div class="app-item" onclick="openWeiboPanel()">
-            <div class="app-icon" id="icon-app-weibo">
-                <svg viewBox="0 0 24 24" width="28" height="28" stroke="#8e8e93" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"></path></svg>
-            </div>
-            <div class="app-name" id="name-app-weibo">Weibo</div>
-        </div>
-        <div class="app-item" onclick="openWorldbookPanel()">
-            <div class="app-icon" id="icon-app3">
-                <svg viewBox="0 0 24 24" width="28" height="28"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-            </div>
-            <div class="app-name" id="name-app3">worldbook</div>
-        </div>
-        <div class="app-item" onclick="openChatPanel()">
-            <div class="app-icon" id="icon-app4">
-                <svg viewBox="0 0 24 24" width="28" height="28"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-            </div>
-            <div class="app-name" id="name-app4">chat</div>
-        </div>
-        <!-- 去除 style 锁定，让商城APP可以自由拖动 -->
-        <div class="app-item" id="app-mall" onclick="openMallApp()">
-            <div class="app-icon" id="icon-app-mall">
-                <svg viewBox="0 0 24 24" width="28" height="28" stroke="#8e8e93" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
-            </div>
-            <div class="app-name" id="name-app-mall">Shopping</div>
+        
+        <!-- 第 2 页 -->
+        <div class="home-screen" id="homeScreen2">
+            <div class="desktop-grid-bg" id="desktopGridBg2"></div>
         </div>
     </div>
 
@@ -677,6 +701,19 @@
                         <div class="skeleton-subline"></div>
                     </div>
                     <div class="item-deco">weibo <svg viewBox="0 0 24 24" width="12" height="12" stroke="#d0d0d0" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></div>
+                </div>
+                <div class="app-setting-item">
+                    <div class="app-icon-upload" data-target="icon-app-alipay">
+                        <svg class="placeholder-svg" viewBox="0 0 24 24" width="24" height="24" stroke="#ccc" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                        <div class="camera-badge">
+                            <svg viewBox="0 0 24 24" width="10" height="10" stroke="#666" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                        </div>
+                    </div>
+                    <div class="app-input-group">
+                        <input type="text" class="app-name-input" data-target="name-app-alipay" value="Alipay">
+                        <div class="skeleton-subline"></div>
+                    </div>
+                    <div class="item-deco">alipay <svg viewBox="0 0 24 24" width="12" height="12" stroke="#d0d0d0" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></div>
                 </div>
             </div>
 
@@ -5419,19 +5456,22 @@
             <div class="header-title-wrapper"><div class="header-title">新增地址</div></div>
             <div class="header-refresh"></div>
         </div>
-        <div class="mall-map-area">
-            <div class="mall-map-marker">
+        <div class="mall-map-area" style="position: relative;">
+            <div id="mallRealMapContainer" style="width: 100%; height: 100%;"></div>
+            <div class="mall-map-marker" style="pointer-events: none; z-index: 1000;">
                 <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3" fill="#fff"></circle></svg>
                 <div class="mall-map-shadow"></div>
             </div>
         </div>
         <div class="mall-address-form">
+            <div style="display: flex; align-items: center; background: #f4f4f4; border: 1px solid #eee; border-radius: 8px; padding: 8px 12px; width: 100%; margin-bottom: 10px;">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="#aaa" style="flex-shrink: 0; margin-right: 8px;"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                <input type="text" id="mallLocationSearchInput" placeholder="搜索位置 / 输入位置名称" style="flex: 1; border: none; outline: none; font-size: 14px; background: transparent; height: 20px; color: #333;" onkeypress="if(event.key==='Enter') searchMallLocation()">
+                <div onclick="searchMallLocation()" style="font-size: 13px; color: #111; font-weight: bold; cursor: pointer; padding-left: 10px; border-left: 1px solid #ddd; margin-left: 6px;">搜索</div>
+            </div>
             <div class="mall-location-btns">
-                <div class="mall-loc-btn real" onclick="getRealLocation()">
-                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg> 获取真实定位
-                </div>
-                <div class="mall-loc-btn virtual" onclick="getVirtualLocation()">
-                    <svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg> 使用虚拟定位
+                <div class="mall-loc-btn real" onclick="getMallRealLocation()">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg> 定位到我
                 </div>
             </div>
             <div class="mall-address-input-group">
@@ -5776,17 +5816,9 @@
 
             <!-- 2. 视频页 -->
             <div class="wb-page" id="wb-page-video" style="background-color: #111; color: #fff;">
-                <div class="wb-video-container">
-                    <div class="wb-video-right-actions">
-                        <div class="wb-video-avatar"></div>
-                        <div class="wb-video-action" onclick="toggleWeiboLike(this)"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg><span class="wb-like-count">1.2w</span></div>
-                        <div class="wb-video-action"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>856</div>
-                        <div class="wb-video-action"><svg viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>转发</div>
-                    </div>
-                    <div class="wb-video-info">
-                        <div class="wb-video-username">@视觉艺术</div>
-                        <div class="wb-video-desc">黑白灰的极致拉扯，感受光影的魅力。#摄影 #黑白</div>
-                    </div>
+                <!-- 新增：上下滑动的视频容器 -->
+                <div class="wb-video-scroll-container" id="wbVideoScrollContainer">
+                    <!-- 动态渲染视频流 -->
                 </div>
             </div>
 
@@ -6296,6 +6328,70 @@
             <div id="weiboFollowList" style="display: flex; flex-direction: column; padding-bottom: 80px;">
                 <!-- 动态渲染关注/粉丝列表 -->
             </div>            
+        </div>
+    </div>
+
+    <!-- 微博角色主页全屏面板 -->
+    <div class="theme-panel instant-panel" id="weiboCharProfilePanel" style="z-index: 166; background-color: #f4f4f5;">
+        <div class="panel-header" style="background: #fff; border-bottom: none; z-index: 10;">
+            <div class="header-close" onclick="closeWeiboCharProfile()" style="font-size: 15px; color: #333;">
+                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </div>
+            <div class="header-title-wrapper"></div>
+            <div class="header-close" style="visibility: hidden; width: 24px;"></div>
+        </div>
+        <div class="panel-content" style="padding: 0; overflow-y: auto;">
+            <div class="wb-scroll-area" style="padding-bottom: 20px;">
+                <!-- 顶部白色卡片 -->
+                <div style="background: #fff; border-radius: 0 0 20px 20px; padding: 20px; margin-bottom: 0; position: relative;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+                        <div class="wb-profile-avatar" id="wbCharProfileAvatar" style="width: 60px; height: 60px; border-radius: 50%; background-size: cover; background-position: center; border: 1px solid #eee;"></div>
+                        <div onclick="openWeiboCharPostGenModal()" style="border: 1px solid #e0e0e0; border-radius: 16px; padding: 6px 14px; font-size: 13px; font-weight: bold; color: #333; cursor: pointer; background: #fff;">+ 生成微博</div>
+                    </div>
+                    
+                    <div class="wb-profile-name" id="wbCharProfileName" style="font-size: 22px; font-weight: 900; color: #111; margin-bottom: 8px;">Name</div>
+                    <div class="wb-profile-bio" id="wbCharProfileBio" style="font-size: 13px; color: #888; margin-bottom: 15px; line-height: 1.4;">简介：...</div>
+                    
+                    <div class="wb-profile-stats" style="display: flex; gap: 15px; font-size: 14px; color: #333;">
+                        <div><span id="wbCharProfilePostCount" style="font-weight: bold;">0</span><span style="color: #888; margin-left: 2px;">微博</span></div>
+                        <div><span id="wbCharProfileFollowCount" style="font-weight: bold;">282</span><span style="color: #888; margin-left: 2px;">关注</span></div>
+                        <div><span id="wbCharProfileFansCount" style="font-weight: bold;">74.9万</span><span style="color: #888; margin-left: 2px;">粉丝</span></div>
+                    </div>
+                </div>
+                
+                <div class="wb-profile-tabs" style="display: flex; background-color: #fff; border-bottom: 1px solid #eee; position: sticky; top: 0; z-index: 10;">
+                    <div class="wb-profile-tab active" style="flex: 1; text-align: center; padding: 12px 0; font-size: 14px; font-weight: bold; color: #111; border-bottom: 2px solid #111;">主页</div>
+                    <div class="wb-profile-tab" style="flex: 1; text-align: center; padding: 12px 0; font-size: 14px; font-weight: bold; color: #888;">微博</div>
+                    <div class="wb-profile-tab" style="flex: 1; text-align: center; padding: 12px 0; font-size: 14px; font-weight: bold; color: #888;">视频</div>
+                </div>
+                <div class="wb-feed-list" id="wbCharProfileFeedList" style="padding-top: 8px; background: #f4f4f5;">
+                    <!-- 动态渲染角色微博 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 微博角色发帖生成设置弹窗 -->
+    <div class="preset-modal-overlay" id="weiboCharPostGenModalOverlay" style="z-index: 500;">
+        <div class="preset-modal" style="width: 280px;">
+            <div class="preset-modal-title">生成角色微博</div>
+            <div style="width: 100%; padding: 15px 20px; display: flex; flex-direction: column; gap: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 13px; color: #333; font-weight: bold;">生成帖子数量</span>
+                    <input type="number" id="wbCharGenPostCount" value="3" style="width: 60px; text-align: center; border: 1px solid #eee; border-radius: 6px; padding: 4px; outline: none;">
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 13px; color: #333; font-weight: bold;">每贴包含评论数</span>
+                    <input type="number" id="wbCharGenCommentCount" value="2" style="width: 60px; text-align: center; border: 1px solid #eee; border-radius: 6px; padding: 4px; outline: none;">
+                </div>
+                <div style="font-size: 11px; color: #888; line-height: 1.4; margin-top: 5px;">
+                    * 将自动读取该角色的人设、世界书、记忆库以及与您的最新聊天记录作为上下文生成微博。
+                </div>
+            </div>
+            <div class="preset-modal-actions">
+                <div class="preset-btn-cancel" onclick="closeWeiboCharPostGenModal()">取消</div>
+                <div class="preset-btn-confirm" onclick="generateWeiboCharPostAPI()">生成</div>
+            </div>
         </div>
     </div>
     <!-- 微博热搜详情全屏面板 (重构为沉浸式) -->
@@ -7558,6 +7654,513 @@
             </div>
         </div>
     </div>
+    <!-- =========================================
+         新增：Alipay APP 全屏面板
+         ========================================= -->
+    <div class="theme-panel instant-panel" id="alipayPanel" style="z-index: 155; background-color: #f7f7f9; padding: 0;">
+        <div class="alipay-page-container">
+            <!-- 首页 (Home) -->
+            <div class="alipay-page active" id="alipay-page-home">
+                <div class="alipay-header">
+                    <div class="alipay-header-close" onclick="closeAlipayPanel()">BACK</div>
+                    <div>支付宝</div>
+                    <div style="width: 40px;"></div>
+                </div>
+                
+                <div class="alipay-quick-actions">
+                    <div class="alipay-action-item">
+                        <div class="alipay-action-icon"><svg viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><rect x="7" y="7" width="10" height="10"></rect></svg></div>
+                        <span class="alipay-action-text">扫一扫</span>
+                    </div>
+                    <div class="alipay-action-item">
+                        <div class="alipay-action-icon"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2" ry="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg></div>
+                        <span class="alipay-action-text">收付款</span>
+                    </div>
+                    <div class="alipay-action-item">
+                        <div class="alipay-action-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div>
+                        <span class="alipay-action-text">出行</span>
+                    </div>
+                    <div class="alipay-action-item">
+                        <div class="alipay-action-icon"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></div>
+                        <span class="alipay-action-text">卡包</span>
+                    </div>
+                </div>
+
+                <div class="alipay-section-title">互动小游戏</div>
+                <div class="alipay-games-grid">
+                    <div class="alipay-game-card" onclick="openAlipayCheckin()">
+                        <div class="alipay-game-icon"><svg viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></div>
+                        <div class="alipay-game-title">每日签到</div>
+                        <div class="alipay-game-desc">连续打卡领大奖</div>
+                    </div>
+                    <div class="alipay-game-card" onclick="openShawarmaGame()">
+                    <div class="alipay-game-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 10c4-4 12-4 16 0M4 14c4-4 12-4 16 0M4 18c4-4 12-4 16 0"></path></svg></div>
+                    <div class="alipay-game-title">沙威玛传奇</div>
+                    <div class="alipay-game-desc">模拟经营赚余额</div>
+                </div>
+                    <div class="alipay-game-card" onclick="openTetrisGame()">
+                        <div class="alipay-game-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><path d="M7 7h4v4H7zM13 7h4v4h-4zM7 13h10v4H7z"></path></svg></div>
+                        <div class="alipay-game-title">俄罗斯方块</div>
+                        <div class="alipay-game-desc">像素街机赚余额</div>
+                    </div>
+                    <div class="alipay-game-card" onclick="alipayPlayGame(8)">
+                        <div class="alipay-game-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg></div>
+                        <div class="alipay-game-title">浏览赚积分</div>
+                        <div class="alipay-game-desc">阅读精选文章 (+8元)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 消息页 (Messages) -->
+            <div class="alipay-page" id="alipay-page-chat">
+                <div class="alipay-header">
+                    <div class="alipay-header-close" onclick="closeAlipayPanel()">BACK</div>
+                    <div>消息</div>
+                    <div style="width: 40px;"></div>
+                </div>
+                <div class="alipay-msg-list" id="alipayChatSessionList">
+                    <!-- 动态渲染 -->
+                </div>
+            </div>
+
+            <!-- 我的页 (Profile) -->
+            <div class="alipay-page" id="alipay-page-me">
+                <div class="alipay-header">
+                    <div class="alipay-header-close" onclick="closeAlipayPanel()">BACK</div>
+                    <div>我的</div>
+                    <div class="alipay-header-right" onclick="openAlipaySettings()" style="cursor: pointer; display: flex; justify-content: flex-end; width: 40px;">
+                        <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                    </div>
+                </div>
+                
+                <div class="alipay-profile-card">
+                    <div class="alipay-profile-avatar" id="alipayProfileAvatar"></div>
+                    <div class="alipay-profile-info">
+                        <div class="alipay-profile-name" id="alipayProfileName">未登录</div>
+                        <div class="alipay-profile-account" id="alipayProfileAccount">账号: --</div>
+                    </div>
+                </div>
+
+                <div class="alipay-balance-card">
+                    <div class="alipay-balance-title">支付宝总资产 (元)</div>
+                    <div class="alipay-balance-amount"><span>¥</span><span id="alipayBalanceText">0.00</span></div>
+                    <!-- 移除了充值和提现按钮 -->
+                </div>
+
+                <div class="alipay-bills-section">
+                    <div class="alipay-bills-header">
+                        <div class="alipay-bills-title">最近账单</div>
+                        <div class="alipay-bills-more" onclick="clearAlipayHistory()">清空记录</div>
+                    </div>
+                    <div id="alipayHistoryList">
+                        <!-- 动态渲染账单 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部导航栏 -->
+        <div class="alipay-tab-bar">
+            <div class="alipay-tab-item active" onclick="switchAlipayTab('home')">
+                <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                <span>首页</span>
+            </div>
+            <div class="alipay-tab-item" onclick="switchAlipayTab('chat')">
+                <svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+                <span>消息</span>
+            </div>
+            <div class="alipay-tab-item" onclick="switchAlipayTab('me')">
+                <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                <span>我的</span>
+            </div>
+        </div>
+
+        <!-- 登录页面 (覆盖在最上层) -->
+        <div class="alipay-login-page" id="alipayLoginPage">
+            <div class="panel-header" style="background: transparent; border-bottom: none;">
+                <div class="header-close" onclick="closeAlipayPanel()" style="font-size: 15px;">BACK</div>
+                <div class="header-title-wrapper"><div class="header-title" style="cursor: default; box-shadow: none; background: transparent;">Login</div></div>
+                <div class="header-close" style="visibility: hidden; font-size: 15px;">DONE</div>
+            </div>
+            
+            <div class="panel-content" style="padding-top: 0;">
+                <!-- 1. 账号密码登录区域 (默认显示) -->
+                <div id="alipayLoginPwdSection" class="alipay-auth-section active" style="padding: 0;">
+                    <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 30px; margin-top: 20px;">
+                        <!-- 支付宝图标 (黑白灰风格) -->
+                        <div style="width: 64px; height: 64px; background: #111; border-radius: 16px; display: flex; justify-content: center; align-items: center; margin-bottom: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.15);">
+                            <svg viewBox="0 0 24 24" width="36" height="36" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><rect x="7" y="7" width="10" height="10" rx="2"></rect></svg>
+                        </div>
+                        <div class="welcome-title" style="text-align: center;">Welcome back</div>
+                        <div class="welcome-sub" style="text-align: center;">请输入账号密码登录支付宝</div>
+                    </div>
+
+                    <div class="input-group">
+                        <div class="chat-input-row">
+                            <div class="chat-input-label">
+                                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+                                账号 (Account number)
+                            </div>
+                            <input type="text" id="alipayLoginAccount" placeholder="请输入手机号或账号" style="border: none; background: transparent; font-size: 15px; color: var(--text-main); outline: none; width: 100%; font-weight: 500;">
+                        </div>
+                        <div class="chat-input-row">
+                            <div class="chat-input-label">
+                                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                密码 (Password)
+                            </div>
+                            <input type="password" id="alipayLoginPassword" placeholder="请输入密码" style="border: none; background: transparent; font-size: 15px; color: var(--text-main); outline: none; width: 100%; font-weight: 500;">
+                        </div>
+                    </div>
+                    
+                    <button class="register-btn" style="margin-top: 40px; background-color: #111;" onclick="alipayLoginWithPassword()">登 录</button>
+                    
+                    <div class="login-hint" style="margin-top: 20px;">是否选择快捷登录？ <span style="color: #111; font-weight: 900; text-decoration: underline;" onclick="document.getElementById('alipayLoginPwdSection').classList.remove('active'); document.getElementById('alipayLoginQuickSection').classList.add('active');">点击进入快捷登录页面</span></div>
+                </div>
+
+                <!-- 2. 快捷登录区域 (默认隐藏) -->
+                <div id="alipayLoginQuickSection" class="alipay-auth-section" style="padding: 0;">
+                    <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 20px; margin-top: 20px;">
+                        <div style="width: 64px; height: 64px; background: #111; border-radius: 16px; display: flex; justify-content: center; align-items: center; margin-bottom: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.15);">
+                            <svg viewBox="0 0 24 24" width="36" height="36" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><rect x="7" y="7" width="10" height="10" rx="2"></rect></svg>
+                        </div>
+                        <div class="welcome-title" style="text-align: center;">Quick Login</div>
+                        <div class="welcome-sub" style="text-align: center;">请选择已在 Chat 中注册的用户账号</div>
+                    </div>
+                    
+                    <div class="alipay-account-list" id="alipayAccountList" style="padding: 0;">
+                        <!-- JS 动态渲染账号列表 -->
+                    </div>
+                    
+                    <div class="login-hint" style="margin-top: 30px;">想起来密码了？ <span style="color: #111; font-weight: 900; text-decoration: underline;" onclick="document.getElementById('alipayLoginQuickSection').classList.remove('active'); document.getElementById('alipayLoginPwdSection').classList.add('active');">返回账号密码登录</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 设置页面 (覆盖在最上层) -->
+        <div class="alipay-settings-page" id="alipaySettingsPage">
+            <div class="alipay-header">
+                <div class="alipay-header-close" onclick="closeAlipaySettings()">BACK</div>
+                <div>设置</div>
+                <div style="width: 40px;"></div>
+            </div>
+            <div style="padding: 20px;">
+                <div style="font-size: 13px; color: var(--ali-text-sub); margin-bottom: 10px; padding-left: 4px; font-weight: bold;">快捷切换账号</div>
+                <div class="alipay-settings-group" id="alipaySwitchAccountList">
+                    <!-- JS 动态渲染账号列表 -->
+                </div>
+                
+                <div class="alipay-logout-btn" onclick="alipayLogout()">退出当前账号</div>
+            </div>
+        </div>
+
+        <!-- 支付宝聊天室 -->
+        <div class="alipay-chat-room-page" id="alipayChatRoomPage">
+            <div class="alipay-header">
+                <div class="alipay-header-close" onclick="closeAlipayChatRoom()">BACK</div>
+                <div id="alipayChatRoomTitle">对方名字</div>
+                <div style="width: 40px;"></div>
+            </div>
+            <div class="alipay-chat-history" id="alipayChatHistory">
+                <!-- 聊天记录 -->
+            </div>
+            <!-- 支付宝聊天室底部输入区 -->
+            <div class="alipay-chat-bottom" style="display: flex; align-items: center; padding: 10px 15px; background: #f5f5f5; border-top: 1px solid #e5e5e5; gap: 12px; padding-bottom: calc(10px + env(safe-area-inset-bottom));">
+                
+                <!-- 左侧转账按钮 (黑白灰 ¥ 图标) -->
+                <div onclick="openAlipayTransferModal()" style="width: 34px; height: 34px; border-radius: 50%; border: 2px solid #111; display: flex; justify-content: center; align-items: center; cursor: pointer; color: #111; flex-shrink: 0; background: transparent; transition: all 0.2s;" title="转账">
+                    <span style="font-weight: 900; font-size: 16px; margin-top: -1px;">¥</span>
+                </div>
+                
+                <!-- 输入框 -->
+                <input type="text" id="alipayChatInput" placeholder="发消息..." style="flex: 1; height: 40px; border: none; border-radius: 20px; padding: 0 15px; font-size: 15px; outline: none; background: #fff; color: #111; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+                
+                <!-- 发送按钮 -->
+                <div onclick="sendAlipayChatMessage()" style="background: #111; color: #fff; padding: 0 18px; height: 36px; border-radius: 18px; display: flex; justify-content: center; align-items: center; font-size: 14px; font-weight: bold; cursor: pointer; flex-shrink: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">发送</div>
+            </div>
+        </div>
+
+        <!-- 支付宝转账弹窗 -->
+        <div class="preset-modal-overlay" id="alipayTransferModalOverlay" style="z-index: 300;">
+            <div class="preset-modal" style="width: 280px;">
+                <div class="preset-modal-title">支付宝转账</div>
+                <div style="padding: 20px; width: 100%; display: flex; flex-direction: column; gap: 15px; align-items: center;">
+                    <div style="font-size: 24px; font-weight: bold; display: flex; align-items: center;">
+                        ¥ <input type="number" id="alipayTransferAmount" style="width: 120px; border: none; border-bottom: 2px solid #1677ff; font-size: 24px; font-weight: bold; outline: none; text-align: center; margin-left: 10px;" placeholder="0.00">
+                    </div>
+                    <input type="text" id="alipayTransferNote" placeholder="转账备注 (选填)" style="width: 100%; padding: 8px; border: 1px solid #eee; border-radius: 8px; outline: none; font-size: 14px; text-align: center;">
+                </div>
+                <div class="preset-modal-actions">
+                    <div class="preset-btn-cancel" onclick="closeAlipayTransferModal()">取消</div>
+                    <div class="preset-btn-confirm" style="color: #1677ff;" onclick="confirmAlipayTransfer()">确认转账</div>
+                </div>
+            </div>
+        </div>
+
+            <!-- 每日签到全屏页面 -->
+            <div class="alipay-page" id="alipay-page-checkin" style="z-index: 160; background: var(--ali-bg-color);">
+                <div class="alipay-header">
+                    <div class="alipay-header-close" onclick="closeAlipayCheckin()">BACK</div>
+                    <div>每日签到</div>
+                    <div style="width: 40px;"></div>
+                </div>
+                <div style="padding: 20px; display: flex; flex-direction: column; gap: 20px;">
+                    <!-- 连续签到卡片 -->
+                    <div style="background: var(--ali-card-bg); border-radius: 24px; padding: 24px; box-shadow: var(--ali-shadow-light); text-align: center;">
+                        <div style="font-size: 14px; color: var(--ali-text-sub); font-weight: bold; margin-bottom: 10px;">已连续签到</div>
+                        <div style="font-size: 48px; font-weight: 900; color: var(--ali-text-main); font-family: 'Helvetica Neue', sans-serif; margin-bottom: 20px;"><span id="aliCheckinStreak">0</span><span style="font-size: 16px; margin-left: 4px;">天</span></div>
+                        
+                        <!-- 进度条 -->
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--ali-text-sub); font-weight: bold; margin-bottom: 8px;">
+                            <span>1天</span>
+                            <span>7天大奖</span>
+                        </div>
+                        <div style="width: 100%; height: 8px; background: #eee; border-radius: 4px; overflow: hidden; position: relative;">
+                            <div id="aliCheckinProgress" style="position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: var(--ali-text-main); border-radius: 4px; transition: width 0.5s ease;"></div>
+                        </div>
+                    </div>
+
+                    <!-- 日历卡片 -->
+                    <div style="background: var(--ali-card-bg); border-radius: 24px; padding: 24px; box-shadow: var(--ali-shadow-light);">
+                        <div style="font-size: 16px; font-weight: 800; color: var(--ali-text-main); margin-bottom: 15px; text-align: center;" id="aliCalendarMonth">2023年10月</div>
+                        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; text-align: center; font-size: 12px; color: var(--ali-text-sub); font-weight: bold; margin-bottom: 10px;">
+                            <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+                        </div>
+                        <div id="aliCalendarGrid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px 0; text-align: center;">
+                            <!-- 动态渲染日期 -->
+                        </div>
+                    </div>
+
+                    <!-- 签到按钮 -->
+                    <div id="aliCheckinBtn" onclick="doAlipayCheckin()" style="width: 100%; background: var(--ali-text-main); color: #fff; font-size: 16px; font-weight: bold; text-align: center; padding: 18px; border-radius: 20px; cursor: pointer; box-shadow: 0 8px 20px rgba(0,0,0,0.15); transition: transform 0.1s; margin-top: 10px;">
+                        立即签到
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- =========================================
+             新增：沙威玛传奇 游戏面板
+             ========================================= -->
+
+        <div class="swm-panel" id="shawarmaPanel">
+            <!-- 顶部状态栏 -->
+            <div class="swm-top-bar">
+                <div class="swm-top-bar-btn" onclick="closeShawarmaGame()">退出</div>
+                <div class="swm-day-display" id="swmDayDisplay">DAY 1</div>
+                <div class="swm-coin-display">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#ffcc00" stroke="#111"></circle><path d="M12 6v12M9 9h6M9 15h6" stroke="#111" stroke-width="2"></path></svg>
+                    <span id="swmCoinText">0</span>
+                </div>
+                <div class="swm-shop-btn" onclick="swmOpenShop()">商店</div>
+            </div>
+
+            <div class="swm-game-area">
+                <!-- 1. 顾客区 -->
+                <div class="swm-customer-zone">
+                    <div class="swm-customer-slot" id="swmCustomer0" onclick="swmServeCustomer(0)">
+                        <div class="swm-bubble" id="swmReqBubble0"></div>
+                        <div class="swm-customer-bottom">
+                            <div class="swm-customer-avatar" id="swmAvatar0">🧔</div>
+                            <div class="swm-patience-bar"><div class="swm-patience-fill" id="swmPatience0"></div></div>
+                        </div>
+                    </div>
+                    <div class="swm-customer-slot" id="swmCustomer1" onclick="swmServeCustomer(1)">
+                        <div class="swm-bubble" id="swmReqBubble1"></div>
+                        <div class="swm-customer-bottom">
+                            <div class="swm-customer-avatar" id="swmAvatar1">👱‍♀️</div>
+                            <div class="swm-patience-bar"><div class="swm-patience-fill" id="swmPatience1"></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. 机器区 -->
+                <div class="swm-machine-zone">
+                    <!-- 烤肉机 -->
+                    <div class="swm-grill-station">
+                        <div class="swm-meat-spit" id="swmMeatSpit" onclick="swmCutMeat()"></div>
+                        <div class="swm-meat-tray" id="swmMeatTray" onclick="swmTakeMeat()"></div>
+                    </div>
+                    
+                    <!-- 炸炉 -->
+                    <div class="swm-fryer-station">
+                        <div class="swm-fryer-pot" id="swmFryerPot" onclick="swmHandleFryer()">
+                            <div class="swm-fryer-oil" id="swmFryerOil"></div>
+                            <div class="swm-fryer-text" id="swmFryerText">下锅</div>
+                        </div>
+                        <div class="swm-fryer-tray" id="swmFriesTray" onclick="swmTakeFries()"></div>
+                    </div>
+
+                    <!-- 饮料机 -->
+                    <div class="swm-drink-station">
+                        <div class="swm-dispenser"><div class="swm-dispenser-nozzle"></div></div>
+                        <div class="swm-drink-cup" id="swmDrinkCup" onclick="swmHandleDrink()">
+                            <div class="swm-drink-fill" id="swmDrinkFill"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 备餐区 -->
+                <div class="swm-prep-zone">
+                    <!-- 配料盒 -->
+                    <div class="swm-ingredients-grid" id="swmIngredientsGrid">
+                        <div class="swm-ing-box" style="border-color: #d4a352;" onclick="swmAddIngredient('bread')">
+                            <svg viewBox="0 0 24 24" fill="#f0c880" stroke="#d4a352" stroke-width="1.5"><ellipse cx="12" cy="12" rx="8" ry="10"></ellipse></svg>
+                            <span class="swm-ing-name">饼皮</span>
+                        </div>
+                        <div class="swm-ing-box" style="border-color: #d4a352;" onclick="swmAddIngredient('garlic')">
+                            <svg viewBox="0 0 24 24" fill="#fff9e6" stroke="#d4a352" stroke-width="1.5"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"></path></svg>
+                            <span class="swm-ing-name">蒜酱</span>
+                        </div>
+                        <div class="swm-ing-box" style="border-color: #1b401d;" onclick="swmAddIngredient('pickle')">
+                            <svg viewBox="0 0 24 24" fill="#2d6a30" stroke="#1b401d" stroke-width="1.5"><rect x="7" y="4" width="10" height="16" rx="5"></rect><line x1="10" y1="8" x2="14" y2="8"></line><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+                            <span class="swm-ing-name">酸黄瓜</span>
+                        </div>
+                        <div class="swm-ing-box" style="border-color: #b71c1c;" onclick="swmAddIngredient('tomato')">
+                            <svg viewBox="0 0 24 24" fill="#e53935" stroke="#b71c1c" stroke-width="1.5"><circle cx="12" cy="13" r="8"></circle><path d="M12 5v3M9 6l3 2M15 6l-3 2" stroke="#2d6a30" stroke-width="2"></path></svg>
+                            <span class="swm-ing-name">番茄片</span>
+                        </div>
+                    </div>
+
+                    <!-- 砧板与工具 -->
+                    <div class="swm-board-area">
+                        <div class="swm-cutting-board">
+                            <div class="swm-wrap-base" id="swmWrapBase">
+                                <span class="swm-board-hint" id="swmBoardHint">放饼皮</span>
+                            </div>
+                        </div>
+                        <div class="swm-side-tools">
+                            <div class="swm-tool-btn" onclick="swmRollWrap()">
+                                <svg viewBox="0 0 24 24" width="20" height="20" stroke="#111" stroke-width="2" fill="none"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
+                                卷饼
+                            </div>
+                            <div class="swm-tool-btn" onclick="swmPackageWrap()">
+                                <svg viewBox="0 0 24 24" width="20" height="20" stroke="#111" stroke-width="2" fill="none"><rect x="4" y="4" width="16" height="16" rx="2"></rect><line x1="4" y1="12" x2="20" y2="12"></line></svg>
+                                包装
+                            </div>
+                            <div class="swm-tool-btn swm-trash" onclick="swmTrashFood()">
+                                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                丢弃
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 商店弹窗 -->
+            <div class="swm-shop-modal" id="swmShopModal">
+                <div class="swm-shop-content">
+                    <div class="swm-shop-title">升级商店</div>
+                    <div class="swm-upgrade-item">
+                        <div class="swm-upgrade-info">
+                            <div class="swm-upgrade-name">自动切肉机</div>
+                            <div class="swm-upgrade-desc">解放双手，自动切肉到盘子里</div>
+                        </div>
+                        <div class="swm-buy-btn" id="swm-upg-autoCut" onclick="swmBuyUpgrade('autoCut', 100)">¥100</div>
+                    </div>
+                    <div class="swm-upgrade-item">
+                        <div class="swm-upgrade-info">
+                            <div class="swm-upgrade-name">石榴糖浆</div>
+                            <div class="swm-upgrade-desc">解锁新配料，提升沙威玛售价</div>
+                        </div>
+                        <div class="swm-buy-btn" id="swm-upg-syrup" onclick="swmBuyUpgrade('syrup', 150)">¥150</div>
+                    </div>
+                    <div class="swm-upgrade-item">
+                        <div class="swm-upgrade-info">
+                            <div class="swm-upgrade-name">高级包装纸</div>
+                            <div class="swm-upgrade-desc">所有沙威玛售价 +5</div>
+                        </div>
+                        <div class="swm-buy-btn" id="swm-upg-price" onclick="swmBuyUpgrade('price', 200)">¥200</div>
+                    </div>
+                    <div class="swm-close-shop" onclick="swmCloseShop()">关闭商店</div>
+                </div>
+            </div>
+
+            <div class="swm-toast" id="swmToastMsg">提示</div>
+            
+            <!-- 升级过场动画 -->
+            <div class="swm-level-up-overlay" id="swmLevelUpOverlay">
+                <div class="swm-level-up-title" id="swmLevelUpTitle">DAY 2</div>
+                <div class="swm-level-up-desc" id="swmLevelUpDesc">顾客变得更挑剔了！</div>
+            </div>
+        </div>
+
+        <!-- =========================================
+             新增：俄罗斯方块 游戏面板
+             ========================================= -->
+        <div class="tetris-panel" id="tetrisPanel">
+            <!-- 顶部导航 -->
+            <div class="tetris-top-bar">
+                <div class="tetris-btn-back" onclick="closeTetrisGame()">EXIT</div>
+                <div class="tetris-header-title">TETRIS ARCADE</div>
+                <div style="width: 44px;"></div>
+            </div>
+
+            <!-- 街机屏幕 -->
+            <div class="tetris-arcade-screen-bezel">
+                <div class="tetris-screen-inner">
+                    <!-- 左侧信息 -->
+                    <div class="tetris-screen-left">
+                        <div class="tetris-info-box">SCORE<span class="tetris-info-val" id="tetrisScoreVal">0</span></div>
+                        <div class="tetris-info-box">LEVEL<span class="tetris-info-val" id="tetrisLevelVal">1</span></div>
+                        <div class="tetris-info-box">LINES<span class="tetris-info-val" id="tetrisLinesVal">0</span></div>
+                    </div>
+
+                    <!-- 游戏主画布 -->
+                    <div class="tetris-screen-center">
+                        <canvas id="tetrisCanvas" width="200" height="400"></canvas>
+                        
+                        <!-- 游戏结束遮罩 -->
+                        <div class="tetris-game-over-overlay" id="tetrisGameOverScreen">
+                            <div class="tetris-game-over-text">GAME<br>OVER</div>
+                            <div class="tetris-restart-btn" onclick="tetrisResetGame()">INSERT COIN</div>
+                        </div>
+                    </div>
+
+                    <!-- 右侧信息 -->
+                    <div class="tetris-screen-right">
+                        <div class="tetris-info-box" style="text-align: right;">NEXT
+                            <div class="tetris-next-box">
+                                <canvas id="tetrisNextCanvas" width="60" height="60"></canvas>
+                            </div>
+                        </div>
+                        <div class="tetris-info-box" style="text-align: right; margin-top: auto;">REWARD
+                            <span class="tetris-reward-val" id="tetrisRewardVal">¥0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 控制台 -->
+            <div class="tetris-arcade-controls">
+                <div class="tetris-deco-line"></div>
+                
+                <div class="tetris-controls-row">
+                    <!-- 方向键 -->
+                    <div class="tetris-d-pad">
+                        <div class="tetris-d-center"></div>
+                        <div class="tetris-d-btn tetris-d-up" id="tetrisBtnUp">▲</div>
+                        <div class="tetris-d-btn tetris-d-left" id="tetrisBtnLeft">◀</div>
+                        <div class="tetris-d-btn tetris-d-right" id="tetrisBtnRight">▶</div>
+                        <div class="tetris-d-btn tetris-d-down" id="tetrisBtnDown">▼</div>
+                    </div>
+
+                    <!-- 动作键 -->
+                    <div class="tetris-action-pad">
+                        <div class="tetris-a-btn-wrap">
+                            <div class="tetris-a-btn tetris-btn-rotate" id="tetrisBtnRotate">A</div>
+                            <span class="tetris-a-label">ROTATE</span>
+                        </div>
+                        <div class="tetris-a-btn-wrap">
+                            <div class="tetris-a-btn tetris-btn-drop" id="tetrisBtnDrop">B</div>
+                            <span class="tetris-a-label">DROP</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tetris-toast" id="tetrisToastMsg"></div>
+        </div>
+    </div>
 
     <!-- 隐藏的上传输入框 -->
     <input type="file" id="wallpaperUploadInput" accept="image/*" style="display: none;" onchange="handleWallpaperUpload(event)">
@@ -7591,6 +8194,7 @@
 <script src="sms.js"></script>
 <script src="weibo.js"></script>
 <script src="tavern.js"></script>
+<script src="alipay.js"></script>
 <!-- 引入 Supabase 核心库 -->
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <!-- 引入独立的激活码验证逻辑 -->

@@ -258,6 +258,8 @@ function injectCharPerception(actionType, detail, targetId = null) {
     else if (actionType === 'send_emoji') actionDesc = `给 ${targetName} 发送了一个表情包：[${detail}]`;
     else if (actionType === 'send_family_card') actionDesc = `给 ${targetName} 发送/索要了亲属卡`;
     else if (actionType === 'send_transfer') actionDesc = `给 ${targetName} 转账了 ¥${detail}`;
+    else if (actionType === 'alipay_transfer') actionDesc = `通过支付宝给 ${targetName} 转账了 ¥${detail}`;
+    else if (actionType === 'alipay_msg') actionDesc = `通过支付宝给 ${targetName} 发送了消息：“${detail}”`;
     else if (actionType === 'delete_friend') actionDesc = `在通讯录中删除了好友 ${targetName}`;
     else if (actionType === 'post_moment') actionDesc = `发布了一条朋友圈动态：“${detail}”`;
     else if (actionType === 'delete_moment') actionDesc = `删除了一条朋友圈动态`;
@@ -5902,14 +5904,16 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
     const userName = account ? (account.netName || 'User') : 'User';
     const userRealName = persona ? (persona.realName || userName) : userName; // 提取真名
 
-    // 核心修改：同时获取微信和短信的历史记录，实现记忆互通
+    // 核心修改：同时获取微信、短信和支付宝的历史记录，实现记忆互通
     let chatHistory = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${targetCharId}`) || '[]');
     let smsHistory = JSON.parse(ChatDB.getItem(`sms_history_${currentLoginId}_${targetCharId}`) || '[]');
+    let alipayHistory = JSON.parse(ChatDB.getItem(`alipay_chat_history_${currentLoginId}_${targetCharId}`) || '[]');
     
-    // 给短信记录打上标记，方便大模型区分
+    // 给短信和支付宝记录打上标记，方便大模型区分
     smsHistory = smsHistory.map(m => ({...m, isSms: true}));
+    alipayHistory = alipayHistory.map(m => ({...m, isAlipay: true}));
     
-    let fullHistory = [...chatHistory, ...smsHistory];
+    let fullHistory = [...chatHistory, ...smsHistory, ...alipayHistory];
     
     if (typeof currentCallTargetId !== 'undefined' && currentCallTargetId === targetCharId && typeof currentCallTranscript !== 'undefined') {
         fullHistory = [...fullHistory, ...currentCallTranscript];
@@ -6289,14 +6293,21 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
         systemPrompt += `撤回你自己的上一条消息: {"type":"recall", "content":"撤回后你想补发的话(可选)"}\n`; 
     }
     
+    systemPrompt += `\n【微信转账规则 (需要确认/拒绝)】\n`;
     if (char.isGroup) {
-        systemPrompt += `转账消息格式: {"senderId": "成员ID", "targetId": "收款成员ID", "type":"transfer", "amount":"转账金额(纯数字)", "note":"转账说明"}\n`; 
-        systemPrompt += `处理收款格式: {"senderId": "成员ID", "type":"transfer_action", "action":"received" 或 "rejected", "content":"收款/拒收时的回复"}\n`; 
+        systemPrompt += `发起微信转账: {"senderId": "成员ID", "targetId": "收款成员ID", "type":"transfer", "amount":"转账金额(纯数字)", "note":"转账说明"}\n`; 
+        systemPrompt += `处理微信收款: {"senderId": "成员ID", "type":"transfer_action", "action":"received" 或 "rejected", "content":"收款/拒收时的回复"}\n`; 
     } else {
-        systemPrompt += `转账消息格式: {"type":"transfer", "amount":"转账金额(纯数字)", "note":"转账说明"}\n`; 
-        systemPrompt += `处理收款格式: {"type":"transfer_action", "action":"received" 或 "rejected", "content":"收款/拒收时的回复"}\n`; 
+        systemPrompt += `发起微信转账: {"type":"transfer", "amount":"转账金额(纯数字)", "note":"转账说明"}\n`; 
+        systemPrompt += `处理微信收款: {"type":"transfer_action", "action":"received" 或 "rejected", "content":"收款/拒收时的回复"}\n`; 
     }
     systemPrompt += `主动拨打语音电话: {"type":"call_invite"}\n`;
+    
+    // 注入支付宝规则
+    systemPrompt += `\n【支付宝互动规则 (直接到账，绝对不需要确认)】\n`;
+    systemPrompt += `如果你想通过支付宝给对方转账(直接到账，无需对方确认)，请输出: {"type":"alipay_transfer", "amount":"转账金额(纯数字)", "content":"转账备注"}\n`;
+    systemPrompt += `如果你想通过支付宝给对方发消息，请输出: {"type":"alipay_text", "content":"消息内容"}\n`;
+    systemPrompt += `注意：支付宝转账是直接到账的！如果看到对方通过支付宝给你转账，你已经直接收到了钱，绝对不要输出 transfer_action 去确认收款！。\n`;
     
     // --- 注入亲属卡规则 ---
     let hasPendingGift = fullHistory.some(m => m.role === 'user' && m.type === 'family_card' && m.subType === 'gift' && m.status === 'pending');
@@ -6400,9 +6411,11 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
         let senderName = isUser ? userName : charName;
 
         let source = '';
-        // 核心修改：在喂给大模型的上下文中，标注哪些是短信
+        // 核心修改：在喂给大模型的上下文中，标注哪些是短信或支付宝
         if (msg.isSms) {
             source = '[短信] ';
+        } else if (msg.isAlipay) {
+            source = '[支付宝] ';
         } else if (typeof currentCallTranscript !== 'undefined' && currentCallTranscript.some(t => t.timestamp === msg.timestamp)) {
             source = '[语音通话中] ';
         }
@@ -6440,12 +6453,22 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
         } else if (msg.type === 'voice') {
             content = `${source}*${senderName} 发送了一条语音*:\n${msg.content}`;
         } else if (msg.type === 'transfer') {
-            if (isUser) {
-                if (msg.status === 'pending') content = `${source}*${userName} 向你转账 ¥${msg.amount}，备注：${msg.note} (等待你收款/退还)*`;
-                else if (msg.status === 'received') content = `${source}*${userName} 向你转账 ¥${msg.amount} (你已收款)*`;
-                else content = `${source}*${userName} 向你转账 ¥${msg.amount} (你已退还)*`;
+            if (msg.isAlipay) {
+                // 支付宝转账逻辑 (直接到账)
+                if (isUser) {
+                    content = `${source}*${userName} 通过支付宝向你直接转账 ¥${msg.amount}，备注：${msg.note} (已直接存入你的支付宝余额，无需确认)*`;
+                } else {
+                    content = `${source}*你通过支付宝向 ${userName} 直接转账 ¥${msg.amount} (已直接扣款)*`;
+                }
             } else {
-                content = `${source}*你向 ${userName} 转账 ¥${msg.amount}*`;
+                // 微信转账逻辑 (需要确认)
+                if (isUser) {
+                    if (msg.status === 'pending') content = `${source}*${userName} 通过微信向你转账 ¥${msg.amount}，备注：${msg.note} (等待你收款/退还)*`;
+                    else if (msg.status === 'received') content = `${source}*${userName} 通过微信向你转账 ¥${msg.amount} (你已收款)*`;
+                    else content = `${source}*${userName} 通过微信向你转账 ¥${msg.amount} (你已退还)*`;
+                } else {
+                    content = `${source}*你通过微信向 ${userName} 转账 ¥${msg.amount}*`;
+                }
             }
         } else if (msg.type === 'family_card') {
             if (msg.subType === 'gift') content = `${source}*${senderName} 赠送了一张亲属卡*`;
@@ -6894,6 +6917,61 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
                         showIncomingCall(targetCharId);
                     }
                     continue; 
+                } else if (msgObj.type === 'alipay_transfer') {
+                    let amount = parseFloat(msgObj.amount || 0);
+                    if (amount > 0) {
+                        // 扣除 Char 余额
+                        let charBalance = parseFloat(ChatDB.getItem(`alipay_balance_${targetCharId}`) || '0');
+                        charBalance -= amount;
+                        ChatDB.setItem(`alipay_balance_${targetCharId}`, charBalance.toFixed(2));
+                        
+                        // 增加 User 余额
+                        let userBalance = parseFloat(ChatDB.getItem(`alipay_balance_${currentLoginId}`) || '0');
+                        userBalance += amount;
+                        ChatDB.setItem(`alipay_balance_${currentLoginId}`, userBalance.toFixed(2));
+                        
+                        // 记录账单
+                        let aliHistoryChar = JSON.parse(ChatDB.getItem(`alipay_history_${targetCharId}`) || '[]');
+                        aliHistoryChar.push({ id: Date.now().toString(), type: 'out', title: `转账给 ${userName}`, amount: amount.toFixed(2), timestamp: Date.now() });
+                        ChatDB.setItem(`alipay_history_${targetCharId}`, JSON.stringify(aliHistoryChar));
+                        
+                        let aliHistoryUser = JSON.parse(ChatDB.getItem(`alipay_history_${currentLoginId}`) || '[]');
+                        aliHistoryUser.push({ id: Date.now().toString(), type: 'in', title: `收到 ${charName} 的转账`, amount: amount.toFixed(2), timestamp: Date.now() });
+                        ChatDB.setItem(`alipay_history_${currentLoginId}`, JSON.stringify(aliHistoryUser));
+                        
+                        // 写入支付宝聊天记录
+                        let aliChatHistory = JSON.parse(ChatDB.getItem(`alipay_chat_history_${currentLoginId}_${targetCharId}`) || '[]');
+                        let newAliMsg = { role: 'char', type: 'transfer', amount: amount.toFixed(2), note: msgObj.content || '转账', status: 'received', timestamp: Date.now() };
+                        aliChatHistory.push(newAliMsg);
+                        ChatDB.setItem(`alipay_chat_history_${currentLoginId}_${targetCharId}`, JSON.stringify(aliChatHistory));
+                        
+                        let targetAliChatHistory = JSON.parse(ChatDB.getItem(`alipay_chat_history_${targetCharId}_${currentLoginId}`) || '[]');
+                        targetAliChatHistory.push({ ...newAliMsg, role: 'user' });
+                        ChatDB.setItem(`alipay_chat_history_${targetCharId}_${currentLoginId}`, JSON.stringify(targetAliChatHistory));
+                        
+                        // 刷新支付宝 UI
+                        if (typeof renderAlipayChatHistory === 'function' && document.getElementById('alipayChatRoomPage').classList.contains('show')) {
+                            renderAlipayChatHistory();
+                        }
+                        if (typeof renderAlipayChatList === 'function') renderAlipayChatList();
+                        if (typeof renderAlipayData === 'function') renderAlipayData();
+                    }
+                    continue; // 支付宝操作不写入微信主聊天记录
+                } else if (msgObj.type === 'alipay_text') {
+                    let aliChatHistory = JSON.parse(ChatDB.getItem(`alipay_chat_history_${currentLoginId}_${targetCharId}`) || '[]');
+                    let newAliMsg = { role: 'char', type: 'text', content: msgObj.content, timestamp: Date.now() };
+                    aliChatHistory.push(newAliMsg);
+                    ChatDB.setItem(`alipay_chat_history_${currentLoginId}_${targetCharId}`, JSON.stringify(aliChatHistory));
+                    
+                    let targetAliChatHistory = JSON.parse(ChatDB.getItem(`alipay_chat_history_${targetCharId}_${currentLoginId}`) || '[]');
+                    targetAliChatHistory.push({ ...newAliMsg, role: 'user' });
+                    ChatDB.setItem(`alipay_chat_history_${targetCharId}_${currentLoginId}`, JSON.stringify(targetAliChatHistory));
+                    
+                    if (typeof renderAlipayChatHistory === 'function' && document.getElementById('alipayChatRoomPage').classList.contains('show')) {
+                        renderAlipayChatHistory();
+                    }
+                    if (typeof renderAlipayChatList === 'function') renderAlipayChatList();
+                    continue; // 支付宝操作不写入微信主聊天记录
                 } else {
                     newMsg.content = msgObj.content;
                     if (!newMsg.content) continue; 
@@ -7834,35 +7912,91 @@ function addWalletRecord(accountId, type, title, amount) {
 function handleWalletRecharge() {
     const currentLoginId = ChatDB.getItem('current_login_account');
     if (!currentLoginId) return;
-    const amount = prompt('请输入充值金额：');
-    if (amount && parseFloat(amount) > 0) {
-        addWalletRecord(currentLoginId, 'in', '系统充值', amount);
-        renderWallet();
-        alert('充值成功！');
-    }
+    
+    let alipayBalance = parseFloat(ChatDB.getItem(`alipay_balance_${currentLoginId}`) || '0');
+    
+    // 使用高级感通用弹窗替代 prompt
+    openGlobalPrompt(
+        '余额充值', 
+        `当前支付宝余额: ¥${alipayBalance.toFixed(2)}\n请输入从支付宝充值到微信的金额：`, 
+        '输入充值金额', 
+        (amount) => {
+            if (amount && parseFloat(amount) > 0) {
+                let rechargeAmount = parseFloat(amount);
+                if (rechargeAmount > alipayBalance) {
+                    return alert('支付宝余额不足，请先在支付宝中通过小游戏赚钱！');
+                }
+                
+                // 扣除支付宝余额
+                alipayBalance -= rechargeAmount;
+                ChatDB.setItem(`alipay_balance_${currentLoginId}`, alipayBalance.toFixed(2));
+                
+                // 记录支付宝账单
+                let aliHistory = JSON.parse(ChatDB.getItem(`alipay_history_${currentLoginId}`) || '[]');
+                aliHistory.push({
+                    id: Date.now().toString(),
+                    type: 'out',
+                    title: '充值到微信钱包',
+                    amount: rechargeAmount.toFixed(2),
+                    timestamp: Date.now()
+                });
+                ChatDB.setItem(`alipay_history_${currentLoginId}`, JSON.stringify(aliHistory));
+                
+                // 增加微信余额
+                addWalletRecord(currentLoginId, 'in', '支付宝充值', rechargeAmount);
+                renderWallet();
+                
+                // 使用悬浮胶囊替代 alert
+                showToast('充值成功！', 'success', 1500);
+            }
+        }
+    );
 }
 
 function handleWalletWithdraw() {
     const currentLoginId = ChatDB.getItem('current_login_account');
     if (!currentLoginId) return;
+    
     let balance = parseFloat(ChatDB.getItem(`wallet_balance_${currentLoginId}`) || '0');
-    const amount = prompt(`当前可提现余额: ¥${balance.toFixed(2)}\n请输入提现金额：`);
-    if (amount && parseFloat(amount) > 0) {
-        if (parseFloat(amount) > balance) return alert('余额不足！');
-        addWalletRecord(currentLoginId, 'out', '余额提现', amount);
-        renderWallet();
-        alert('提现成功！');
-    }
+    
+    // 使用高级感通用弹窗替代 prompt
+    openGlobalPrompt(
+        '余额提现', 
+        `当前微信可提现余额: ¥${balance.toFixed(2)}\n请输入提现到支付宝的金额：`, 
+        '输入提现金额', 
+        (amount) => {
+            if (amount && parseFloat(amount) > 0) {
+                let withdrawAmount = parseFloat(amount);
+                if (withdrawAmount > balance) return alert('微信余额不足！');
+                
+                // 扣除微信余额
+                addWalletRecord(currentLoginId, 'out', '提现到支付宝', withdrawAmount);
+                
+                // 增加支付宝余额
+                let alipayBalance = parseFloat(ChatDB.getItem(`alipay_balance_${currentLoginId}`) || '0');
+                alipayBalance += withdrawAmount;
+                ChatDB.setItem(`alipay_balance_${currentLoginId}`, alipayBalance.toFixed(2));
+                
+                // 记录支付宝账单
+                let aliHistory = JSON.parse(ChatDB.getItem(`alipay_history_${currentLoginId}`) || '[]');
+                aliHistory.push({
+                    id: Date.now().toString(),
+                    type: 'in',
+                    title: '微信提现收入',
+                    amount: withdrawAmount.toFixed(2),
+                    timestamp: Date.now()
+                });
+                ChatDB.setItem(`alipay_history_${currentLoginId}`, JSON.stringify(aliHistory));
+                
+                renderWallet();
+                
+                // 使用悬浮胶囊替代 alert
+                showToast('提现成功！已转入支付宝。', 'success', 2000);
+            }
+        }
+    );
 }
 
-function clearWalletHistory() {
-    const currentLoginId = ChatDB.getItem('current_login_account');
-    if (!currentLoginId) return;
-    if (confirm('确定要清空所有账单记录吗？（余额不会清空）')) {
-        ChatDB.setItem(`wallet_history_${currentLoginId}`, '[]');
-        renderWallet();
-    }
-}
 //// ==========================================
 // 支付密码与亲属卡核心逻辑 (严格数据隔离)
 // ==========================================
