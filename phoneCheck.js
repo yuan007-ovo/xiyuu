@@ -2417,8 +2417,8 @@ async function generateAllPhoneDataAPI(selectedApps) {
     }
 
     if (selectedApps.includes('gacha')) {
-        prompt += `8. 恋与user (抽卡游戏):\n生成你在抽卡游戏里的数据。你需要生成 1 段主线剧情，以及 4-6 张卡牌图鉴。\n卡牌的名称和剧情必须和 ${userRealName} 有关（比如：[春日恋歌] ${userRealName}）。\n【核心要求：乙女游戏/视觉小说(AVG)格式 & 私密色情向】：\n所有的剧情（mainStory 和 story）都必须是 JSON 数组格式，模拟 AVG 游戏的对话流。剧情尺度可以非常大，包含私密、色情、R18、露骨的身体接触和心理描写，满足用户的幻想。对话轮数控制在 8-15 轮左右。\n\n`;
-        structureParts.push(`  "gacha": {\n    "diamonds": 12500,\n    "mainStory": [\n      {"name": "旁白", "text": "夜深了，房间里只剩下你们两个人..."},\n      {"name": "${char.name}", "text": "你还要逃到哪里去？"}\n    ],\n    "collection": [\n      {\n        "rarity": "SSR",\n        "name": "[卡牌前缀] ${userRealName}",\n        "desc": "卡牌的简短描述",\n        "story": [\n          {"name": "旁白", "text": "一段私密露骨的动作描写..."},\n          {"name": "${userRealName}", "text": "不要这样..."}\n        ],\n        "owned": false\n      }\n    ]\n  }`);
+        prompt += `8. 恋与user (抽卡游戏):\n生成你在抽卡游戏里的数据。你需要生成 1 段主线剧情，以及 4-6 张卡牌图鉴。\n卡牌的名称和剧情必须和 ${userRealName} 有关（比如：[春日恋歌] ${userRealName}）。\n【核心要求：乙女游戏/视觉小说(AVG)格式】：\n所有的剧情（mainStory 和 story）都必须是 JSON 数组格式，模拟 AVG 游戏的对话流。对话轮数控制在 8-15 轮左右。\n【主线剧情 (mainStory) 风格】：温馨、日常、治愈、甜甜的恋爱日常，体现两人之间的羁绊和生活细节。\n【卡牌剧情 (story) 风格】：隐晦的描述私密、色情、露骨的身体接触和心理描写，不要太直白！满足char的幻想！\n\n`;
+        structureParts.push(`  "gacha": {\n    "diamonds": 12500,\n    "mainStory": [\n      {"name": "旁白", "text": "阳光洒在餐桌上，你正准备着早餐..."},\n      {"name": "${char.name}", "text": "早安，今天想吃点什么？"}\n    ],\n    "collection": [\n      {\n        "rarity": "SSR",\n        "name": "[卡牌前缀] ${userRealName}",\n        "desc": "卡牌的简短描述",\n        "story": [\n          {"name": "旁白", "text": "一段私密露骨的动作描写..."},\n          {"name": "${userRealName}", "text": "不要这样..."}\n        ],\n        "owned": false\n      }\n    ]\n  }`);
     }
 
     jsonStructure += structureParts.join(",\n") + "\n}";
@@ -2991,17 +2991,18 @@ async function generateGachaDataAPI() {
 你需要生成 1 段主线剧情，以及 4-6 张卡牌图鉴。
 卡牌的名称和剧情必须和 ${userRealName} 有关（比如：[春日恋歌] ${userRealName}）。
 
-【核心要求：乙女游戏/视觉小说(AVG)格式 & 私密色情向】：
+【核心要求：乙女游戏/视觉小说(AVG)格式】：
 1. 所有的剧情（mainStory 和 story）都必须是 JSON 数组格式，模拟 AVG 游戏的对话流。
-2. 数组中的每个对象包含 "name" (说话人名字，可以是 ${char.name}、${userRealName} 或 "旁白") 和 "text" (对话内容或动作描写)。
-3. 剧情尺度可以非常大，包含私密、色情、R18、露骨的身体接触和心理描写，满足用户的幻想。对话轮数控制在 8-15 轮左右。
+2. 数组中的每个对象包含 "name" (说话人名字，可以是 ${char.name}、${userRealName} 或 "旁白") 和 "text" (对话内容或动作描写)。对话轮数控制在 8-15 轮左右。
+3. 【主线剧情 (mainStory) 风格】：温馨、日常、治愈、甜甜的恋爱日常，体现两人之间的羁绊和生活细节。
+4. 【卡牌剧情 (story) 风格】：隐晦的描述私密、色情、露骨的身体接触和心理描写，不要太直白！满足char的幻想！
 
 必须返回合法的 JSON 对象，结构如下：
 {
   "diamonds": 12500,
   "mainStory": [
-    {"name": "旁白", "text": "夜深了，房间里只剩下你们两个人..."},
-    {"name": "${char.name}", "text": "你还要逃到哪里去？"}
+    {"name": "旁白", "text": "阳光洒在餐桌上，你正准备着早餐..."},
+    {"name": "${char.name}", "text": "早安，今天想吃点什么？"}
   ],
   "collection": [
     {
