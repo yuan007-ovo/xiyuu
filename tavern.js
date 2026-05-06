@@ -183,7 +183,7 @@ function tavEnterChat() {
         const char = allEntities.find(c => c.id === currentChatRoomCharId);
         if (char) {
             document.getElementById('tavHeaderAvatar').style.backgroundImage = `url('${char.avatarUrl || ''}')`;
-            document.getElementById('tavHeaderName').innerText = char.netName || char.name || '未命名';
+            document.getElementById('tavHeaderName').innerText = char.name || char.netName || '未命名';
             
             // 注入开场白
             let history = JSON.parse(ChatDB.getItem(`tav_chat_history_${currentLoginId}_${currentChatRoomCharId}`) || '[]');
@@ -1153,11 +1153,13 @@ function tavRenderChat() {
     let allEntities = typeof getAllEntities === 'function' ? getAllEntities() : [];
     const char = allEntities.find(c => c.id === currentChatRoomCharId);
     const charAvatar = char ? (char.avatarUrl || '') : '';
-    const charName = char ? (char.netName || char.name || 'Char') : 'Char';
+    const charName = char ? (char.name || char.netName || 'Char') : 'Char';
     
     const me = allEntities.find(a => a.id === currentLoginId);
     const userAvatar = me ? (me.avatarUrl || '') : '';
-    const userName = me ? (me.netName || 'You') : 'You';
+    let personas = JSON.parse(ChatDB.getItem('chat_personas') || '[]');
+    const persona = personas.find(p => p.id === (me ? me.personaId : null));
+    const userRealName = persona ? (persona.realName || me?.netName || 'You') : (me ? (me.netName || 'You') : 'You');
 
     // 获取激活的正则规则
     let regexList = JSON.parse(ChatDB.getItem('tav_regex_list') || '[]').filter(r => r.active);
@@ -1197,7 +1199,7 @@ function tavRenderChat() {
         card.innerHTML = `
             <div class="tav-chat-card-header">
                 <div class="tav-chat-card-avatar" style="background-image: url('${isMe ? userAvatar : charAvatar}');"></div>
-                <div class="tav-chat-card-name">${isMe ? userName : charName}</div>
+                <div class="tav-chat-card-name">${isMe ? userRealName : charName}</div>
             </div>
             <div class="tav-chat-card-content">${content}</div>
             ${menuHtml}
@@ -1275,13 +1277,14 @@ async function tavTriggerAI(isRegenerate = false, isContinue = false) {
 
     let allEntities = typeof getAllEntities === 'function' ? getAllEntities() : [];
     const char = allEntities.find(c => c.id === currentChatRoomCharId);
-    const charName = char ? (char.netName || char.name) : 'Char';
+    const charName = char ? (char.name || char.netName) : 'Char';
     
     let accounts = JSON.parse(ChatDB.getItem('chat_accounts') || '[]');
     const account = accounts.find(a => a.id === currentLoginId);
     let personas = JSON.parse(ChatDB.getItem('chat_personas') || '[]');
     const persona = personas.find(p => p.id === (account ? account.personaId : null));
     const userName = account ? (account.netName || 'User') : 'User';
+    const userRealName = persona ? (persona.realName || userName) : userName;
 
     // 构建 Messages 数组
     let messages = [];
@@ -1295,15 +1298,36 @@ async function tavTriggerAI(isRegenerate = false, isContinue = false) {
     
     // 2. 注入角色设定
     if (char) {
-        sysPrompt += `\n\n【角色设定】\n${char.description || ''}`;
-        if (char.scenario) {
-            sysPrompt += `\n\n【当前场景】\n${char.scenario}`;
+        if (char.isGroup) {
+            sysPrompt += `\n\n【多人场景/群聊设定】\n场景名称：${char.name}\n场景描述：${char.signature || char.scenario || char.description || '无'}\n\n【出场角色设定】\n`;
+            if (char.memberIds) {
+                char.memberIds.forEach(mid => {
+                    if (mid === currentLoginId) return;
+                    const member = allEntities.find(e => e.id === mid);
+                    if (member) {
+                        if (member.isAccount) {
+                            const mPersona = personas.find(p => p.id === member.personaId);
+                            sysPrompt += `- 角色名字(真名): ${mPersona ? (mPersona.realName || member.netName) : (member.netName || member.name)} | 设定: ${mPersona ? mPersona.persona : '无'}\n`;
+                        } else {
+                            sysPrompt += `- 角色名字(真名): ${member.name || member.netName} | 设定: ${member.description || '无'}\n`;
+                        }
+                    }
+                });
+            }
+            sysPrompt += `\n【多人扮演铁律】\n这是一个多人线下长剧情场景！大家都在线下真实见面，你必须同时扮演上述所有出场角色。当 User${userRealName}）发话或做出动作时，你需要根据情况让合适的角色做出反应，甚至让多个角色之间产生互动和剧情推进。请在每次回复中，通过动作描写和对话自然地展现不同角色的性格，绝对禁止角色串戏！`;
+        } else {
+            sysPrompt += `\n\n【角色设定】\n${char.description || ''}`;
+            if (char.scenario) {
+                sysPrompt += `\n\n【当前场景】\n${char.scenario}`;
+            }
         }
     }
 
     // 3. 注入用户设定 (面具)
     if (persona && persona.persona) {
-        sysPrompt += `\n\n【用户设定】\n${persona.persona}`;
+        sysPrompt += `\n\n【用户设定】\n用户的真实名字是：【${userRealName}】。请在线下互动中称呼其真名。\n${persona.persona}`;
+    } else {
+        sysPrompt += `\n\n【用户设定】\n用户的真实名字是：【${userRealName}】。请在线下互动中称呼其真名。`;
     }
 
     // 4. 注入世界书 (仅读取设置中心绑定的世界书 tav_worldbook_bind)
@@ -1342,20 +1366,7 @@ async function tavTriggerAI(isRegenerate = false, isContinue = false) {
         sysPrompt += `\n\n【作者备注 (全局)】\n${chatAppMemory.note.map(m => m.content).join('\n')}`;
     }
 
-    // 7. 注入线上微信聊天记录
-    const onlineHistoryLen = parseInt(ChatDB.getItem('tav_online_chat_history_length') || '10');
-    if (onlineHistoryLen > 0) {
-        let onlineHistory = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${currentChatRoomCharId}`) || '[]');
-        let recentOnlineHistory = onlineHistory.slice(-onlineHistoryLen);
-        if (recentOnlineHistory.length > 0) {
-            sysPrompt += `\n\n【线上聊天记录回顾】\n以下是你和 ${userName} 在线上聊天软件中的近期聊天记录，作为背景参考：\n`;
-            recentOnlineHistory.forEach(msg => {
-                let senderName = msg.role === 'user' ? userName : charName;
-                let content = msg.content.replace(/<[^>]+>/g, ''); // 简单过滤HTML
-                sysPrompt += `${senderName}: ${content}\n`;
-            });
-        }
-    }
+    // 7. 移除线上微信聊天记录注入 (线下模式不再读取线上聊天记录)
 
     // 新增：注入线下记忆总结 (线下模式读取所有线下记忆)
     let tavMemories = JSON.parse(ChatDB.getItem(`tav_offline_memories_${currentLoginId}_${currentChatRoomCharId}`) || '[]');

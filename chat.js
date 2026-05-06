@@ -905,9 +905,9 @@ function switchWechatTab(tabName) {
             charGenBtn.style.display = (me && !me.isAccount) ? 'flex' : 'none';
         }
     } else if (tabName === 'contacts') {
-        rightBtn.innerHTML = '';
-        rightBtn.onclick = null;
-        rightBtn.style.visibility = 'hidden';
+        rightBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" stroke="#111" stroke-width="2" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>';
+        rightBtn.onclick = openCreateGroupModal;
+        rightBtn.style.visibility = 'visible';
         if (searchBtn) searchBtn.style.display = 'none';
     } else if (tabName === 'me') {
         rightBtn.innerHTML = 'EDIT';
@@ -927,6 +927,120 @@ function switchWechatTab(tabName) {
         rightBtn.style.visibility = 'hidden';
         if (searchBtn) searchBtn.style.display = 'none'; // 其他页面隐藏搜索按钮
     }
+}
+
+// --- 创建群聊逻辑 ---
+let selectedGroupMembers = [];
+
+function openCreateGroupModal() {
+    const currentLoginId = ChatDB.getItem('current_login_account');
+    if (!currentLoginId) return;
+
+    selectedGroupMembers = [];
+    document.getElementById('createGroupNameInput').value = '';
+    
+    const listEl = document.getElementById('createGroupContactList');
+    listEl.innerHTML = '';
+
+    let contacts = JSON.parse(ChatDB.getItem(`contacts_${currentLoginId}`) || '[]');
+    let allEntities = getAllEntities();
+    let remarks = JSON.parse(ChatDB.getItem(`char_remarks_${currentLoginId}`) || '{}');
+
+    // 过滤出单人好友（排除群聊）
+    const friends = contacts.map(id => allEntities.find(c => c.id === id)).filter(c => c && !c.isGroup);
+
+    if (friends.length === 0) {
+        listEl.innerHTML = '<div style="text-align:center; color:#aaa; font-size:12px;">暂无好友可邀请</div>';
+    } else {
+        friends.forEach(f => {
+            const displayName = remarks[f.id] || f.netName || f.name;
+            const item = document.createElement('label');
+            item.style.cssText = 'display: flex; align-items: center; gap: 10px; padding: 10px; background: #f9f9f9; border-radius: 10px; cursor: pointer;';
+            item.innerHTML = `
+                <input type="checkbox" value="${f.id}" class="group-member-cb" style="width: 18px; height: 18px; accent-color: #111;" onchange="toggleGroupMember('${f.id}', this.checked)">
+                <div style="width: 36px; height: 36px; border-radius: 8px; background-image: url('${f.avatarUrl || ''}'); background-size: cover; background-color: #eee;"></div>
+                <div style="font-size: 14px; font-weight: bold; color: #333; flex: 1;">${displayName}</div>
+            `;
+            listEl.appendChild(item);
+        });
+    }
+
+    document.getElementById('createGroupModalOverlay').classList.add('show');
+}
+
+function closeCreateGroupModal() {
+    document.getElementById('createGroupModalOverlay').classList.remove('show');
+}
+
+function toggleGroupMember(id, isChecked) {
+    if (isChecked) {
+        if (!selectedGroupMembers.includes(id)) selectedGroupMembers.push(id);
+    } else {
+        selectedGroupMembers = selectedGroupMembers.filter(m => m !== id);
+    }
+}
+
+function confirmCreateGroup() {
+    const currentLoginId = ChatDB.getItem('current_login_account');
+    if (!currentLoginId) return;
+
+    const groupName = document.getElementById('createGroupNameInput').value.trim() || '未命名群聊';
+    
+    // 加上自己，至少需要 3 个人，所以选中的人至少需要 2 个
+    if (selectedGroupMembers.length < 2) {
+        return alert('创建群聊至少需要 3 个成员（包含您自己）！');
+    }
+
+    const groupId = 'group_' + Date.now() + Math.random().toString(36).substr(2, 5);
+    
+    // 将自己加入成员列表
+    const allMembers = [currentLoginId, ...selectedGroupMembers];
+
+    let npcs = JSON.parse(ChatDB.getItem('chat_npcs') || '[]');
+    npcs.push({
+        id: groupId,
+        name: groupName,
+        netName: groupName,
+        signature: '群聊',
+        description: '这是一个群聊',
+        group: '群聊',
+        isNPC: true,
+        isGroup: true,
+        memberIds: allMembers, // 保存群成员 ID
+        avatarUrl: '' // 可以生成一个九宫格头像，这里先留空
+    });
+    ChatDB.setItem('chat_npcs', JSON.stringify(npcs));
+
+    // 将群聊加入自己的通讯录和会话列表
+    let contacts = JSON.parse(ChatDB.getItem(`contacts_${currentLoginId}`) || '[]');
+    contacts.push(groupId);
+    ChatDB.setItem(`contacts_${currentLoginId}`, JSON.stringify(contacts));
+
+    let sessions = JSON.parse(ChatDB.getItem(`chat_sessions_${currentLoginId}`) || '[]');
+    sessions.unshift(groupId);
+    ChatDB.setItem(`chat_sessions_${currentLoginId}`, JSON.stringify(sessions));
+
+    // 将群聊加入其他成员的通讯录和会话列表
+    selectedGroupMembers.forEach(memberId => {
+        let mContacts = JSON.parse(ChatDB.getItem(`contacts_${memberId}`) || '[]');
+        if (!mContacts.includes(groupId)) {
+            mContacts.push(groupId);
+            ChatDB.setItem(`contacts_${memberId}`, JSON.stringify(mContacts));
+        }
+        let mSessions = JSON.parse(ChatDB.getItem(`chat_sessions_${memberId}`) || '[]');
+        if (!mSessions.includes(groupId)) {
+            mSessions.unshift(groupId);
+            ChatDB.setItem(`chat_sessions_${memberId}`, JSON.stringify(mSessions));
+        }
+    });
+
+    alert('群聊创建成功！');
+    closeCreateGroupModal();
+    
+    // 刷新列表并打开群聊
+    if (typeof renderContactList === 'function') renderContactList();
+    switchWechatTab('chat');
+    openChatRoom(groupId);
 }
 
 // ==========================================
@@ -1610,6 +1724,13 @@ function renderChatList() {
             else if (lastMsg.type === 'app_share') lastMsgText = `[${lastMsg.appName || '应用'}分享] ${lastMsg.shareTitle || ''}`;
             else if (safeContent.includes('<img')) lastMsgText = '[表情包]';
             else lastMsgText = safeContent.replace(/<[^>]+>/g, '');
+            
+            if (char.isGroup && lastMsg.role === 'char' && lastMsg.senderId) {
+                const member = allChars.find(e => e.id === lastMsg.senderId);
+                if (member) {
+                    lastMsgText = `${member.netName || member.name}: ${lastMsgText}`;
+                }
+            }
             
             const date = new Date(lastMsg.timestamp);
             const now = new Date();
@@ -3219,9 +3340,21 @@ function renderChatHistory(charId, keepScroll = false) {
     }
     const meAvatarUrl = me ? me.avatarUrl : '';
     const charAvatarUrl = char ? char.avatarUrl : '';
+    
+    let groupAvatarStyles = '';
+    if (char && char.isGroup && char.memberIds) {
+        char.memberIds.forEach(mid => {
+            const member = allEntities.find(e => e.id === mid);
+            if (member && member.avatarUrl) {
+                groupAvatarStyles += `.cr-avatar-group-${mid} { background-image: url('${member.avatarUrl}'); }\n`;
+            }
+        });
+    }
+
     avatarStyleTag.innerHTML = `
         .cr-avatar-me-bg { background-image: url('${meAvatarUrl}'); }
         .cr-avatar-char-bg { background-image: url('${charAvatarUrl}'); }
+        ${groupAvatarStyles}
     `;
 
     renderHistory.forEach((msg, i) => {
@@ -3264,8 +3397,18 @@ function renderChatHistory(charId, keepScroll = false) {
         };
 
         const isUser = msg.role === 'user';
-        const hasAvatar = isUser ? meAvatarUrl : charAvatarUrl;
-        const avatarClass = isUser ? 'cr-avatar-me-bg' : 'cr-avatar-char-bg';
+        let hasAvatar = isUser ? meAvatarUrl : charAvatarUrl;
+        let avatarClass = isUser ? 'cr-avatar-me-bg' : 'cr-avatar-char-bg';
+        let senderNameHtml = '';
+
+        if (!isUser && char && char.isGroup && msg.senderId) {
+            const member = allEntities.find(e => e.id === msg.senderId);
+            if (member) {
+                hasAvatar = member.avatarUrl;
+                avatarClass = `cr-avatar-group-${msg.senderId}`;
+                senderNameHtml = `<div style="font-size: 11px; color: #888; margin-bottom: 4px; margin-left: 12px;">${member.netName || member.name}</div>`;
+            }
+        }
         
         const avatarHtml = `
             <div class="cr-avatar ${avatarClass} ${isContinuous ? 'hidden' : ''}">
@@ -3461,7 +3604,15 @@ function renderChatHistory(charId, keepScroll = false) {
         if (msg.role === 'user') {
             rowEl.innerHTML = checkboxHtml + bubbleHtml + avatarHtml;
         } else {
-            rowEl.innerHTML = checkboxHtml + avatarHtml + bubbleHtml;
+            if (senderNameHtml && !isContinuous) {
+                const wrapper = document.createElement('div');
+                wrapper.style.display = 'flex';
+                wrapper.style.flexDirection = 'column';
+                wrapper.innerHTML = senderNameHtml + bubbleHtml;
+                rowEl.innerHTML = checkboxHtml + avatarHtml + wrapper.outerHTML;
+            } else {
+                rowEl.innerHTML = checkboxHtml + avatarHtml + bubbleHtml;
+            }
         }
 
         containerEl.appendChild(rowEl);
@@ -3617,12 +3768,23 @@ function openChatRoom(charId) {
         const wornBadgeHtml = getWornBadgeHtml(charId);
         document.getElementById('chatRoomTitle').innerHTML = `<span style="display:inline-flex; align-items:center; gap:4px;">${displayName}${wornBadgeHtml}</span>`;
         
-        document.getElementById('crHeaderAvatarMe').style.backgroundImage = `url('${me ? me.avatarUrl : ''}')`;
+        const meAvatarEl = document.getElementById('crHeaderAvatarMe');
         const charAvatarEl = document.getElementById('crHeaderAvatarChar');
-        charAvatarEl.style.backgroundImage = `url('${char.avatarUrl || ''}')`;
+        
+        if (char.isGroup) {
+            meAvatarEl.style.display = 'none';
+            charAvatarEl.style.marginLeft = '0';
+            charAvatarEl.style.backgroundImage = `url('${char.avatarUrl || ''}')`;
+        } else {
+            meAvatarEl.style.display = 'block';
+            charAvatarEl.style.marginLeft = '-8px';
+            meAvatarEl.style.backgroundImage = `url('${me ? me.avatarUrl : ''}')`;
+            charAvatarEl.style.backgroundImage = `url('${char.avatarUrl || ''}')`;
+        }
         
         // 点击头像：打开心声面板查看最后一次的心声
         charAvatarEl.onclick = () => {
+            if (char.isGroup) return; // 群聊顶栏头像禁用心声
             const lastVoice = ChatDB.getItem(`last_inner_voice_${currentChatRoomCharId}`);
             if (lastVoice) {
                 playInnerVoiceAnimation(lastVoice);
@@ -4182,11 +4344,21 @@ function toggleChatPanel(type) {
     if (type === 'more') {
         // 核心修改：判断是否为 Char 登录，如果是则隐藏查手机按钮
         const currentLoginId = ChatDB.getItem('current_login_account');
-        const isChar = !getAllEntities().find(e => e.id === currentLoginId)?.isAccount;
-        const phoneCheckBtn = document.getElementById('more-btn-phone-check');
-        if (phoneCheckBtn) {
-            phoneCheckBtn.style.display = isChar ? 'none' : 'flex';
-        }
+        let allEntities = getAllEntities();
+        const isChar = !allEntities.find(e => e.id === currentLoginId)?.isAccount;
+        const char = allEntities.find(c => c.id === currentChatRoomCharId);
+        
+        const moreItems = document.querySelectorAll('.cr-more-item');
+        moreItems.forEach(item => {
+            const text = item.innerText.trim();
+            if (char && char.isGroup && (text === '查手机' || text === '亲属卡')) {
+                item.style.display = 'none';
+            } else if (text === '查手机' && isChar) {
+                item.style.display = 'none';
+            } else {
+                item.style.display = 'flex';
+            }
+        });
 
         if (morePanel.classList.contains('show')) {
             morePanel.classList.remove('show');
@@ -4754,6 +4926,8 @@ function sendEmojiMessage(url, desc) {
 // ==========================================
 let tempSelectedEmojiGroups = []; // 临时记录弹窗选中的分组
 
+let currentGroupWbEntries = [];
+
 function openChatSettingsPanel() {
     document.getElementById('chatSettingsPanel').style.display = 'flex';
     renderChatBgLibrary();
@@ -4767,50 +4941,99 @@ function openChatSettingsPanel() {
     const me = allEntities.find(a => a.id === currentLoginId);
     const char = allEntities.find(c => c.id === currentChatRoomCharId);
 
-    document.getElementById('csUserAvatar').style.backgroundImage = "url('" + (me ? me.avatarUrl : '') + "')";
     document.getElementById('csCharAvatar').style.backgroundImage = "url('" + (char ? char.avatarUrl : '') + "')";
+    document.getElementById('csCharNameLabel').innerText = char ? (char.netName || char.name) : '未知角色';
 
     const charAvatarWrap = document.getElementById('csCharAvatarWrap') || document.getElementById('csCharAvatar').parentElement;
-    charAvatarWrap.onclick = () => {
-        if (char && char.isAccount) {
-            // 核心修复：char 本身就已经包含了账号的所有信息，直接读取 personaId 即可
-            if (char.personaId) {
-                editPersonaById(char.personaId);
-            }
-        } else {
-            openCharEditPanel(currentChatRoomCharId);
+
+    if (char && char.isGroup) {
+        document.getElementById('csUserAvatarWrap').style.display = 'none';
+        document.getElementById('csInteractionBadgeWrap').style.display = 'none';
+        document.getElementById('csAdvancedSettingsSection').style.display = 'none';
+        document.getElementById('csGroupSettingsSection').style.display = 'block';
+        
+        renderGroupMembers(char, currentLoginId, allEntities);
+        document.getElementById('csGroupNoticeInput').value = char.signature || '';
+        
+        // 渲染群主选择
+        const ownerSelect = document.getElementById('csGroupOwnerSelect');
+        ownerSelect.innerHTML = '';
+        if (char.memberIds) {
+            char.memberIds.forEach(mid => {
+                const member = allEntities.find(e => e.id === mid);
+                if (member) {
+                    const option = document.createElement('option');
+                    option.value = mid;
+                    option.innerText = member.netName || member.name;
+                    if (char.ownerId === mid) option.selected = true;
+                    ownerSelect.appendChild(option);
+                }
+            });
         }
-    };
+        
+        // 渲染群世界书
+        currentGroupWbEntries = char.wbEntries || [];
+        const wbTextEl = document.getElementById('csGroupWbSelectText');
+        if (currentGroupWbEntries.length > 0) {
+            wbTextEl.innerText = `已选 ${currentGroupWbEntries.length} 个条目`;
+            wbTextEl.style.color = '#111';
+        } else {
+            wbTextEl.innerText = '未选择';
+            wbTextEl.style.color = '#888';
+        }
 
-    // 渲染头像间的互动标识：显示当前佩戴的标识，若无则显示默认火花
-    const badgeContainer = document.getElementById('csInteractionBadge');
-    const wornHtml = getWornBadgeHtml(currentChatRoomCharId);
-    
-    if (wornHtml) {
-        badgeContainer.innerHTML = wornHtml.replace('width:16px; height:16px;', 'width:28px; height:28px;');
+        charAvatarWrap.onclick = () => {
+            const isOwnerOrAdmin = char.ownerId === currentLoginId || (char.adminIds && char.adminIds.includes(currentLoginId));
+            if (isOwnerOrAdmin || !char.ownerId) {
+                document.getElementById('groupAvatarUploadInput').click();
+            } else {
+                alert('只有群主或管理员可以修改群头像！');
+            }
+        };
     } else {
-        const stats = JSON.parse(ChatDB.getItem(`interaction_stats_${currentLoginId}`) || '{}')[currentChatRoomCharId] || { streak: 0 };
-        const isFireActive = stats.streak >= 3;
-        const fireClass = isFireActive ? (stats.streak >= 30 ? 'badge-fire big' : 'badge-fire') : 'badge-fire dimmed';
-        const firePath = stats.streak >= 30 ? SVG_PATHS.BIG_FIRE : SVG_PATHS.FIRE;
-        badgeContainer.innerHTML = `<div class="badge-icon ${fireClass}" style="width:28px;height:28px;"><svg viewBox="0 0 24 24"><path d="${firePath}"/></svg></div>`;
+        document.getElementById('csUserAvatarWrap').style.display = 'flex';
+        document.getElementById('csInteractionBadgeWrap').style.display = 'flex';
+        document.getElementById('csAdvancedSettingsSection').style.display = 'block';
+        document.getElementById('csGroupSettingsSection').style.display = 'none';
+        
+        document.getElementById('csUserAvatar').style.backgroundImage = "url('" + (me ? me.avatarUrl : '') + "')";
+        document.getElementById('csUserNameLabel').innerText = me ? me.netName : '我';
+
+        // 渲染头像间的互动标识
+        const badgeContainer = document.getElementById('csInteractionBadge');
+        const wornHtml = getWornBadgeHtml(currentChatRoomCharId);
+        
+        if (wornHtml) {
+            badgeContainer.innerHTML = wornHtml.replace('width:16px; height:16px;', 'width:28px; height:28px;');
+        } else {
+            const stats = JSON.parse(ChatDB.getItem(`interaction_stats_${currentLoginId}`) || '{}')[currentChatRoomCharId] || { streak: 0 };
+            const isFireActive = stats.streak >= 3;
+            const fireClass = isFireActive ? (stats.streak >= 30 ? 'badge-fire big' : 'badge-fire') : 'badge-fire dimmed';
+            const firePath = stats.streak >= 30 ? SVG_PATHS.BIG_FIRE : SVG_PATHS.FIRE;
+            badgeContainer.innerHTML = `<div class="badge-icon ${fireClass}" style="width:28px;height:28px;"><svg viewBox="0 0 24 24"><path d="${firePath}"/></svg></div>`;
+        }
+
+        document.getElementById('csContextLimit').value = ChatDB.getItem(`chat_context_limit_${currentChatRoomCharId}`) || '';
+        document.getElementById('csMinReply').value = ChatDB.getItem(`chat_min_reply_${currentChatRoomCharId}`) || '';
+        document.getElementById('csMaxReply').value = ChatDB.getItem(`chat_max_reply_${currentChatRoomCharId}`) || '';
+        document.getElementById('csTimeAwareToggle').checked = ChatDB.getItem(`chat_time_aware_${currentChatRoomCharId}`) === 'true';
+        document.getElementById('csInnerVoiceToggle').checked = ChatDB.getItem(`chat_inner_voice_enabled_${currentChatRoomCharId}`) === 'true';
+        document.getElementById('csWeatherAwareToggle').checked = ChatDB.getItem(`chat_weather_aware_${currentChatRoomCharId}`) === 'true';
+        document.getElementById('csBadgeAwareToggle').checked = ChatDB.getItem(`chat_badge_aware_${currentChatRoomCharId}`) === 'true';
+        document.getElementById('csActiveMsgToggle').checked = ChatDB.getItem(`chat_active_msg_${currentChatRoomCharId}`) === 'true';
+        document.getElementById('csActiveMsgInterval').value = ChatDB.getItem(`chat_active_msg_interval_${currentChatRoomCharId}`) || '60';
+
+        tempSelectedEmojiGroups = JSON.parse(ChatDB.getItem(`chat_char_emoji_groups_${currentChatRoomCharId}`) || '[]');
+        updateEmojiSelectBtnText();
+
+        charAvatarWrap.onclick = () => {
+            if (char && char.isAccount) {
+                if (char.personaId) editPersonaById(char.personaId);
+            } else {
+                openCharEditPanel(currentChatRoomCharId);
+            }
+        };
     }
-
-    document.getElementById('csCharNameLabel').innerText = char ? (char.netName || char.name) : '未知角色';
-    document.getElementById('csUserNameLabel').innerText = me ? me.netName : '我';
-
-    document.getElementById('csContextLimit').value = ChatDB.getItem(`chat_context_limit_${currentChatRoomCharId}`) || '';
-    document.getElementById('csMinReply').value = ChatDB.getItem(`chat_min_reply_${currentChatRoomCharId}`) || '';
-    document.getElementById('csMaxReply').value = ChatDB.getItem(`chat_max_reply_${currentChatRoomCharId}`) || '';
-    document.getElementById('csTimeAwareToggle').checked = ChatDB.getItem(`chat_time_aware_${currentChatRoomCharId}`) === 'true';
-    document.getElementById('csInnerVoiceToggle').checked = ChatDB.getItem(`chat_inner_voice_enabled_${currentChatRoomCharId}`) === 'true';
-    document.getElementById('csWeatherAwareToggle').checked = ChatDB.getItem(`chat_weather_aware_${currentChatRoomCharId}`) === 'true';
-    document.getElementById('csBadgeAwareToggle').checked = ChatDB.getItem(`chat_badge_aware_${currentChatRoomCharId}`) === 'true';
-    document.getElementById('csActiveMsgToggle').checked = ChatDB.getItem(`chat_active_msg_${currentChatRoomCharId}`) === 'true';
-    document.getElementById('csActiveMsgInterval').value = ChatDB.getItem(`chat_active_msg_interval_${currentChatRoomCharId}`) || '60';
-
-    tempSelectedEmojiGroups = JSON.parse(ChatDB.getItem(`chat_char_emoji_groups_${currentChatRoomCharId}`) || '[]');
-    updateEmojiSelectBtnText();
 }
 
 function openEmojiSelectModal() {
@@ -4850,26 +5073,40 @@ function updateEmojiSelectBtnText() {
 }
 
 function saveChatSettings() {
-    const contextLimit = document.getElementById('csContextLimit').value;
-    const minReply = document.getElementById('csMinReply').value;
-    const maxReply = document.getElementById('csMaxReply').value;
-    const timeAware = document.getElementById('csTimeAwareToggle').checked;
-    const innerVoiceEnabled = document.getElementById('csInnerVoiceToggle').checked;
-    const weatherAware = document.getElementById('csWeatherAwareToggle').checked;
-    const badgeAware = document.getElementById('csBadgeAwareToggle').checked;
-    const activeMsg = document.getElementById('csActiveMsgToggle').checked;
-    const activeMsgInterval = document.getElementById('csActiveMsgInterval').value;
+    let allEntities = getAllEntities();
+    const char = allEntities.find(c => c.id === currentChatRoomCharId);
+    
+    if (char && char.isGroup) {
+        let npcs = JSON.parse(ChatDB.getItem('chat_npcs') || '[]');
+        const index = npcs.findIndex(n => n.id === currentChatRoomCharId);
+        if (index !== -1) {
+            npcs[index].signature = document.getElementById('csGroupNoticeInput').value.trim();
+            npcs[index].ownerId = document.getElementById('csGroupOwnerSelect').value;
+            npcs[index].wbEntries = currentGroupWbEntries;
+            ChatDB.setItem('chat_npcs', JSON.stringify(npcs));
+        }
+    } else {
+        const contextLimit = document.getElementById('csContextLimit').value;
+        const minReply = document.getElementById('csMinReply').value;
+        const maxReply = document.getElementById('csMaxReply').value;
+        const timeAware = document.getElementById('csTimeAwareToggle').checked;
+        const innerVoiceEnabled = document.getElementById('csInnerVoiceToggle').checked;
+        const weatherAware = document.getElementById('csWeatherAwareToggle').checked;
+        const badgeAware = document.getElementById('csBadgeAwareToggle').checked;
+        const activeMsg = document.getElementById('csActiveMsgToggle').checked;
+        const activeMsgInterval = document.getElementById('csActiveMsgInterval').value;
 
-    ChatDB.setItem(`chat_context_limit_${currentChatRoomCharId}`, contextLimit);
-    ChatDB.setItem(`chat_min_reply_${currentChatRoomCharId}`, minReply);
-    ChatDB.setItem(`chat_max_reply_${currentChatRoomCharId}`, maxReply);
-    ChatDB.setItem(`chat_time_aware_${currentChatRoomCharId}`, String(timeAware));
-    ChatDB.setItem(`chat_inner_voice_enabled_${currentChatRoomCharId}`, String(innerVoiceEnabled));
-    ChatDB.setItem(`chat_weather_aware_${currentChatRoomCharId}`, String(weatherAware));
-    ChatDB.setItem(`chat_badge_aware_${currentChatRoomCharId}`, String(badgeAware));
-    ChatDB.setItem(`chat_active_msg_${currentChatRoomCharId}`, String(activeMsg));
-    ChatDB.setItem(`chat_active_msg_interval_${currentChatRoomCharId}`, activeMsgInterval);
-    ChatDB.setItem(`chat_char_emoji_groups_${currentChatRoomCharId}`, JSON.stringify(tempSelectedEmojiGroups));
+        ChatDB.setItem(`chat_context_limit_${currentChatRoomCharId}`, contextLimit);
+        ChatDB.setItem(`chat_min_reply_${currentChatRoomCharId}`, minReply);
+        ChatDB.setItem(`chat_max_reply_${currentChatRoomCharId}`, maxReply);
+        ChatDB.setItem(`chat_time_aware_${currentChatRoomCharId}`, String(timeAware));
+        ChatDB.setItem(`chat_inner_voice_enabled_${currentChatRoomCharId}`, String(innerVoiceEnabled));
+        ChatDB.setItem(`chat_weather_aware_${currentChatRoomCharId}`, String(weatherAware));
+        ChatDB.setItem(`chat_badge_aware_${currentChatRoomCharId}`, String(badgeAware));
+        ChatDB.setItem(`chat_active_msg_${currentChatRoomCharId}`, String(activeMsg));
+        ChatDB.setItem(`chat_active_msg_interval_${currentChatRoomCharId}`, activeMsgInterval);
+        ChatDB.setItem(`chat_char_emoji_groups_${currentChatRoomCharId}`, JSON.stringify(tempSelectedEmojiGroups));
+    }
 
     alert('设置已保存！');
     closeChatSettingsPanel();
@@ -4877,6 +5114,403 @@ function saveChatSettings() {
 
 function closeChatSettingsPanel() {
     document.getElementById('chatSettingsPanel').style.display = 'none';
+}
+
+function renderGroupMembers(char, currentLoginId, allEntities) {
+    const listEl = document.getElementById('csGroupMembersList');
+    listEl.innerHTML = '';
+    
+    if (char.memberIds) {
+        char.memberIds.forEach(mid => {
+            const member = allEntities.find(e => e.id === mid);
+            if (member) {
+                const item = document.createElement('div');
+                item.style.cssText = 'display: flex; flex-direction: column; align-items: center; gap: 4px; width: 45px;';
+                
+                let roleTag = '';
+                if (char.ownerId === mid) roleTag = '<div style="background:#ff9500; color:#fff; font-size:8px; padding:1px 4px; border-radius:4px; margin-top:-6px; z-index:2;">群主</div>';
+                else if (char.adminIds && char.adminIds.includes(mid)) roleTag = '<div style="background:#34c759; color:#fff; font-size:8px; padding:1px 4px; border-radius:4px; margin-top:-6px; z-index:2;">管理</div>';
+                
+                item.innerHTML = `
+                    <div style="width: 40px; height: 40px; border-radius: 8px; background-image: url('${member.avatarUrl || ''}'); background-size: cover; background-position: center; background-color: #eee;"></div>
+                    ${roleTag}
+                    <div style="font-size: 10px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; text-align: center;">${member.netName || member.name}</div>
+                `;
+                listEl.appendChild(item);
+            }
+        });
+    }
+    
+    const isOwnerOrAdmin = char.ownerId === currentLoginId || (char.adminIds && char.adminIds.includes(currentLoginId));
+    
+    // 邀请按钮
+    const addBtn = document.createElement('div');
+    addBtn.style.cssText = 'display: flex; flex-direction: column; align-items: center; gap: 4px; width: 45px; cursor: pointer;';
+    addBtn.innerHTML = `
+        <div style="width: 40px; height: 40px; border-radius: 8px; border: 1px dashed #ccc; display: flex; justify-content: center; align-items: center; color: #888; font-size: 20px;">+</div>
+    `;
+    addBtn.onclick = openGroupInviteModal;
+    listEl.appendChild(addBtn);
+    
+    // 踢出按钮 (仅群主或管理员可见)
+    if (isOwnerOrAdmin || !char.ownerId) {
+        const removeBtn = document.createElement('div');
+        removeBtn.style.cssText = 'display: flex; flex-direction: column; align-items: center; gap: 4px; width: 45px; cursor: pointer;';
+        removeBtn.innerHTML = `
+            <div style="width: 40px; height: 40px; border-radius: 8px; border: 1px dashed #ccc; display: flex; justify-content: center; align-items: center; color: #888; font-size: 24px;">-</div>
+        `;
+        removeBtn.onclick = openGroupKickModal;
+        listEl.appendChild(removeBtn);
+    }
+}
+
+function handleGroupAvatarUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const imgUrl = e.target.result;
+        let npcs = JSON.parse(ChatDB.getItem('chat_npcs') || '[]');
+        const index = npcs.findIndex(n => n.id === currentChatRoomCharId);
+        if (index !== -1) {
+            npcs[index].avatarUrl = imgUrl;
+            ChatDB.setItem('chat_npcs', JSON.stringify(npcs));
+            document.getElementById('csCharAvatar').style.backgroundImage = `url('${imgUrl}')`;
+            document.getElementById('crHeaderAvatarChar').style.backgroundImage = `url('${imgUrl}')`;
+            if (typeof renderChatList === 'function') renderChatList();
+        }
+    }
+    reader.readAsDataURL(file);
+    event.target.value = '';
+}
+
+// --- 群聊成员管理弹窗逻辑 ---
+let tempGroupActionMembers = [];
+
+function openGroupInviteModal() {
+    const currentLoginId = ChatDB.getItem('current_login_account');
+    let allEntities = getAllEntities();
+    const char = allEntities.find(c => c.id === currentChatRoomCharId);
+    if (!char || !char.isGroup) return;
+
+    tempGroupActionMembers = [];
+    const listEl = document.getElementById('groupInviteContactList');
+    listEl.innerHTML = '';
+
+    let contacts = JSON.parse(ChatDB.getItem(`contacts_${currentLoginId}`) || '[]');
+    let remarks = JSON.parse(ChatDB.getItem(`char_remarks_${currentLoginId}`) || '{}');
+
+    // 过滤出不在群里的单人好友
+    const friends = contacts.map(id => allEntities.find(c => c.id === id))
+                            .filter(c => c && !c.isGroup && (!char.memberIds || !char.memberIds.includes(c.id)));
+
+    if (friends.length === 0) {
+        listEl.innerHTML = '<div style="text-align:center; color:#aaa; font-size:12px;">暂无好友可邀请</div>';
+    } else {
+        friends.forEach(f => {
+            const displayName = remarks[f.id] || f.netName || f.name;
+            const item = document.createElement('label');
+            item.style.cssText = 'display: flex; align-items: center; gap: 10px; padding: 10px; background: #f9f9f9; border-radius: 10px; cursor: pointer;';
+            item.innerHTML = `
+                <input type="checkbox" value="${f.id}" class="group-action-cb" style="width: 18px; height: 18px; accent-color: #111;" onchange="toggleGroupActionMember('${f.id}', this.checked)">
+                <div style="width: 36px; height: 36px; border-radius: 8px; background-image: url('${f.avatarUrl || ''}'); background-size: cover; background-color: #eee;"></div>
+                <div style="font-size: 14px; font-weight: bold; color: #333; flex: 1;">${displayName}</div>
+            `;
+            listEl.appendChild(item);
+        });
+    }
+    document.getElementById('groupInviteModalOverlay').classList.add('show');
+}
+
+function closeGroupInviteModal() { document.getElementById('groupInviteModalOverlay').classList.remove('show'); }
+
+function toggleGroupActionMember(id, isChecked) {
+    if (isChecked) {
+        if (!tempGroupActionMembers.includes(id)) tempGroupActionMembers.push(id);
+    } else {
+        tempGroupActionMembers = tempGroupActionMembers.filter(m => m !== id);
+    }
+}
+
+function confirmGroupInvite() {
+    if (tempGroupActionMembers.length === 0) return closeGroupInviteModal();
+    
+    let npcs = JSON.parse(ChatDB.getItem('chat_npcs') || '[]');
+    const index = npcs.findIndex(n => n.id === currentChatRoomCharId);
+    if (index !== -1) {
+        if (!npcs[index].memberIds) npcs[index].memberIds = [];
+        npcs[index].memberIds.push(...tempGroupActionMembers);
+        ChatDB.setItem('chat_npcs', JSON.stringify(npcs));
+        
+        // 将群聊加入新成员的通讯录和会话列表
+        tempGroupActionMembers.forEach(memberId => {
+            let mContacts = JSON.parse(ChatDB.getItem(`contacts_${memberId}`) || '[]');
+            if (!mContacts.includes(currentChatRoomCharId)) {
+                mContacts.push(currentChatRoomCharId);
+                ChatDB.setItem(`contacts_${memberId}`, JSON.stringify(mContacts));
+            }
+            let mSessions = JSON.parse(ChatDB.getItem(`chat_sessions_${memberId}`) || '[]');
+            if (!mSessions.includes(currentChatRoomCharId)) {
+                mSessions.unshift(currentChatRoomCharId);
+                ChatDB.setItem(`chat_sessions_${memberId}`, JSON.stringify(mSessions));
+            }
+        });
+        
+        openChatSettingsPanel(); // 刷新设置面板
+    }
+    closeGroupInviteModal();
+}
+
+function openGroupKickModal() {
+    const currentLoginId = ChatDB.getItem('current_login_account');
+    let allEntities = getAllEntities();
+    const char = allEntities.find(c => c.id === currentChatRoomCharId);
+    if (!char || !char.isGroup) return;
+
+    tempGroupActionMembers = [];
+    const listEl = document.getElementById('groupKickContactList');
+    listEl.innerHTML = '';
+
+    // 只能踢出普通成员和管理员，不能踢群主和自己
+    const members = (char.memberIds || []).filter(id => id !== currentLoginId && id !== char.ownerId);
+
+    if (members.length === 0) {
+        listEl.innerHTML = '<div style="text-align:center; color:#aaa; font-size:12px;">暂无成员可移出</div>';
+    } else {
+        members.forEach(mid => {
+            const f = allEntities.find(e => e.id === mid);
+            if (f) {
+                const item = document.createElement('label');
+                item.style.cssText = 'display: flex; align-items: center; gap: 10px; padding: 10px; background: #f9f9f9; border-radius: 10px; cursor: pointer;';
+                item.innerHTML = `
+                    <input type="checkbox" value="${f.id}" class="group-action-cb" style="width: 18px; height: 18px; accent-color: #ff3b30;" onchange="toggleGroupActionMember('${f.id}', this.checked)">
+                    <div style="width: 36px; height: 36px; border-radius: 8px; background-image: url('${f.avatarUrl || ''}'); background-size: cover; background-color: #eee;"></div>
+                    <div style="font-size: 14px; font-weight: bold; color: #333; flex: 1;">${f.netName || f.name}</div>
+                `;
+                listEl.appendChild(item);
+            }
+        });
+    }
+    document.getElementById('groupKickModalOverlay').classList.add('show');
+}
+
+function closeGroupKickModal() { document.getElementById('groupKickModalOverlay').classList.remove('show'); }
+
+function confirmGroupKick() {
+    if (tempGroupActionMembers.length === 0) return closeGroupKickModal();
+    
+    let npcs = JSON.parse(ChatDB.getItem('chat_npcs') || '[]');
+    const index = npcs.findIndex(n => n.id === currentChatRoomCharId);
+    if (index !== -1) {
+        npcs[index].memberIds = npcs[index].memberIds.filter(id => !tempGroupActionMembers.includes(id));
+        if (npcs[index].adminIds) {
+            npcs[index].adminIds = npcs[index].adminIds.filter(id => !tempGroupActionMembers.includes(id));
+        }
+        ChatDB.setItem('chat_npcs', JSON.stringify(npcs));
+        
+        // 从被踢成员的通讯录和会话列表中移除群聊
+        tempGroupActionMembers.forEach(memberId => {
+            let mContacts = JSON.parse(ChatDB.getItem(`contacts_${memberId}`) || '[]');
+            mContacts = mContacts.filter(id => id !== currentChatRoomCharId);
+            ChatDB.setItem(`contacts_${memberId}`, JSON.stringify(mContacts));
+            
+            let mSessions = JSON.parse(ChatDB.getItem(`chat_sessions_${memberId}`) || '[]');
+            mSessions = mSessions.filter(id => id !== currentChatRoomCharId);
+            ChatDB.setItem(`chat_sessions_${memberId}`, JSON.stringify(mSessions));
+        });
+        
+        openChatSettingsPanel();
+    }
+    closeGroupKickModal();
+}
+
+function openGroupAdminModal() {
+    const currentLoginId = ChatDB.getItem('current_login_account');
+    let allEntities = getAllEntities();
+    const char = allEntities.find(c => c.id === currentChatRoomCharId);
+    if (!char || !char.isGroup) return;
+    
+    if (char.ownerId !== currentLoginId && char.ownerId) {
+        return alert('只有群主可以设置管理员！');
+    }
+
+    tempGroupActionMembers = char.adminIds || [];
+    const listEl = document.getElementById('groupAdminContactList');
+    listEl.innerHTML = '';
+
+    const members = (char.memberIds || []).filter(id => id !== char.ownerId);
+
+    if (members.length === 0) {
+        listEl.innerHTML = '<div style="text-align:center; color:#aaa; font-size:12px;">暂无成员可设置</div>';
+    } else {
+        members.forEach(mid => {
+            const f = allEntities.find(e => e.id === mid);
+            if (f) {
+                const isChecked = tempGroupActionMembers.includes(f.id);
+                const item = document.createElement('label');
+                item.style.cssText = 'display: flex; align-items: center; gap: 10px; padding: 10px; background: #f9f9f9; border-radius: 10px; cursor: pointer;';
+                item.innerHTML = `
+                    <input type="checkbox" value="${f.id}" class="group-action-cb" style="width: 18px; height: 18px; accent-color: #34c759;" ${isChecked ? 'checked' : ''} onchange="toggleGroupActionMember('${f.id}', this.checked)">
+                    <div style="width: 36px; height: 36px; border-radius: 8px; background-image: url('${f.avatarUrl || ''}'); background-size: cover; background-color: #eee;"></div>
+                    <div style="font-size: 14px; font-weight: bold; color: #333; flex: 1;">${f.netName || f.name}</div>
+                `;
+                listEl.appendChild(item);
+            }
+        });
+    }
+    document.getElementById('groupAdminModalOverlay').classList.add('show');
+}
+
+function closeGroupAdminModal() { document.getElementById('groupAdminModalOverlay').classList.remove('show'); }
+
+function confirmGroupAdmin() {
+    let npcs = JSON.parse(ChatDB.getItem('chat_npcs') || '[]');
+    const index = npcs.findIndex(n => n.id === currentChatRoomCharId);
+    if (index !== -1) {
+        npcs[index].adminIds = [...tempGroupActionMembers];
+        ChatDB.setItem('chat_npcs', JSON.stringify(npcs));
+        openChatSettingsPanel();
+    }
+    closeGroupAdminModal();
+}
+
+function openGroupWbSelectModal() {
+    const listEl = document.getElementById('groupWbSelectList');
+    listEl.innerHTML = '';
+    
+    let wbData = JSON.parse(ChatDB.getItem('worldbook_data')) || { groups: [], entries: [] };
+    
+    if (wbData.groups.length === 0 || wbData.entries.length === 0) {
+        listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #aaa; font-size: 12px;">暂无世界书数据</div>';
+    } else {
+        wbData.groups.forEach(group => {
+            const groupEntries = wbData.entries.filter(e => e.group === group);
+            if (groupEntries.length === 0) return;
+            
+            const groupContainer = document.createElement('div');
+            groupContainer.style.borderBottom = '1px solid #f5f5f5';
+            
+            const groupHeader = document.createElement('div');
+            groupHeader.style.display = 'flex';
+            groupHeader.style.alignItems = 'center';
+            groupHeader.style.justifyContent = 'space-between';
+            groupHeader.style.padding = '15px 5px';
+            groupHeader.style.cursor = 'pointer';
+            
+            const leftDiv = document.createElement('div');
+            leftDiv.style.display = 'flex';
+            leftDiv.style.alignItems = 'center';
+            leftDiv.style.gap = '12px';
+            
+            const groupCb = document.createElement('input');
+            groupCb.type = 'checkbox';
+            groupCb.setAttribute('data-group-target', group);
+            groupCb.style.width = '18px';
+            groupCb.style.height = '18px';
+            groupCb.style.cursor = 'pointer';
+            groupCb.style.accentColor = '#333';
+            
+            const allSelected = groupEntries.every(e => currentGroupWbEntries.includes(e.id));
+            groupCb.checked = allSelected;
+            
+            groupCb.onclick = (e) => e.stopPropagation();
+            
+            groupCb.onchange = (e) => {
+                const isChecked = e.target.checked;
+                document.querySelectorAll(`.group-wb-entry-checkbox[data-group-name="${group}"]`).forEach(cb => {
+                    cb.checked = isChecked;
+                    if (isChecked && !currentGroupWbEntries.includes(cb.value)) {
+                        currentGroupWbEntries.push(cb.value);
+                    } else if (!isChecked) {
+                        currentGroupWbEntries = currentGroupWbEntries.filter(id => id !== cb.value);
+                    }
+                });
+            };
+            
+            const titleSpan = document.createElement('span');
+            titleSpan.innerText = group;
+            titleSpan.style.fontSize = '15px';
+            titleSpan.style.color = '#333';
+            titleSpan.style.fontWeight = '500';
+            
+            leftDiv.appendChild(groupCb);
+            leftDiv.appendChild(titleSpan);
+            
+            const arrowSvg = document.createElement('div');
+            arrowSvg.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="#aaa" style="transition: transform 0.2s;"><path d="M7 10l5 5 5-5z"/></svg>`;
+            const arrowIcon = arrowSvg.firstChild;
+            
+            groupHeader.appendChild(leftDiv);
+            groupHeader.appendChild(arrowSvg);
+            
+            const entriesContainer = document.createElement('div');
+            entriesContainer.style.display = 'none';
+            entriesContainer.style.paddingBottom = '10px';
+            
+            groupHeader.onclick = () => {
+                const isHidden = entriesContainer.style.display === 'none';
+                entriesContainer.style.display = isHidden ? 'block' : 'none';
+                arrowIcon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+            };
+            
+            groupEntries.forEach(entry => {
+                const entryDiv = document.createElement('div');
+                entryDiv.style.display = 'flex';
+                entryDiv.style.alignItems = 'center';
+                entryDiv.style.gap = '12px';
+                entryDiv.style.padding = '12px 5px 12px 35px';
+                
+                const entryCb = document.createElement('input');
+                entryCb.type = 'checkbox';
+                entryCb.className = `group-wb-entry-checkbox`;
+                entryCb.setAttribute('data-group-name', group);
+                entryCb.value = entry.id;
+                entryCb.checked = currentGroupWbEntries.includes(entry.id);
+                entryCb.style.width = '16px';
+                entryCb.style.height = '16px';
+                entryCb.style.cursor = 'pointer';
+                entryCb.style.accentColor = '#666';
+                
+                entryCb.onchange = (e) => {
+                    if (e.target.checked) {
+                        if (!currentGroupWbEntries.includes(entry.id)) currentGroupWbEntries.push(entry.id);
+                    } else {
+                        currentGroupWbEntries = currentGroupWbEntries.filter(id => id !== entry.id);
+                    }
+                    const allCbs = Array.from(document.querySelectorAll(`.group-wb-entry-checkbox[data-group-name="${group}"]`));
+                    const allChecked = allCbs.every(cb => cb.checked);
+                    document.querySelector(`input[data-group-target="${group}"]`).checked = allChecked;
+                };
+                
+                const entryTitle = document.createElement('span');
+                entryTitle.innerText = entry.title || '未命名';
+                entryTitle.style.fontSize = '14px';
+                entryTitle.style.color = '#666';
+                
+                entryDiv.appendChild(entryCb);
+                entryDiv.appendChild(entryTitle);
+                entriesContainer.appendChild(entryDiv);
+            });
+            
+            groupContainer.appendChild(groupHeader);
+            groupContainer.appendChild(entriesContainer);
+            listEl.appendChild(groupContainer);
+        });
+    }
+    
+    document.getElementById('groupWbSelectModalOverlay').classList.add('show');
+}
+
+function confirmGroupWbSelect() {
+    const textEl = document.getElementById('csGroupWbSelectText');
+    if (currentGroupWbEntries.length > 0) {
+        textEl.innerText = `已选 ${currentGroupWbEntries.length} 个条目`;
+        textEl.style.color = '#111';
+    } else {
+        textEl.innerText = '未选择';
+        textEl.style.color = '#888';
+    }
+    document.getElementById('groupWbSelectModalOverlay').classList.remove('show');
 }
 
 // --- 聊天背景逻辑 ---
@@ -5278,8 +5912,35 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
         }
     }
 
-    let systemPrompt = `你正在一个名为“微信”的线上聊天软件中扮演一个角色。请严格遵守以下规则：\n`;
-    systemPrompt += `【核心规则】\n`;
+    let systemPrompt = '';
+    if (char.isGroup) {
+        systemPrompt = `你正在一个名为“微信”的线上聊天软件中扮演【群聊】中的多个角色。请严格遵守以下规则：\n`;
+        systemPrompt += `【群聊基本信息】\n`;
+        systemPrompt += `群名称：${char.name}\n`;
+        systemPrompt += `群成员：\n`;
+        
+        let memberPrompts = [];
+        if (char.memberIds) {
+            char.memberIds.forEach(mid => {
+                if (mid === currentLoginId) return;
+                const member = allEntities.find(e => e.id === mid);
+                if (member) {
+                    memberPrompts.push(`- 成员ID: ${member.id} | 名字: ${member.netName || member.name} | 设定: ${member.description || '无'}`);
+                }
+            });
+        }
+        systemPrompt += memberPrompts.join('\n') + '\n\n';
+        
+        systemPrompt += `【活跃群里铁律】\n`;
+        systemPrompt += `这是一个多人活跃群聊！当 User（${userName}）发话时，绝对不能只有一个人回复！你必须让群里**至少 2 个不同的成员**出来接话。群成员之间也必须互相回复、吐槽、接梗，同时也不要只围着 User 转！如果某个成员说了一句话，其他成员可以针对这句话进行反驳或赞同，但是也不能完全不理User！禁止自说自话！严禁冷场！\n\n`;
+        
+        systemPrompt += `【角色扮演铁律 (最高防串戏警告)】\n`;
+        systemPrompt += `你必须严格区分每个人的性格和身份，请严格扮演每个角色的人设，不同角色之间应有明显的性格和语气差异，绝对禁止角色串台词！\n\n`;
+        systemPrompt += `【核心规则】\n`;
+    } else {
+        systemPrompt = `你正在一个名为“微信”的线上聊天软件中扮演一个角色。请严格遵守以下规则：\n`;
+        systemPrompt += `【核心规则】\n`;
+    }
     if (timeAware) {
         systemPrompt += `A. 当前时间：现在是 ${currentTimeStr}。你应知晓时间流逝，但除非对话相关，否则不要主动提及。\n`;
         if (!isProactive && fullHistory.length >= 2) {
@@ -5326,12 +5987,20 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
     systemPrompt += `【角色与对话规则】\n`;
     if (activeWbs.before.length > 0) systemPrompt += `${activeWbs.before.join('\n')}\n`;
     
-    systemPrompt += `<char_settings>\n`;
-    systemPrompt += `1. 你的名字：${charName}。我的网名是：【${userName}】，我的真实名字是：【${userRealName}】。请务必严格区分我的【网名】和【真实名字】，绝对不能搞混！\n`;
-    systemPrompt += `2. 你的设定：${char.description || "一个真实的聊天伙伴。"}\n`;
-    if (char.scenario) systemPrompt += `3. 当前场景：${char.scenario}\n`;
-    if (activeWbs.after.length > 0) systemPrompt += `${activeWbs.after.join('\n')}\n`;
-    systemPrompt += `</char_settings>\n\n`;
+    if (char.isGroup) {
+        systemPrompt += `<char_settings>\n`;
+        systemPrompt += `1. 我的网名是：【${userName}】，我的真实名字是：【${userRealName}】。请务必严格区分我的【网名】和【真实名字】，绝对不能搞混！\n`;
+        if (char.scenario) systemPrompt += `2. 当前场景：${char.scenario}\n`;
+        if (activeWbs.after.length > 0) systemPrompt += `${activeWbs.after.join('\n')}\n`;
+        systemPrompt += `</char_settings>\n\n`;
+    } else {
+        systemPrompt += `<char_settings>\n`;
+        systemPrompt += `1. 你的名字：${charName}。我的网名是：【${userName}】，我的真实名字是：【${userRealName}】。请务必严格区分我的【网名】和【真实名字】，绝对不能搞混！\n`;
+        systemPrompt += `2. 你的设定：${char.description || "一个真实的聊天伙伴。"}\n`;
+        if (char.scenario) systemPrompt += `3. 当前场景：${char.scenario}\n`;
+        if (activeWbs.after.length > 0) systemPrompt += `${activeWbs.after.join('\n')}\n`;
+        systemPrompt += `</char_settings>\n\n`;
+    }
 
     systemPrompt += `<user_settings>\n关于我的人设：${(persona && persona.persona) ? persona.persona : "普通用户"}\n</user_settings>\n`;
     
@@ -5488,15 +6157,37 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
     if (innerVoiceEnabled) {
         let ivHistory = JSON.parse(ChatDB.getItem(`inner_voice_history_${currentLoginId}_${targetCharId}`) || '[]');
         let lastIv = ivHistory.length > 0 ? ivHistory[ivHistory.length - 1].content : "无";
-        systemPrompt += `【心声系统已开启】\n上一轮你的心声是：${lastIv}\n请结合上一轮心声和当前对话，输出你此刻的心声。\n格式如下：\n{\n  "inner_voice": "角色此刻内心真实的、未说出口的想法或吐槽",\n  "messages": [\n    {"type":"text", "quote":"引用的对方的话(可选)", "content":"完整的一句话。"}\n  ]\n}\n`;
+        if (char.isGroup) {
+            systemPrompt += `【心声系统已开启】\n上一轮你的心声是：${lastIv}\n请结合上一轮心声和当前对话，输出你此刻的心声。\n格式如下：\n{\n  "inner_voice": "角色此刻内心真实的、未说出口的想法或吐槽",\n  "messages": [\n    {"senderId": "回复成员的ID", "type":"text", "quote":"引用的对方的话(可选)", "content":"完整的一句话。"}\n  ]\n}\n`;
+        } else {
+            systemPrompt += `【心声系统已开启】\n上一轮你的心声是：${lastIv}\n请结合上一轮心声和当前对话，输出你此刻的心声。\n格式如下：\n{\n  "inner_voice": "角色此刻内心真实的、未说出口的想法或吐槽",\n  "messages": [\n    {"type":"text", "quote":"引用的对方的话(可选)", "content":"完整的一句话。"}\n  ]\n}\n`;
+        }
     } else {
-        systemPrompt += `格式如下：\n{\n  "messages": [\n    {"type":"text", "quote":"引用的对方的话(可选)", "content":"完整的一句话。"}\n  ]\n}\n`;
+        if (char.isGroup) {
+            systemPrompt += `格式如下：\n{\n  "messages": [\n    {"senderId": "回复成员的ID", "type":"text", "quote":"引用的对方的话(可选)", "content":"完整的一句话。"}\n  ]\n}\n`;
+        } else {
+            systemPrompt += `格式如下：\n{\n  "messages": [\n    {"type":"text", "quote":"引用的对方的话(可选)", "content":"完整的一句话。"}\n  ]\n}\n`;
+        }
     }
     
-    systemPrompt += `图片消息格式: {"type":"image", "content":"图片画面的详细文字描述"}\n`; 
-    systemPrompt += `转账消息格式: {"type":"transfer", "amount":"转账金额(纯数字)", "note":"转账说明"}\n`; 
-    systemPrompt += `处理收款格式: {"type":"transfer_action", "action":"received" 或 "rejected", "content":"收款/拒收时的回复"}\n`; 
-    systemPrompt += `撤回你自己的上一条消息: {"type":"recall", "content":"撤回后你想补发的话(可选)"}\n`; 
+    if (char.isGroup) {
+        systemPrompt += `注意：群聊中发送以下特殊消息时，也必须带上 "senderId" 字段！\n`;
+        systemPrompt += `图片消息格式: {"senderId": "成员ID", "type":"image", "content":"图片画面的详细文字描述"}\n`; 
+        systemPrompt += `语音消息格式: {"senderId": "成员ID", "type":"voice", "content":"语音对应的文字内容"}\n`; 
+        systemPrompt += `撤回消息格式: {"senderId": "成员ID", "type":"recall", "content":"撤回后想补发的话(可选)"}\n`; 
+    } else {
+        systemPrompt += `图片消息格式: {"type":"image", "content":"图片画面的详细文字描述"}\n`; 
+        systemPrompt += `语音消息格式: {"type":"voice", "content":"语音对应的文字内容"}\n`; 
+        systemPrompt += `撤回你自己的上一条消息: {"type":"recall", "content":"撤回后你想补发的话(可选)"}\n`; 
+    }
+    
+    if (char.isGroup) {
+        systemPrompt += `转账消息格式: {"senderId": "成员ID", "targetId": "收款成员ID", "type":"transfer", "amount":"转账金额(纯数字)", "note":"转账说明"}\n`; 
+        systemPrompt += `处理收款格式: {"senderId": "成员ID", "type":"transfer_action", "action":"received" 或 "rejected", "content":"收款/拒收时的回复"}\n`; 
+    } else {
+        systemPrompt += `转账消息格式: {"type":"transfer", "amount":"转账金额(纯数字)", "note":"转账说明"}\n`; 
+        systemPrompt += `处理收款格式: {"type":"transfer_action", "action":"received" 或 "rejected", "content":"收款/拒收时的回复"}\n`; 
+    }
     systemPrompt += `主动拨打语音电话: {"type":"call_invite"}\n`;
     
     // --- 注入亲属卡规则 ---
@@ -5830,6 +6521,10 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
             for (let i = 0; i < messagesArray.length; i++) {
                 let msgObj = messagesArray[i];
                 let newMsg = { role: 'char', timestamp: Date.now() };
+                
+                if (char.isGroup && msgObj.senderId) {
+                    newMsg.senderId = msgObj.senderId;
+                }
 
                 if (msgObj.type === 'recall') {
                     let updatedHistory = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${targetCharId}`) || '[]');
@@ -6698,28 +7393,70 @@ function closeForwardDetail() {
 // ==========================================
 let currentTransferNote = ''; // 临时保存转账说明
 
+let currentGroupTransferTargetId = null;
+let currentGroupTransferTargetName = '';
+
 function openTransferPanel() {
     if (!currentChatRoomCharId) return;
     
     // 获取当前聊天对象的信息
-    let chars = JSON.parse(ChatDB.getItem('chat_chars') || '[]');
-    const char = chars.find(c => c.id === currentChatRoomCharId);
+    let allEntities = getAllEntities();
+    const char = allEntities.find(c => c.id === currentChatRoomCharId);
     if (!char) return;
 
     const currentLoginId = ChatDB.getItem('current_login_account');
     let remarks = JSON.parse(ChatDB.getItem(`char_remarks_${currentLoginId}`) || '{}');
-    const displayName = remarks[char.id] || char.netName || char.name || '未命名';
-
-    // 填充头像和名字
-    document.getElementById('transferTargetAvatar').style.backgroundImage = `url('${char.avatarUrl || ''}')`;
-    document.getElementById('transferTargetName').innerText = displayName;
     
-    // 重置输入框和说明
-    document.getElementById('transferAmountInput').value = '';
-    currentTransferNote = '';
-    document.getElementById('transferNoteText').innerText = '添加转账说明';
+    if (char.isGroup) {
+        currentGroupTransferTargetId = null;
+        currentGroupTransferTargetName = '';
+        const listEl = document.getElementById('groupTransferContactList');
+        listEl.innerHTML = '';
+        
+        const members = (char.memberIds || []).filter(id => id !== currentLoginId);
+        
+        if (members.length === 0) {
+            listEl.innerHTML = '<div style="text-align:center; color:#aaa; font-size:12px;">群内暂无其他成员可转账</div>';
+        } else {
+            members.forEach(mid => {
+                const f = allEntities.find(e => e.id === mid);
+                if (f) {
+                    const item = document.createElement('div');
+                    item.style.cssText = 'display: flex; align-items: center; gap: 10px; padding: 10px; background: #f9f9f9; border-radius: 10px; cursor: pointer;';
+                    item.innerHTML = `
+                        <div style="width: 36px; height: 36px; border-radius: 8px; background-image: url('${f.avatarUrl || ''}'); background-size: cover; background-color: #eee;"></div>
+                        <div style="font-size: 14px; font-weight: bold; color: #333; flex: 1;">${f.netName || f.name}</div>
+                    `;
+                    item.onclick = () => {
+                        currentGroupTransferTargetId = f.id;
+                        currentGroupTransferTargetName = f.netName || f.name;
+                        closeGroupTransferSelectModal();
+                        
+                        document.getElementById('transferTargetAvatar').style.backgroundImage = `url('${f.avatarUrl || ''}')`;
+                        document.getElementById('transferTargetName').innerText = currentGroupTransferTargetName;
+                        document.getElementById('transferAmountInput').value = '';
+                        currentTransferNote = '';
+                        document.getElementById('transferNoteText').innerText = '添加转账说明';
+                        document.getElementById('transferPanel').style.display = 'flex';
+                    };
+                    listEl.appendChild(item);
+                }
+            });
+        }
+        document.getElementById('groupTransferSelectModalOverlay').classList.add('show');
+    } else {
+        const displayName = remarks[char.id] || char.netName || char.name || '未命名';
+        document.getElementById('transferTargetAvatar').style.backgroundImage = `url('${char.avatarUrl || ''}')`;
+        document.getElementById('transferTargetName').innerText = displayName;
+        document.getElementById('transferAmountInput').value = '';
+        currentTransferNote = '';
+        document.getElementById('transferNoteText').innerText = '添加转账说明';
+        document.getElementById('transferPanel').style.display = 'flex';
+    }
+}
 
-    document.getElementById('transferPanel').style.display = 'flex';
+function closeGroupTransferSelectModal() {
+    document.getElementById('groupTransferSelectModalOverlay').classList.remove('show');
 }
 
 function closeTransferPanel() {
@@ -6760,6 +7497,13 @@ function confirmTransfer() {
     if (!amount || parseFloat(amount) <= 0) {
         return alert('请输入正确的转账金额！');
     }
+    
+    let allEntities = getAllEntities();
+    const char = allEntities.find(c => c.id === currentChatRoomCharId);
+    if (char && char.isGroup && currentGroupTransferTargetName) {
+        currentTransferNote = `[专属转账给 ${currentGroupTransferTargetName}] ` + (currentTransferNote || '转账给对方');
+    }
+    
     pendingTransferAmount = parseFloat(amount).toFixed(2);
     openPaymentPanel(pendingTransferAmount);
 }
@@ -7286,6 +8030,11 @@ function executePayment(isFreePay = false) {
         role: 'user', type: 'transfer', amount: pendingTransferAmount,
         note: currentTransferNote || '转账给对方', status: 'pending', content: '[转账]', timestamp: Date.now()
     };
+    
+    if (char && char.isGroup && currentGroupTransferTargetId) {
+        newMsg.targetId = currentGroupTransferTargetId;
+    }
+    
     let history = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${currentChatRoomCharId}`) || '[]');
     history.push(newMsg);
     ChatDB.setItem(`chat_history_${currentLoginId}_${currentChatRoomCharId}`, JSON.stringify(history));
