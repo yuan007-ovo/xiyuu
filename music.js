@@ -495,6 +495,11 @@ async function musicPlaySong(id, title, artist, cover) {
         
         currentPlayingSong = { id, title, artist, cover };
 
+        // 新增：写入系统消息，让 Char 感知到用户点播了什么歌
+        if (window.currentListenTogetherCharId) {
+            addMusicSystemMessage(`我 点播了歌曲: ${title} - ${artist}`);
+        }
+
         // 异步获取歌词并解析 (使用播放源 API)
         fetch(`${getMusicPlayApiUrl()}/?server=netease&type=lrc&id=${id}`).then(res => res.text()).then(textData => {
             const lyricContent = document.getElementById('mpLyricContent');
@@ -1228,6 +1233,13 @@ window.handleMusicInviteResponse = function(isAccept) {
 
 function endListenTogether(e) {
     if(e) e.stopPropagation();
+    
+    // 判断当前是否正在一起听歌
+    if (!window.currentListenTogetherCharId) {
+        alert('请先邀请角色一起听歌');
+        return;
+    }
+
     if(confirm('确定要结束一起听歌吗？')) {
         // 更新最后一条邀请消息的更新时间和状态
         const currentLoginId = ChatDB.getItem('current_login_account');
@@ -1307,19 +1319,19 @@ function togglePlayMode() {
     
     if (currentPlayMode === 'loop') {
         currentPlayMode = 'single';
-        const icon = `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path><text x="12" y="16" font-size="8" fill="currentColor" stroke="none" text-anchor="middle">1</text></svg>`;
+        const icon = `<svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path><text x="12" y="16" font-size="8" fill="currentColor" stroke="none" text-anchor="middle">1</text></svg>`;
         if(btn) btn.innerHTML = icon;
         if(miniBtn) miniBtn.innerHTML = icon;
         alert('已切换为：单曲循环');
     } else if (currentPlayMode === 'single') {
         currentPlayMode = 'random';
-        const icon = `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>`;
+        const icon = `<svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>`;
         if(btn) btn.innerHTML = icon;
         if(miniBtn) miniBtn.innerHTML = icon;
         alert('已切换为：随机播放');
     } else {
         currentPlayMode = 'loop';
-        const icon = `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>`;
+        const icon = `<svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>`;
         if(btn) btn.innerHTML = icon;
         if(miniBtn) miniBtn.innerHTML = icon;
         alert('已切换为：列表循环');
@@ -1473,9 +1485,22 @@ function toggleMusicPlay() {
 function seekMusic(event) {
     const progressBar = document.getElementById('mpProgressBar');
     const rect = progressBar.getBoundingClientRect();
-    const clickX = event.clientX - rect.left;
-    const width = rect.width;
-    const percentage = clickX / width;
+    
+    // 兼容鼠标点击和手机触摸滑动事件
+    let clientX = event.clientX;
+    if (event.touches && event.touches.length > 0) {
+        clientX = event.touches[0].clientX;
+    } else if (event.changedTouches && event.changedTouches.length > 0) {
+        clientX = event.changedTouches[0].clientX;
+    }
+    
+    let clickX = clientX - rect.left;
+    
+    // 限制边界，防止手指拖出进度条外导致报错
+    if (clickX < 0) clickX = 0;
+    if (clickX > rect.width) clickX = rect.width;
+    
+    const percentage = clickX / rect.width;
     if (!isNaN(audioPlayer.duration)) {
         audioPlayer.currentTime = percentage * audioPlayer.duration;
     }
@@ -2548,6 +2573,13 @@ async function aiSearchAndPlay(keyword) {
         if (data.code === 200 && data.result && data.result.songs && data.result.songs.length > 0) {
             const song = data.result.songs[0];
             const cover = (song.al && song.al.picUrl) ? song.al.picUrl + '?param=100y100' : 'https://p2.music.126.net/6y-7YvS_G8V8.jpg?param=100y100';
+            
+            // 将点播的歌曲加入播放列表并播放
+            if (!window.currentPlaylistTracks) window.currentPlaylistTracks = [];
+            const newSong = { id: song.id, title: song.name, artist: song.ar[0].name, cover: cover };
+            window.currentPlaylistTracks.unshift(newSong); // 插入到列表最前面
+            if (typeof renderMpPlaylist === 'function') renderMpPlaylist();
+            
             musicPlaySong(song.id, song.name, song.ar[0].name, cover);
         }
     } catch (e) { console.error("AI 点歌失败", e); }
