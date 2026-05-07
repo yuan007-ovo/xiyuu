@@ -495,20 +495,1040 @@ function addAlipayRecord(accountId, type, title, amount) {
     ChatDB.setItem(`alipay_history_${accountId}`, JSON.stringify(history));
 }
 
-// 玩游戏赚钱
-function alipayPlayGame(rewardAmount) {
-    if (!currentAlipayLoginId) return alert('请先登录！');
+// ==========================================
+// 消灭星星 游戏逻辑
+// ==========================================
+let psScore = 0;
+let psFinalReward = 0.00;
+let psBoard = []; 
+let psIsAnimating = false; 
+let psIsGameOver = false;
+const PS_ROWS = 18; // 增加行数
+const PS_COLS = 12; 
+const PS_CELL_SIZE = 360 / 12; // 扩大宽度
+
+const psBlockTypes = [
+    { id: 1, color: 'linear-gradient(135deg, #ff6b81, #ff4757)' },
+    { id: 2, color: 'linear-gradient(135deg, #7bed9f, #2ed573)' },
+    { id: 3, color: 'linear-gradient(135deg, #70a1ff, #1e90ff)' },
+    { id: 4, color: 'linear-gradient(135deg, #eccc68, #ffa502)' },
+    { id: 5, color: 'linear-gradient(135deg, #a29bfe, #8c7ae6)' }
+];
+
+const psStarSVG = `<svg class="popstar-star-svg" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>`;
+
+function openPopStarGame() {
+    if (!currentAlipayLoginId) return alert('请先登录支付宝！');
+    document.getElementById('popstarPanel').classList.add('show');
+    initPopStarGame();
+}
+
+function closePopStarGame() {
+    document.getElementById('popstarPanel').classList.remove('show');
+}
+
+function initPopStarGame() {
+    if (psIsAnimating) return;
+    const grid = document.getElementById('popstarGrid');
+    grid.innerHTML = '';
+    psBoard = [];
+    psScore = 0;
+    psFinalReward = 0.00;
+    psIsGameOver = false;
+    
+    document.getElementById('popstarTopScore').innerText = psScore;
+    document.getElementById('popstarTargetHint').innerText = '点击相连同色方块消除，剩余越少奖励越高';
+
+    for (let r = 0; r < PS_ROWS; r++) {
+        let row = [];
+        for (let c = 0; c < PS_COLS; c++) {
+            let type = psBlockTypes[Math.floor(Math.random() * psBlockTypes.length)];
+            let block = createPopStarBlockDOM(r, c, type);
+            row.push(block);
+        }
+        psBoard.push(row);
+    }
+}
+
+function createPopStarBlockDOM(r, c, type) {
+    const grid = document.getElementById('popstarGrid');
+    const dom = document.createElement('div');
+    dom.className = 'popstar-block';
+    dom.style.transform = `translate(${c * PS_CELL_SIZE}px, ${(r - PS_ROWS) * PS_CELL_SIZE}px)`;
+    
+    const inner = document.createElement('div');
+    inner.className = 'popstar-block-inner';
+    inner.style.background = type.color;
+    inner.innerHTML = psStarSVG;
+    
+    dom.appendChild(inner);
+    grid.appendChild(dom);
+
+    const blockObj = { r, c, type, dom };
+
+    dom.addEventListener('mousedown', () => handlePopStarBlockClick(blockObj));
+    dom.addEventListener('touchstart', (e) => { e.preventDefault(); handlePopStarBlockClick(blockObj); }, {passive: false});
+
+    // 缩短初始掉落延迟，让开局更顺畅
+    setTimeout(() => { updatePopStarBlockPosition(blockObj); }, 20 + (PS_ROWS - r) * 10);
+
+    return blockObj;
+}
+
+function updatePopStarBlockPosition(block) {
+    block.dom.style.transform = `translate(${block.c * PS_CELL_SIZE}px, ${block.r * PS_CELL_SIZE}px)`;
+}
+
+function handlePopStarBlockClick(clickedBlock) {
+    if (psIsAnimating || psIsGameOver) return;
+    if (!psBoard[clickedBlock.r][clickedBlock.c] || psBoard[clickedBlock.r][clickedBlock.c] !== clickedBlock) return;
+
+    let connectedBlocks = findPopStarConnectedBlocks(clickedBlock.r, clickedBlock.c, clickedBlock.type.id);
+
+    if (connectedBlocks.length >= 2) {
+        psIsAnimating = true;
+        
+        let points = connectedBlocks.length * connectedBlocks.length * 5;
+        psScore += points;
+        document.getElementById('popstarTopScore').innerText = psScore;
+
+        showPopStarFloatingScore(clickedBlock.r, clickedBlock.c, points, connectedBlocks.length);
+
+        connectedBlocks.forEach(b => {
+            b.dom.classList.add('pop');
+            psBoard[b.r][b.c] = null;
+        });
+
+        // 缩短消除等待时间
+        setTimeout(() => {
+            connectedBlocks.forEach(b => b.dom.remove());
+            applyPopStarGravityAndShift();
+        }, 150);
+    }
+}
+
+function findPopStarConnectedBlocks(startR, startC, targetTypeId) {
+    let visited = Array(PS_ROWS).fill(false).map(() => Array(PS_COLS).fill(false));
+    let connected = [];
+
+    function dfs(r, c) {
+        if (r < 0 || r >= PS_ROWS || c < 0 || c >= PS_COLS) return;
+        if (visited[r][c] || !psBoard[r][c]) return;
+        if (psBoard[r][c].type.id !== targetTypeId) return;
+
+        visited[r][c] = true;
+        connected.push(psBoard[r][c]);
+
+        dfs(r - 1, c);
+        dfs(r + 1, c);
+        dfs(r, c - 1);
+        dfs(r, c + 1);
+    }
+
+    dfs(startR, startC);
+    return connected;
+}
+
+function applyPopStarGravityAndShift() {
+    let moved = false;
+
+    for (let c = 0; c < PS_COLS; c++) {
+        let emptySpaces = 0;
+        for (let r = PS_ROWS - 1; r >= 0; r--) {
+            if (psBoard[r][c] === null) {
+                emptySpaces++;
+            } else if (emptySpaces > 0) {
+                let block = psBoard[r][c];
+                psBoard[r + emptySpaces][c] = block;
+                psBoard[r][c] = null;
+                block.r += emptySpaces;
+                updatePopStarBlockPosition(block);
+                moved = true;
+            }
+        }
+    }
+
+    let emptyCols = 0;
+    for (let c = 0; c < PS_COLS; c++) {
+        if (psBoard[PS_ROWS - 1][c] === null) {
+            emptyCols++;
+        } else if (emptyCols > 0) {
+            for (let r = 0; r < PS_ROWS; r++) {
+                if (psBoard[r][c] !== null) {
+                    let block = psBoard[r][c];
+                    psBoard[r][c - emptyCols] = block;
+                    psBoard[r][c] = null;
+                    block.c -= emptyCols;
+                    updatePopStarBlockPosition(block);
+                    moved = true;
+                }
+            }
+        }
+    }
+
+    // 缩短下落和靠拢的判定等待时间
+    setTimeout(() => {
+        psIsAnimating = false;
+        checkPopStarGameOver();
+    }, moved ? 150 : 20);
+}
+
+function checkPopStarGameOver() {
+    let hasMoves = false;
+    let remainingBlocks = 0;
+
+    for (let r = 0; r < PS_ROWS; r++) {
+        for (let c = 0; c < PS_COLS; c++) {
+            if (psBoard[r][c] !== null) {
+                remainingBlocks++;
+                let typeId = psBoard[r][c].type.id;
+                if (c < PS_COLS - 1 && psBoard[r][c+1] && psBoard[r][c+1].type.id === typeId) hasMoves = true;
+                if (r < PS_ROWS - 1 && psBoard[r+1][c] && psBoard[r+1][c].type.id === typeId) hasMoves = true;
+            }
+        }
+    }
+
+    if (!hasMoves) {
+        psIsGameOver = true;
+        let bonus = 0;
+        let msg = "游戏结束！\n";
+        
+        if (remainingBlocks < 10) {
+            bonus = (10 - remainingBlocks) * 200;
+            psScore += bonus;
+            msg += `剩余 ${remainingBlocks} 个，清盘奖励 +${bonus} 分\n`;
+        } else {
+            msg += `剩余 ${remainingBlocks} 个方块\n`;
+        }
+
+        document.getElementById('popstarTopScore').innerText = psScore;
+        
+        psFinalReward = (psScore / 1000).toFixed(2);
+        
+        // 自动结算奖励
+        if (parseFloat(psFinalReward) > 0 && currentAlipayLoginId) {
+            let balance = parseFloat(ChatDB.getItem(`alipay_balance_${currentAlipayLoginId}`) || '0');
+            balance += parseFloat(psFinalReward);
+            ChatDB.setItem(`alipay_balance_${currentAlipayLoginId}`, balance.toFixed(2));
+            addAlipayRecord(currentAlipayLoginId, 'in', '消灭星星奖励', psFinalReward);
+            
+            if (document.getElementById('alipay-page-me').classList.contains('active')) {
+                renderAlipayData();
+            }
+            msg += `自动结算奖励：¥${psFinalReward}`;
+        } else {
+            msg += `本次收益为 0，再接再厉！`;
+        }
+
+        document.getElementById('popstarTargetHint').innerText = '游戏已结束，正在重新开始...';
+        showPopStarToast(msg);
+        
+        // 3秒后自动重置游戏
+        setTimeout(() => { initPopStarGame(); }, 3000);
+    }
+}
+
+function showPopStarFloatingScore(r, c, points, combo) {
+    const grid = document.getElementById('popstarGrid');
+    const floatDom = document.createElement('div');
+    floatDom.className = 'popstar-floating-score';
+    floatDom.innerHTML = `${combo}连消<br>+${points}`;
+    floatDom.style.left = (c * PS_CELL_SIZE) + 'px';
+    floatDom.style.top = (r * PS_CELL_SIZE - 20) + 'px';
+    grid.appendChild(floatDom);
+    setTimeout(() => floatDom.remove(), 800);
+}
+
+function showPopStarToast(msg) {
+    const toast = document.getElementById('popstarToast');
+    toast.innerText = msg;
+    toast.classList.add('show');
+    setTimeout(() => { toast.classList.remove('show'); }, 2500);
+}
+
+// ==========================================
+// 连连看 游戏逻辑
+// ==========================================
+let llkScore = 0;
+let llkFinalReward = 0.00;
+let llkIsGameOver = false;
+let llkIsAnimating = false;
+let llkLogicalBoard = []; 
+let llkBlocksData = []; 
+let llkSelectedBlock = null;
+let llkCurrentLevel = 1;
+let llkTimerInterval = null;
+let llkTimeLeft = 60;
+const LLK_MAX_LEVEL = 6;
+
+const LLK_COLS = 6;
+const LLK_ROWS = 10;
+const LLK_CELL_SIZE = 340 / 6; 
+const llkIcons = ['🍎','🍊','🍇','🍉','🍓','🍌','🍒','🍑','🍍','🥝','🥑','🥥','🍅','🍆','🌽'];
+
+function openLianliankanGame() {
+    if (!currentAlipayLoginId) return alert('请先登录支付宝！');
+    document.getElementById('lianliankanPanel').classList.add('show');
+    initLianliankanGame(1);
+}
+
+function closeLianliankanGame() {
+    document.getElementById('lianliankanPanel').classList.remove('show');
+    clearInterval(llkTimerInterval);
+}
+
+function initLianliankanGame(level = 1) {
+    if (llkIsAnimating) return;
+    clearInterval(llkTimerInterval);
+    
+    llkCurrentLevel = level;
+    const grid = document.getElementById('llkGrid');
+    const svgLayer = document.getElementById('llkSvgLayer');
+    grid.innerHTML = '';
+    svgLayer.innerHTML = '';
+    llkBlocksData = [];
+    llkIsGameOver = false;
+    llkSelectedBlock = null;
+    
+    if (level === 1) llkScore = 0;
+    
+    // 设置倒计时：每关减少5秒，最低30秒
+    llkTimeLeft = Math.max(30, 60 - (level - 1) * 5);
+    document.getElementById('llkTimer').innerText = llkTimeLeft + 's';
+    
+    document.getElementById('llkTopScore').innerText = llkScore;
+    document.getElementById('llkLevelTitle').innerText = `第 ${llkCurrentLevel} 关`;
+    document.getElementById('llkGameOverOverlay').classList.remove('show');
+
+    // 根据关卡设置提示语
+    const hints = [
+        "经典模式：连接两个相同的图案即可消除",
+        "重力模式：消除后方块会向下掉落",
+        "左移模式：消除后方块会向左平移",
+        "右移模式：消除后方块会向右平移",
+        "上浮模式：消除后方块会向上平移",
+        "聚拢模式：消除后方块会向中间靠拢"
+    ];
+    document.getElementById('llkTargetHint').innerText = hints[llkCurrentLevel - 1] || hints[0];
+
+    llkLogicalBoard = Array(LLK_ROWS + 2).fill(0).map(() => Array(LLK_COLS + 2).fill(0));
+
+    let totalBlocks = LLK_ROWS * LLK_COLS;
+    let iconPool = [];
+    for (let i = 0; i < totalBlocks / 2; i++) {
+        let icon = llkIcons[i % llkIcons.length];
+        iconPool.push(icon, icon);
+    }
+    iconPool.sort(() => Math.random() - 0.5);
+
+    let index = 0;
+    for (let r = 1; r <= LLK_ROWS; r++) {
+        for (let c = 1; c <= LLK_COLS; c++) {
+            let icon = iconPool[index++];
+            let block = createLlkBlockDOM(r, c, icon);
+            llkBlocksData.push(block);
+            llkLogicalBoard[r][c] = block;
+        }
+    }
+    
+    // 启动倒计时
+    llkTimerInterval = setInterval(() => {
+        if (llkIsGameOver) return;
+        llkTimeLeft--;
+        document.getElementById('llkTimer').innerText = llkTimeLeft + 's';
+        
+        if (llkTimeLeft <= 0) {
+            clearInterval(llkTimerInterval);
+            llkIsGameOver = true;
+            document.getElementById('llkGameOverTitle').innerText = '时间到！';
+            document.getElementById('llkGameOverSub').innerText = '很遗憾，挑战失败';
+            let btn = document.getElementById('llkGameOverBtn');
+            btn.innerText = '重新开始本关';
+            btn.onclick = () => initLianliankanGame(llkCurrentLevel);
+            document.getElementById('llkGameOverOverlay').classList.add('show');
+        }
+    }, 1000);
+}
+
+function createLlkBlockDOM(r, c, icon) {
+    const grid = document.getElementById('llkGrid');
+    const dom = document.createElement('div');
+    dom.className = 'llk-block';
+    
+    const inner = document.createElement('div');
+    inner.className = 'llk-block-inner';
+    inner.innerText = icon;
+    
+    dom.appendChild(inner);
+    grid.appendChild(dom);
+
+    const blockObj = { r, c, icon, dom };
+    updateLlkBlockPosition(blockObj);
+
+    dom.addEventListener('mousedown', () => handleLlkBlockClick(blockObj));
+    dom.addEventListener('touchstart', (e) => { e.preventDefault(); handleLlkBlockClick(blockObj); }, {passive: false});
+
+    return blockObj;
+}
+
+function updateLlkBlockPosition(block) {
+    block.dom.style.transform = `translate(${(block.c - 1) * LLK_CELL_SIZE}px, ${(block.r - 1) * LLK_CELL_SIZE}px)`;
+}
+
+function handleLlkBlockClick(block) {
+    if (llkIsAnimating || llkIsGameOver) return;
+    if (llkLogicalBoard[block.r][block.c] === 0) return;
+
+    if (llkSelectedBlock === block) {
+        block.dom.classList.remove('selected');
+        llkSelectedBlock = null;
+        return;
+    }
+
+    if (!llkSelectedBlock) {
+        block.dom.classList.add('selected');
+        llkSelectedBlock = block;
+        return;
+    }
+
+    let block1 = llkSelectedBlock;
+    let block2 = block;
+
+    if (block1.icon !== block2.icon) {
+        block1.dom.classList.remove('selected');
+        block2.dom.classList.add('selected');
+        llkSelectedBlock = block2;
+        return;
+    }
+
+    let path = findLlkPath(block1, block2);
+    
+    if (path) {
+        llkIsAnimating = true;
+        block2.dom.classList.add('selected');
+        
+        drawLlkPath(path);
+
+        llkScore += 20;
+        document.getElementById('llkTopScore').innerText = llkScore;
+
+        setTimeout(() => {
+            block1.dom.classList.add('pop');
+            block2.dom.classList.add('pop');
+            llkLogicalBoard[block1.r][block1.c] = 0;
+            llkLogicalBoard[block2.r][block2.c] = 0;
+            document.getElementById('llkSvgLayer').innerHTML = '';
+            llkSelectedBlock = null;
+            
+            setTimeout(() => {
+                block1.dom.remove();
+                block2.dom.remove();
+                
+                // 执行移动逻辑
+                applyLlkGravity();
+                
+                setTimeout(() => {
+                    llkIsAnimating = false;
+                    checkLlkGameOver();
+                }, 200); // 等待移动动画完成
+            }, 200);
+        }, 300);
+    } else {
+        block1.dom.classList.remove('selected');
+        block2.dom.classList.add('selected');
+        llkSelectedBlock = block2;
+    }
+}
+
+// 根据关卡执行不同的移动逻辑
+function applyLlkGravity() {
+    if (llkCurrentLevel === 1) return; // 第一关不移动
+
+    if (llkCurrentLevel === 2) {
+        // 向下掉落
+        for (let c = 1; c <= LLK_COLS; c++) {
+            let emptySpaces = 0;
+            for (let r = LLK_ROWS; r >= 1; r--) {
+                if (llkLogicalBoard[r][c] === 0) {
+                    emptySpaces++;
+                } else if (emptySpaces > 0) {
+                    let block = llkLogicalBoard[r][c];
+                    llkLogicalBoard[r + emptySpaces][c] = block;
+                    llkLogicalBoard[r][c] = 0;
+                    block.r += emptySpaces;
+                    updateLlkBlockPosition(block);
+                }
+            }
+        }
+    } else if (llkCurrentLevel === 3) {
+        // 向左平移
+        for (let r = 1; r <= LLK_ROWS; r++) {
+            let emptySpaces = 0;
+            for (let c = 1; c <= LLK_COLS; c++) {
+                if (llkLogicalBoard[r][c] === 0) {
+                    emptySpaces++;
+                } else if (emptySpaces > 0) {
+                    let block = llkLogicalBoard[r][c];
+                    llkLogicalBoard[r][c - emptySpaces] = block;
+                    llkLogicalBoard[r][c] = 0;
+                    block.c -= emptySpaces;
+                    updateLlkBlockPosition(block);
+                }
+            }
+        }
+    } else if (llkCurrentLevel === 4) {
+        // 向右平移
+        for (let r = 1; r <= LLK_ROWS; r++) {
+            let emptySpaces = 0;
+            for (let c = LLK_COLS; c >= 1; c--) {
+                if (llkLogicalBoard[r][c] === 0) {
+                    emptySpaces++;
+                } else if (emptySpaces > 0) {
+                    let block = llkLogicalBoard[r][c];
+                    llkLogicalBoard[r][c + emptySpaces] = block;
+                    llkLogicalBoard[r][c] = 0;
+                    block.c += emptySpaces;
+                    updateLlkBlockPosition(block);
+                }
+            }
+        }
+    } else if (llkCurrentLevel === 5) {
+        // 向上平移
+        for (let c = 1; c <= LLK_COLS; c++) {
+            let emptySpaces = 0;
+            for (let r = 1; r <= LLK_ROWS; r++) {
+                if (llkLogicalBoard[r][c] === 0) {
+                    emptySpaces++;
+                } else if (emptySpaces > 0) {
+                    let block = llkLogicalBoard[r][c];
+                    llkLogicalBoard[r - emptySpaces][c] = block;
+                    llkLogicalBoard[r][c] = 0;
+                    block.r -= emptySpaces;
+                    updateLlkBlockPosition(block);
+                }
+            }
+        }
+    } else if (llkCurrentLevel === 6) {
+        // 向中间靠拢
+        let mid = Math.floor(LLK_COLS / 2);
+        for (let r = 1; r <= LLK_ROWS; r++) {
+            // 左半边向右
+            let emptySpacesL = 0;
+            for (let c = mid; c >= 1; c--) {
+                if (llkLogicalBoard[r][c] === 0) {
+                    emptySpacesL++;
+                } else if (emptySpacesL > 0) {
+                    let block = llkLogicalBoard[r][c];
+                    llkLogicalBoard[r][c + emptySpacesL] = block;
+                    llkLogicalBoard[r][c] = 0;
+                    block.c += emptySpacesL;
+                    updateLlkBlockPosition(block);
+                }
+            }
+            // 右半边向左
+            let emptySpacesR = 0;
+            for (let c = mid + 1; c <= LLK_COLS; c++) {
+                if (llkLogicalBoard[r][c] === 0) {
+                    emptySpacesR++;
+                } else if (emptySpacesR > 0) {
+                    let block = llkLogicalBoard[r][c];
+                    llkLogicalBoard[r][c - emptySpacesR] = block;
+                    llkLogicalBoard[r][c] = 0;
+                    block.c -= emptySpacesR;
+                    updateLlkBlockPosition(block);
+                }
+            }
+        }
+    }
+}
+
+function findLlkPath(b1, b2) {
+    if (isLlkClearStraight(b1, b2)) return [b1, b2];
+
+    let corner1 = { r: b1.r, c: b2.c };
+    if (llkLogicalBoard[corner1.r][corner1.c] === 0 && isLlkClearStraight(b1, corner1) && isLlkClearStraight(b2, corner1)) {
+        return [b1, corner1, b2];
+    }
+    let corner2 = { r: b2.r, c: b1.c };
+    if (llkLogicalBoard[corner2.r][corner2.c] === 0 && isLlkClearStraight(b1, corner2) && isLlkClearStraight(b2, corner2)) {
+        return [b1, corner2, b2];
+    }
+
+    for (let c = 0; c <= LLK_COLS + 1; c++) {
+        let p1 = { r: b1.r, c: c };
+        let p2 = { r: b2.r, c: c };
+        if (llkLogicalBoard[p1.r][p1.c] === 0 && llkLogicalBoard[p2.r][p2.c] === 0) {
+            if (isLlkClearStraight(b1, p1) && isLlkClearStraight(b2, p2) && isLlkClearStraight(p1, p2)) {
+                return [b1, p1, p2, b2];
+            }
+        }
+    }
+    for (let r = 0; r <= LLK_ROWS + 1; r++) {
+        let p1 = { r: r, c: b1.c };
+        let p2 = { r: r, c: b2.c };
+        if (llkLogicalBoard[p1.r][p1.c] === 0 && llkLogicalBoard[p2.r][p2.c] === 0) {
+            if (isLlkClearStraight(b1, p1) && isLlkClearStraight(b2, p2) && isLlkClearStraight(p1, p2)) {
+                return [b1, p1, p2, b2];
+            }
+        }
+    }
+    return null;
+}
+
+function isLlkClearStraight(p1, p2) {
+    if (p1.r === p2.r) {
+        let min = Math.min(p1.c, p2.c);
+        let max = Math.max(p1.c, p2.c);
+        for (let c = min + 1; c < max; c++) {
+            if (llkLogicalBoard[p1.r][c] !== 0) return false;
+        }
+        return true;
+    } else if (p1.c === p2.c) {
+        let min = Math.min(p1.r, p2.r);
+        let max = Math.max(p1.r, p2.r);
+        for (let r = min + 1; r < max; r++) {
+            if (llkLogicalBoard[r][p1.c] !== 0) return false;
+        }
+        return true;
+    }
+    return false;
+}
+
+function drawLlkPath(path) {
+    const svgLayer = document.getElementById('llkSvgLayer');
+    svgLayer.innerHTML = '';
+    let pointsStr = path.map(p => {
+        let x = (p.c - 1 + 0.5) * LLK_CELL_SIZE;
+        let y = (p.r - 1 + 0.5) * LLK_CELL_SIZE;
+        return `${x},${y}`;
+    }).join(' ');
+
+    const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    polyline.setAttribute('points', pointsStr);
+    polyline.setAttribute('fill', 'none');
+    polyline.setAttribute('stroke', '#1677ff');
+    polyline.setAttribute('stroke-width', '6');
+    polyline.setAttribute('stroke-linejoin', 'round');
+    polyline.setAttribute('stroke-linecap', 'round');
+    polyline.style.filter = 'drop-shadow(0 0 4px rgba(22, 119, 255, 0.8))';
+    
+    svgLayer.appendChild(polyline);
+}
+
+function shuffleLianliankanBoard() {
+    if (llkIsAnimating || llkIsGameOver) return;
+    
+    // 扣费逻辑 (设定洗牌一次 1.00 元)
+    const shuffleCost = 1.00;
+    if (!currentAlipayLoginId) {
+        showLlkToast("请先登录支付宝！");
+        return;
+    }
     
     let balance = parseFloat(ChatDB.getItem(`alipay_balance_${currentAlipayLoginId}`) || '0');
-    balance += rewardAmount;
-    ChatDB.setItem(`alipay_balance_${currentAlipayLoginId}`, balance.toFixed(2));
+    if (balance < shuffleCost) {
+        showLlkToast(`余额不足！洗牌需要 ¥${shuffleCost.toFixed(2)}`);
+        return;
+    }
     
-    addAlipayRecord(currentAlipayLoginId, 'in', '互动游戏奖励', rewardAmount);
-    alert(`恭喜！完成任务获得 ${rewardAmount} 元奖励，已存入支付宝余额。`);
+    if (!confirm(`重新洗牌将扣除 ¥${shuffleCost.toFixed(2)} 余额，是否继续？`)) {
+        return;
+    }
+    
+    // 扣款
+    balance -= shuffleCost;
+    ChatDB.setItem(`alipay_balance_${currentAlipayLoginId}`, balance.toFixed(2));
+    addAlipayRecord(currentAlipayLoginId, 'out', '连连看洗牌', shuffleCost);
+    
+    // 刷新我的页面余额
+    if (document.getElementById('alipay-page-me').classList.contains('active')) {
+        renderAlipayData();
+    }
+
+    let remainingBlocks = [];
+    for (let r = 1; r <= LLK_ROWS; r++) {
+        for (let c = 1; c <= LLK_COLS; c++) {
+            if (llkLogicalBoard[r][c] !== 0) {
+                remainingBlocks.push(llkLogicalBoard[r][c]);
+            }
+        }
+    }
+
+    if (remainingBlocks.length === 0) return;
+
+    let icons = remainingBlocks.map(b => b.icon);
+    icons.sort(() => Math.random() - 0.5);
+
+    remainingBlocks.forEach((b, i) => {
+        b.icon = icons[i];
+        b.dom.querySelector('.llk-block-inner').innerText = b.icon;
+        b.dom.classList.remove('selected');
+    });
+    
+    llkSelectedBlock = null;
+    showLlkToast(`已扣除 ¥${shuffleCost.toFixed(2)}，重新洗牌成功`);
+}
+
+function checkLlkGameOver() {
+    let remaining = 0;
+    for (let r = 1; r <= LLK_ROWS; r++) {
+        for (let c = 1; c <= LLK_COLS; c++) {
+            if (llkLogicalBoard[r][c] !== 0) remaining++;
+        }
+    }
+
+    if (remaining === 0) {
+        llkIsGameOver = true;
+        clearInterval(llkTimerInterval); // 过关清除定时器
+        
+        if (llkCurrentLevel < LLK_MAX_LEVEL) {
+            document.getElementById('llkGameOverTitle').innerText = '过关！';
+            document.getElementById('llkGameOverSub').innerText = '准备好迎接更难的挑战了吗？';
+            let btn = document.getElementById('llkGameOverBtn');
+            btn.innerText = '进入下一关';
+            btn.onclick = () => initLianliankanGame(llkCurrentLevel + 1);
+            document.getElementById('llkGameOverOverlay').classList.add('show');
+        } else {
+            // 结算金额：100分 = 0.1元
+            llkFinalReward = (llkScore / 1000).toFixed(2);
+            
+            document.getElementById('llkGameOverTitle').innerText = '恭喜通关！';
+            document.getElementById('llkGameOverSub').innerText = `太强了！获得奖励 ¥${llkFinalReward}`;
+            let btn = document.getElementById('llkGameOverBtn');
+            btn.innerText = '领取奖励并重置';
+            btn.onclick = () => {
+                if (parseFloat(llkFinalReward) > 0 && currentAlipayLoginId) {
+                    let balance = parseFloat(ChatDB.getItem(`alipay_balance_${currentAlipayLoginId}`) || '0');
+                    balance += parseFloat(llkFinalReward);
+                    ChatDB.setItem(`alipay_balance_${currentAlipayLoginId}`, balance.toFixed(2));
+                    addAlipayRecord(currentAlipayLoginId, 'in', '连连看奖励', llkFinalReward);
+                    
+                    if (document.getElementById('alipay-page-me').classList.contains('active')) {
+                        renderAlipayData();
+                    }
+                }
+                showLlkToast(`成功领取 ¥${llkFinalReward} 元！`);
+                setTimeout(() => { initLianliankanGame(1); }, 1500);
+            };
+            document.getElementById('llkGameOverOverlay').classList.add('show');
+        }
+    }
+}
+
+function showLlkToast(msg) {
+    const toast = document.getElementById('llkToast');
+    toast.innerText = msg;
+    toast.classList.add('show');
+    setTimeout(() => { toast.classList.remove('show'); }, 2500);
+}
+
+// ==========================================
+// 羊了个羊 游戏逻辑
+// ==========================================
+let ylgyTiles = []; 
+let ylgySlot = [];  
+let ylgyHistoryStack = []; 
+let ylgyScore = 0;
+let ylgyIsGameOver = false;
+let ylgyCurrentLevel = 1; 
+
+const YLGY_TILE_SIZE = 48; 
+const YLGY_BOARD_SIZE = 360; // 扩大游戏区域
+const YLGY_SLOT_CAPACITY = 7;
+const ylgyIcons = ['🍎','🍊','🍇','🍉','🍓','🍌','🍒','🍑','🍍','🥝','🥑','🌽'];
+
+function openYanglegeyangGame() {
+    if (!currentAlipayLoginId) return alert('请先登录支付宝！');
+    document.getElementById('yanglegeyangPanel').classList.add('show');
+    initYanglegeyangGame(1);
+}
+
+function closeYanglegeyangGame() {
+    document.getElementById('yanglegeyangPanel').classList.remove('show');
+}
+
+function initYanglegeyangGame(level = 1) {
+    ylgyCurrentLevel = level;
+    const boardDOM = document.getElementById('ylgyBoard');
+    boardDOM.innerHTML = '';
+    ylgyTiles = [];
+    ylgySlot = [];
+    ylgyHistoryStack = [];
+    ylgyIsGameOver = false;
+    
+    if (level === 1) ylgyScore = 0; 
+    
+    document.getElementById('ylgyGameOverOverlay').classList.remove('show');
+    document.getElementById('ylgyLevelTitle').innerText = `第 ${ylgyCurrentLevel} 关`;
+
+    let deck = [];
+    
+    if (ylgyCurrentLevel === 1) {
+        let level1Icons = ylgyIcons.slice(0, 3);
+        level1Icons.forEach(icon => {
+            for (let i = 0; i < 3; i++) deck.push(icon);
+        });
+        deck.sort(() => Math.random() - 0.5);
+
+        let startX = (YLGY_BOARD_SIZE - YLGY_TILE_SIZE * 3) / 2;
+        let startY = (YLGY_BOARD_SIZE - YLGY_TILE_SIZE * 3) / 2;
+        
+        for (let i = 0; i < deck.length; i++) {
+            let row = Math.floor(i / 3);
+            let col = i % 3;
+            ylgyTiles.push({
+                id: i, icon: deck[i],
+                x: startX + col * YLGY_TILE_SIZE,
+                y: startY + row * YLGY_TILE_SIZE,
+                z: 0, status: 0, dom: null
+            });
+        }
+    } else {
+        ylgyIcons.forEach(icon => {
+            for (let i = 0; i < 12; i++) deck.push(icon);
+        });
+        deck.sort(() => Math.random() - 0.5);
+
+        for (let i = 0; i < deck.length; i++) {
+            let step = YLGY_TILE_SIZE / 2;
+            let maxXSteps = Math.floor((YLGY_BOARD_SIZE - YLGY_TILE_SIZE) / step);
+            let maxYSteps = Math.floor((YLGY_BOARD_SIZE - YLGY_TILE_SIZE) / step);
+            
+            let x = (Math.floor(Math.random() * (maxXSteps - 2)) + 1) * step;
+            let y = (Math.floor(Math.random() * (maxYSteps - 2)) + 1) * step;
+            let z = Math.floor(i / 24); 
+
+            ylgyTiles.push({
+                id: i, icon: deck[i],
+                x: x, y: y, z: z, status: 0, dom: null
+            });
+        }
+    }
+
+    ylgyTiles.forEach(t => {
+        const dom = document.createElement('div');
+        dom.className = 'ylgy-tile';
+        dom.innerText = t.icon;
+        dom.style.left = t.x + 'px';
+        dom.style.top = t.y + 'px';
+        dom.style.zIndex = t.z;
+        
+        dom.addEventListener('mousedown', () => handleYlgyTileClick(t));
+        dom.addEventListener('touchstart', (e) => { e.preventDefault(); handleYlgyTileClick(t); }, {passive: false});
+        
+        t.dom = dom;
+        boardDOM.appendChild(dom);
+    });
+
+    updateYlgyCoveredState();
+}
+
+function updateYlgyCoveredState() {
+    ylgyTiles.forEach(t1 => {
+        if (t1.status !== 0) return; 
+        
+        let isCovered = false;
+        for (let t2 of ylgyTiles) {
+            if (t2.status === 0 && t2.z > t1.z) {
+                if (Math.abs(t1.x - t2.x) < YLGY_TILE_SIZE && Math.abs(t1.y - t2.y) < YLGY_TILE_SIZE) {
+                    isCovered = true;
+                    break;
+                }
+            }
+        }
+        
+        if (isCovered) {
+            t1.dom.classList.add('covered');
+        } else {
+            t1.dom.classList.remove('covered');
+        }
+    });
+}
+
+function handleYlgyTileClick(tile) {
+    if (ylgyIsGameOver || tile.status !== 0 || tile.dom.classList.contains('covered')) return;
+    if (ylgySlot.length >= YLGY_SLOT_CAPACITY) return;
+
+    ylgyHistoryStack.push(tile);
+
+    tile.status = 1; 
+    ylgySlot.push(tile);
+    
+    rearrangeYlgySlot();
+    updateYlgyCoveredState();
+
+    setTimeout(() => {
+        checkYlgyMatches();
+    }, 150);
+}
+
+function rearrangeYlgySlot() {
+    ylgySlot.sort((a, b) => a.icon.localeCompare(b.icon));
+    const slotContainer = document.getElementById('ylgySlotContainer');
+    const boardDOM = document.getElementById('ylgyBoard');
+    const slotRect = slotContainer.getBoundingClientRect();
+    const boardRect = boardDOM.getBoundingClientRect();
+    
+    ylgySlot.forEach((t, index) => {
+        let targetX = slotRect.left - boardRect.left + 7 + index * YLGY_TILE_SIZE;
+        let targetY = slotRect.top - boardRect.top + 5;
+        
+        t.dom.style.left = targetX + 'px';
+        t.dom.style.top = targetY + 'px';
+        t.dom.style.zIndex = 100 + index; 
+        t.dom.style.boxShadow = '0 2px 5px rgba(0,0,0,0.1)';
+        t.dom.style.transform = 'translateY(0)';
+    });
+}
+
+function checkYlgyMatches() {
+    let counts = {};
+    ylgySlot.forEach(t => counts[t.icon] = (counts[t.icon] || 0) + 1);
+
+    let matchedIcon = null;
+    for (let icon in counts) {
+        if (counts[icon] >= 3) {
+            matchedIcon = icon;
+            break;
+        }
+    }
+
+    if (matchedIcon) {
+        let matchedTiles = ylgySlot.filter(t => t.icon === matchedIcon).slice(0, 3);
+        
+        matchedTiles.forEach(t => {
+            t.status = 2; 
+            t.dom.classList.add('pop');
+        });
+
+        ylgySlot = ylgySlot.filter(t => !matchedTiles.includes(t));
+        ylgyHistoryStack = [];
+
+        ylgyScore += 30;
+
+        setTimeout(() => {
+            matchedTiles.forEach(t => t.dom.remove());
+            rearrangeYlgySlot();
+            checkYlgyWinOrLose();
+        }, 150);
+    } else {
+        checkYlgyWinOrLose();
+    }
+}
+
+function undoYlgyMove() {
+    if (ylgyIsGameOver) return;
+    if (ylgyHistoryStack.length === 0) {
+        showYlgyToast("没有可以撤回的步骤了");
+        return;
+    }
+    
+    let tile = ylgyHistoryStack.pop();
+    let index = ylgySlot.indexOf(tile);
+    if (index > -1) {
+        ylgySlot.splice(index, 1);
+    }
+    
+    tile.status = 0;
+    tile.dom.style.left = tile.x + 'px';
+    tile.dom.style.top = tile.y + 'px';
+    tile.dom.style.zIndex = tile.z;
+    tile.dom.style.boxShadow = '0 4px 0 #d1d5db, 0 5px 5px rgba(0,0,0,0.15)';
+    
+    rearrangeYlgySlot();
+    updateYlgyCoveredState();
+}
+
+function shuffleYlgyTiles() {
+    if (ylgyIsGameOver) return;
+    
+    const shuffleCost = 1.00;
+    if (!currentAlipayLoginId) {
+        showYlgyToast("请先登录支付宝！");
+        return;
+    }
+    
+    let balance = parseFloat(ChatDB.getItem(`alipay_balance_${currentAlipayLoginId}`) || '0');
+    if (balance < shuffleCost) {
+        showYlgyToast(`余额不足！洗牌需要 ¥${shuffleCost.toFixed(2)}`);
+        return;
+    }
+    
+    if (!confirm(`重新洗牌将扣除 ¥${shuffleCost.toFixed(2)} 余额，是否继续？`)) return;
+    
+    balance -= shuffleCost;
+    ChatDB.setItem(`alipay_balance_${currentAlipayLoginId}`, balance.toFixed(2));
+    addAlipayRecord(currentAlipayLoginId, 'out', '羊了个羊洗牌', shuffleCost);
     
     if (document.getElementById('alipay-page-me').classList.contains('active')) {
         renderAlipayData();
     }
+
+    let boardTiles = ylgyTiles.filter(t => t.status === 0);
+    if (boardTiles.length === 0) return;
+
+    let icons = boardTiles.map(t => t.icon);
+    icons.sort(() => Math.random() - 0.5);
+
+    boardTiles.forEach((t, i) => {
+        t.icon = icons[i];
+        t.dom.innerText = t.icon;
+    });
+    
+    showYlgyToast(`已扣除 ¥${shuffleCost.toFixed(2)}，洗牌成功！`);
+}
+
+function checkYlgyWinOrLose() {
+    let remainingOnBoard = ylgyTiles.filter(t => t.status === 0).length;
+
+    if (remainingOnBoard === 0 && ylgySlot.length === 0) {
+        ylgyIsGameOver = true;
+        
+        if (ylgyCurrentLevel === 1) {
+            document.getElementById('ylgyGameOverTitle').innerText = '热身结束！';
+            document.getElementById('ylgyGameOverSub').innerText = '准备好迎接真正的挑战了吗？';
+            let btn = document.getElementById('ylgyGameOverBtn');
+            btn.innerText = '进入第二关';
+            btn.onclick = () => initYanglegeyangGame(2);
+            document.getElementById('ylgyGameOverOverlay').classList.add('show');
+        } else {
+            let reward = (ylgyScore / 1000).toFixed(2);
+            
+            document.getElementById('ylgyGameOverTitle').innerText = '恭喜通关！';
+            document.getElementById('ylgyGameOverSub').innerText = `太强了！获得奖励 ¥${reward}`;
+            let btn = document.getElementById('ylgyGameOverBtn');
+            btn.innerText = '领取奖励并重置';
+            btn.onclick = () => {
+                if (currentAlipayLoginId) {
+                    let balance = parseFloat(ChatDB.getItem(`alipay_balance_${currentAlipayLoginId}`) || '0');
+                    balance += parseFloat(reward);
+                    ChatDB.setItem(`alipay_balance_${currentAlipayLoginId}`, balance.toFixed(2));
+                    addAlipayRecord(currentAlipayLoginId, 'in', '羊了个羊奖励', reward);
+                    if (document.getElementById('alipay-page-me').classList.contains('active')) {
+                        renderAlipayData();
+                    }
+                }
+                showYlgyToast(`成功领取 ¥${reward} 元！`);
+                setTimeout(() => { initYanglegeyangGame(1); }, 1500);
+            };
+            document.getElementById('ylgyGameOverOverlay').classList.add('show');
+        }
+    } else if (ylgySlot.length >= YLGY_SLOT_CAPACITY) {
+        ylgyIsGameOver = true;
+        document.getElementById('ylgyGameOverTitle').innerText = '槽位已满！';
+        document.getElementById('ylgyGameOverSub').innerText = '很遗憾，挑战失败';
+        let btn = document.getElementById('ylgyGameOverBtn');
+        btn.innerText = '再来一局';
+        btn.onclick = () => initYanglegeyangGame(ylgyCurrentLevel);
+        document.getElementById('ylgyGameOverOverlay').classList.add('show');
+    }
+}
+
+function showYlgyToast(msg) {
+    const toast = document.getElementById('ylgyToast');
+    toast.innerText = msg;
+    toast.classList.add('show');
+    setTimeout(() => { toast.classList.remove('show'); }, 2000);
 }
 
 // 清空账单记录
