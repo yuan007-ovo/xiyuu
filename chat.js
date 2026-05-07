@@ -1952,7 +1952,13 @@ function renderLinkedAccounts() {
         }
     }
 
-    const availableEntities = allEntities.filter(e => e.id !== currentLoginId && !linkedAccounts.includes(e.id));
+    // 核心修改：只显示真实用户账号，或者已经生成了账号密码的 Char 角色，排除 NPC 和未生成账号的 Char
+    const availableEntities = allEntities.filter(e => 
+        e.id !== currentLoginId && 
+        !linkedAccounts.includes(e.id) && 
+        !e.isNPC && 
+        (e.isAccount || (e.account && e.password))
+    );
     
     // 核心修改：如果已经关联了 3 个，直接提示已达上限，不再渲染可添加的列表
     if (linkedAccounts.length >= 3) {

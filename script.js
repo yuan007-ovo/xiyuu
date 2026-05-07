@@ -2245,7 +2245,38 @@ function triggerAutoSave() {
     clearTimeout(saveTimeout);
     saveTimeout = setTimeout(() => {
         saveGlobalStateToDB(captureFullState());
+        silentSaveDesktopOrder(); // 新增：静默保存桌面布局，确保动态小组件的修改被持久化
     }, 500);
+}
+
+// 新增：静默保存桌面布局的 HTML 结构
+function silentSaveDesktopOrder() {
+    const order = [];
+    ['homeScreen', 'homeScreen2'].forEach(pageId => {
+        const page = document.getElementById(pageId);
+        if(!page) return;
+        const items = page.querySelectorAll('.app-item, .widget-container, .app-placeholder');
+        items.forEach(item => {
+            if (item.classList.contains('widget-container')) {
+                const rawContent = item.getAttribute('data-raw-content') || '';
+                order.push({ 
+                    type: 'widget', 
+                    id: item.id || '', 
+                    html: item.outerHTML,
+                    rawContent: rawContent,
+                    isCustom: item.classList.contains('custom-desktop-widget'),
+                    isTransparent: item.classList.contains('is-transparent-widget'),
+                    bgColor: item.style.background
+                });
+            } else if (item.classList.contains('app-item')) {
+                const iconEl = item.querySelector('.app-icon');
+                order.push({ type: 'app', id: iconEl ? iconEl.id : '' });
+            } else if (item.classList.contains('app-placeholder')) {
+                order.push({ type: 'placeholder' });
+            }
+        });
+    });
+    ChatDB.setItem('desktop_order', JSON.stringify(order));
 }
 
 // 监听文本输入触发保存
