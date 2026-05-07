@@ -3703,6 +3703,7 @@ function sendChatMessage() {
 
     // 1. 立即清空输入框，解除主线程阻塞，给用户“秒发”的极致流畅反馈
     inputEl.value = '';
+    inputEl.style.height = '36px'; // 恢复初始高度
 
     // 2. 将极其耗时的 JSON 读写和 DOM 全量渲染扔进异步队列，延迟 10ms 执行
     setTimeout(() => {
@@ -3819,6 +3820,7 @@ function openChatRoom(charId) {
         }
         
         document.getElementById('chatRoomInput').value = '';
+        document.getElementById('chatRoomInput').style.height = '36px'; // 恢复初始高度
         closeChatPanels(); 
         
         // 检查拉黑状态，屏蔽微信输入框
@@ -7918,10 +7920,14 @@ function addWalletRecord(accountId, type, title, amount) {
 function handleWalletRecharge() {
     const currentLoginId = ChatDB.getItem('current_login_account');
     if (!currentLoginId) return;
-    
-    let alipayBalance = parseFloat(ChatDB.getItem(`alipay_balance_${currentLoginId}`) || '0');
-    
-    // 使用高级感通用弹窗替代 prompt
+
+    // 确保支付宝余额始终有初始值
+    let alipayBalance = parseFloat(ChatDB.getItem(`alipay_balance_${currentLoginId}`));
+    if (isNaN(alipayBalance)) {
+        alipayBalance = 0;
+        ChatDB.setItem(`alipay_balance_${currentLoginId}`, '0');
+    }
+
     openGlobalPrompt(
         '余额充值', 
         `当前支付宝余额: ¥${alipayBalance.toFixed(2)}\n请输入从支付宝充值到微信的金额：`, 
@@ -7929,13 +7935,17 @@ function handleWalletRecharge() {
         (amount) => {
             if (amount && parseFloat(amount) > 0) {
                 let rechargeAmount = parseFloat(amount);
-                if (rechargeAmount > alipayBalance) {
-                    return alert('支付宝余额不足，请先在支付宝中通过小游戏赚钱！');
+                // 重新获取最新支付宝余额，防止跨操作数据过期
+                let freshBalance = parseFloat(ChatDB.getItem(`alipay_balance_${currentLoginId}`));
+                if (isNaN(freshBalance)) freshBalance = 0;
+                if (rechargeAmount > freshBalance) {
+                    showToast('支付宝余额不足，请先在支付宝中通过小游戏赚钱！', 'error', 2000);
+                    return;
                 }
                 
                 // 扣除支付宝余额
-                alipayBalance -= rechargeAmount;
-                ChatDB.setItem(`alipay_balance_${currentLoginId}`, alipayBalance.toFixed(2));
+                freshBalance -= rechargeAmount;
+                ChatDB.setItem(`alipay_balance_${currentLoginId}`, freshBalance.toFixed(2));
                 
                 // 记录支付宝账单
                 let aliHistory = JSON.parse(ChatDB.getItem(`alipay_history_${currentLoginId}`) || '[]');
@@ -7950,15 +7960,15 @@ function handleWalletRecharge() {
                 
                 // 增加微信余额
                 addWalletRecord(currentLoginId, 'in', '支付宝充值', rechargeAmount);
-                renderWallet();
+                if (typeof renderWallet === 'function') renderWallet();
                 
-                // 使用悬浮胶囊替代 alert
                 showToast('充值成功！', 'success', 1500);
+            } else {
+                showToast('请输入有效的充值金额', 'error', 1500);
             }
         }
     );
 }
-
 function handleWalletWithdraw() {
     const currentLoginId = ChatDB.getItem('current_login_account');
     if (!currentLoginId) return;

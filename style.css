@@ -2484,7 +2484,7 @@ body.ios-standalone .status-bar {
 
 /* 底栏样式调整 (干净留白，完美适配 iOS 小黑条) */
 .chat-room-bottom-bar {
-    display: flex; align-items: center; 
+    display: flex; align-items: flex-end; /* 核心修改：改为底部对齐，适应多行输入框 */
     /* 核心修复：使用 max 函数，有小黑条的设备留出安全区，没小黑条的设备留出 12px，防止底部过高 */
     padding: 10px 16px max(12px, env(safe-area-inset-bottom)) 16px;
     background-color: #f4f4f4; gap: 12px; flex-shrink: 0;
@@ -2740,14 +2740,24 @@ body.ios-standalone .status-bar {
 
 .cr-input-container {
     flex: 1; background-color: #fff; border-radius: 24px; display: flex;
-    align-items: center; padding: 4px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    align-items: flex-end; /* 核心修改：底部对齐 */
+    padding: 4px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);
     min-width: 0; /* 新增：防止 flex 子项内容过长撑破容器 */
 }
-.cr-icon-left { padding: 0 12px 0 14px; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+.cr-icon-left { padding: 0 12px 0 14px; display: flex; justify-content: center; align-items: center; cursor: pointer; height: 36px; /* 固定高度对齐底部 */ }
 .cr-icon-left svg { width: 20px; height: 20px; stroke: #555; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; transform: rotate(-45deg); }
-.cr-divider { width: 1px; height: 22px; background-color: #e5e5e5; }
-.cr-input-container input { flex: 1; border: none; background: transparent; padding: 8px 12px; font-size: 15px; color: #111; outline: none; }
-.cr-input-container input::placeholder { color: #aaa; font-weight: 500; letter-spacing: 0.5px; }
+.cr-divider { width: 1px; height: 22px; background-color: #e5e5e5; margin-bottom: 7px; /* 对齐底部 */ }
+.cr-input-container textarea { 
+    flex: 1; border: none; background: transparent; padding: 8px 12px; 
+    font-size: 15px; color: #111; outline: none; 
+    resize: none; /* 禁止手动拉伸 */
+    max-height: 100px; /* 最大高度，超过则滚动 */
+    line-height: 20px;
+    height: 36px; /* 初始高度 */
+    box-sizing: border-box;
+    font-family: inherit;
+}
+.cr-input-container textarea::placeholder { color: #aaa; font-weight: 500; letter-spacing: 0.5px; line-height: 20px; }
 
 .cr-icon-mic { width: 24px; height: 24px; stroke: #555; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; cursor: pointer; flex-shrink: 0; }
 .cr-send-btn {
@@ -2835,6 +2845,7 @@ body.ios-standalone .status-bar {
     display: flex; justify-content: center; align-items: center;
     font-size: 14px; font-weight: bold; font-family: Arial, sans-serif;
     cursor: pointer; flex-shrink: 0;
+    margin-bottom: 8px; /* 对齐单行输入框中心 */
 }
 
 .cr-floating-emoji-panel {
