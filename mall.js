@@ -1679,3 +1679,116 @@ async function generateMallDataAPI(charId) {
         btn.classList.remove('spinning');
     }
 }
+
+// ==========================================
+// 手动添加商品/店铺逻辑 (全屏页面版)
+// ==========================================
+let currentMallAddType = 'product';
+
+function openMallAddPage() {
+    const accountId = ChatDB.getItem('current_mall_login');
+    if (!accountId) return alert('请先登录商城！');
+    
+    // 渲染店铺下拉列表
+    const mallData = getMallData();
+    const shopSelect = document.getElementById('mallAddProductShopId');
+    shopSelect.innerHTML = '';
+    if (mallData.shops.length === 0) {
+        shopSelect.innerHTML = '<option value="">暂无店铺，请先添加店铺</option>';
+    } else {
+        mallData.shops.forEach(shop => {
+            shopSelect.innerHTML += `<option value="${shop.id}">${shop.name}</option>`;
+        });
+    }
+    
+    document.getElementById('mallSubPageAdd').classList.add('show');
+    switchMallAddTab('product'); // 默认打开商品页
+}
+
+function closeMallAddPage() {
+    document.getElementById('mallSubPageAdd').classList.remove('show');
+}
+
+function switchMallAddTab(type) {
+    currentMallAddType = type;
+    
+    // 切换 Tab 样式
+    document.getElementById('mallAddTabProduct').classList.remove('active');
+    document.getElementById('mallAddTabShop').classList.remove('active');
+    
+    // 切换表单显示
+    document.getElementById('mallAddProductForm').classList.remove('active');
+    document.getElementById('mallAddShopForm').classList.remove('active');
+    
+    if (type === 'product') {
+        document.getElementById('mallAddTabProduct').classList.add('active');
+        document.getElementById('mallAddProductForm').classList.add('active');
+    } else {
+        document.getElementById('mallAddTabShop').classList.add('active');
+        document.getElementById('mallAddShopForm').classList.add('active');
+    }
+}
+
+function confirmMallAdd() {
+    const accountId = ChatDB.getItem('current_mall_login');
+    if (!accountId) return alert('请先登录商城！');
+    
+    let mallData = getMallData();
+    
+    if (currentMallAddType === 'product') {
+        const title = document.getElementById('mallAddProductTitle').value.trim();
+        const price = parseFloat(document.getElementById('mallAddProductPrice').value);
+        const img = document.getElementById('mallAddProductImg').value.trim() || '[图]';
+        const tag = document.getElementById('mallAddProductTag').value.trim();
+        const desc = document.getElementById('mallAddProductDesc').value.trim();
+        const shopId = document.getElementById('mallAddProductShopId').value;
+        const pType = document.getElementById('mallAddProductType').value;
+        
+        if (!title || isNaN(price) || !shopId) return alert('请填写完整的商品信息，并确保已选择店铺！');
+        
+        const newProduct = {
+            id: 'p_' + Date.now(),
+            shopId: shopId,
+            type: pType,
+            title: title,
+            price: price,
+            img: img,
+            tag: tag,
+            desc: desc
+        };
+        mallData.products.unshift(newProduct);
+        
+    } else {
+        const name = document.getElementById('mallAddShopName').value.trim();
+        const logo = document.getElementById('mallAddShopLogo').value.trim() || '[店]';
+        const tag = document.getElementById('mallAddShopTag').value.trim();
+        const desc = document.getElementById('mallAddShopDesc').value.trim();
+        
+        if (!name) return alert('请填写店铺名称！');
+        
+        const newShop = {
+            id: 's_' + Date.now(),
+            name: name,
+            desc: desc,
+            logo: logo,
+            tag: tag
+        };
+        mallData.shops.unshift(newShop);
+    }
+    
+    ChatDB.setItem(`mall_custom_data_${accountId}`, JSON.stringify(mallData));
+    initMallData();
+    closeMallAddPage();
+    alert('添加成功！');
+    
+    // 清空表单
+    document.getElementById('mallAddProductTitle').value = '';
+    document.getElementById('mallAddProductPrice').value = '';
+    document.getElementById('mallAddProductImg').value = '';
+    document.getElementById('mallAddProductTag').value = '';
+    document.getElementById('mallAddProductDesc').value = '';
+    document.getElementById('mallAddShopName').value = '';
+    document.getElementById('mallAddShopLogo').value = '';
+    document.getElementById('mallAddShopTag').value = '';
+    document.getElementById('mallAddShopDesc').value = '';
+}

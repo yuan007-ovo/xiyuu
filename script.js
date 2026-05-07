@@ -1738,19 +1738,51 @@ async function fetchModels() {
 
 // API 预设逻辑 (使用 localStorage 存储)
 function promptSaveApiPreset() {
-    const name = prompt("请输入预设名称：");
-    if (!name || name.trim() === "") return;
-    
-    const url = document.getElementById('apiUrl').value.trim();
-    const key = document.getElementById('apiKey').value.trim();
-    const model = document.getElementById('apiModel').value;
-    const temperature = document.getElementById('apiTemperature').value;
+    const modal = document.getElementById('globalPromptModalOverlay');
+    const titleEl = document.getElementById('globalPromptTitle');
+    const descEl = document.getElementById('globalPromptDesc');
+    const inputEl = document.getElementById('globalPromptInput');
+    const confirmBtn = document.getElementById('globalPromptConfirmBtn');
 
-    let presets = JSON.parse(ChatDB.getItem('api_presets') || '[]');
-    presets.push({ id: Date.now(), name: name.trim(), url, key, model, temperature });
-    ChatDB.setItem('api_presets', JSON.stringify(presets));
-    
-    renderApiPresets();
+    titleEl.innerText = '保存 API 预设';
+    descEl.innerText = '请输入预设名称';
+    inputEl.value = '';
+    inputEl.placeholder = '例如：GPT-4 默认配置';
+
+    // 克隆按钮以移除之前绑定的事件，防止多次触发
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+    newConfirmBtn.onclick = () => {
+        const name = inputEl.value.trim();
+        if (!name) {
+            alert('预设名称不能为空！');
+            return;
+        }
+        
+        const url = document.getElementById('apiUrl').value.trim();
+        const key = document.getElementById('apiKey').value.trim();
+        const model = document.getElementById('apiModel').value;
+        const temperature = document.getElementById('apiTemperature').value;
+
+        let presets = JSON.parse(ChatDB.getItem('api_presets') || '[]');
+        presets.push({ id: Date.now(), name: name, url, key, model, temperature });
+        ChatDB.setItem('api_presets', JSON.stringify(presets));
+        
+        renderApiPresets();
+        closeGlobalPrompt();
+    };
+
+    // 绑定回车键确认
+    inputEl.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            newConfirmBtn.click();
+        }
+    };
+
+    modal.classList.add('show');
+    setTimeout(() => inputEl.focus(), 100);
 }
 
 function renderApiPresets() {
@@ -2902,8 +2934,8 @@ let importedWidgets = JSON.parse(localStorage.getItem('imported_widgets') || '[]
 
 function renderImportedWidgets() {
     const content = document.getElementById('widgetModalContent');
-    // 【关键修复】：保留前2个内置组件（默认组件和拍立得组件），清除后面动态导入的
-    while (content.children.length > 2) {
+    // 【关键修复】：保留前3个内置组件（默认组件、拍立得组件、手账拼贴组件），清除后面动态导入的
+    while (content.children.length > 3) {
         content.removeChild(content.lastChild);
     }
     
@@ -3012,6 +3044,7 @@ function addImportedWidgetToDesktop(index) {
     fillDesktopPlaceholders(); // 重新计算空位
     closeWidgetModal();
     bindDesktopLongPress();
+    if (typeof triggerAutoSave === 'function') triggerAutoSave(); // 强制保存，防止刷新丢失
 }
 
 function addWidgetToDesktop(type) {
@@ -3069,7 +3102,7 @@ function addWidgetToDesktop(type) {
         fillDesktopPlaceholders(); // 重新计算空位
         closeWidgetModal();
         bindDesktopLongPress();
-        // 注意：这里不再自动保存，必须用户点击“保存”才会生效
+        if (typeof triggerAutoSave === 'function') triggerAutoSave(); // 强制保存，防止刷新丢失
     } else if (type === 'polaroid') {
         // 检查是否已经存在
         if (document.getElementById('polaroid-widget-container')) {
@@ -3101,7 +3134,7 @@ function addWidgetToDesktop(type) {
                 <div class="wp-bubble wp-bubble-gray" contenteditable="true" spellcheck="false">(=^人^=)</div>
                 
                 <div class="wp-polaroid wp-photo-right">
-                    <div class="wp-photo-img uploadable-img" style="background-image: url('https://images.unsplash.com/photo-1585314062340-f1a5a7c9328d?q=80&w=300&auto=format&fit=crop');"></div>
+                    <div class="wp-photo-img uploadable-img" style="background-image: url('https://i.postimg.cc/66mWb6G6/1000024838.jpg');"></div>
                 </div>
                 <!-- 右侧照片包裹星星 -->
                 <svg class="wp-wrap-star wp-ws-r1" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
@@ -3109,7 +3142,7 @@ function addWidgetToDesktop(type) {
                 <svg class="wp-wrap-star wp-ws-r3" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
                 
                 <div class="wp-polaroid wp-photo-left">
-                    <div class="wp-photo-img uploadable-img" style="background-image: url('https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?q=80&w=300&auto=format&fit=crop');"></div>
+                    <div class="wp-photo-img uploadable-img" style="background-image: url('https://i.postimg.cc/66mWb6G6/1000024838.jpg');"></div>
                     <div class="wp-photo-caption" contenteditable="true" spellcheck="false">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="#333"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
                         🎀* yummy ₊⁺
@@ -3142,6 +3175,112 @@ function addWidgetToDesktop(type) {
         fillDesktopPlaceholders();
         closeWidgetModal();
         bindDesktopLongPress();
+        if (typeof triggerAutoSave === 'function') triggerAutoSave(); // 强制保存，防止刷新丢失
+    } else if (type === 'collage') {
+        // 检查是否已经存在
+        if (document.getElementById('collage-widget-container')) {
+            alert('手账风拼贴小组件已经在桌面上了！');
+            return;
+        }
+
+        // 插入 4x4 布局的小组件，包含 contenteditable 和 uploadable-img
+        const collageWidgetHTML = `
+        <div class="widget-container custom-desktop-widget is-transparent-widget" id="collage-widget-container" style="background: transparent; padding: 0; display: flex; justify-content: center; align-items: center; height: 380px;">
+            <div class="widget-delete-btn" onclick="deleteDesktopWidget(this)" style="z-index: 20;">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#ff3b30"></circle><line x1="8" y1="12" x2="16" y2="12" stroke="#fff" stroke-width="2"></line></svg>
+            </div>
+            
+            <div class="cw-container" style="transform: scale(0.9); transform-origin: center;">
+                <!-- 左上角标签 -->
+                <div class="cw-pill-tag cw-tag-top-left" contenteditable="true" spellcheck="false">time machine</div>
+
+                <!-- 右上角音乐卡片 -->
+                <div class="cw-music-card cw-card-style">
+                    <div class="cw-mc-header">
+                        <div class="cw-mc-cover uploadable-img" style="background-image: url('https://images.unsplash.com/photo-1516483638261-f40af5bea09f?q=80&w=200&auto=format&fit=crop');"></div>
+                        <div class="cw-mc-info">
+                            <div class="cw-mc-title" contenteditable="true" spellcheck="false">Love Yourself</div>
+                            <div class="cw-mc-hearts">
+                                <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                                <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                                <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                                <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                                <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                            </div>
+                        </div>
+                        <svg class="cw-mc-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                    </div>
+                    <div class="cw-mc-progress-row">
+                        <span contenteditable="true" spellcheck="false">0:00</span>
+                        <div class="cw-mc-progress-bar">
+                            <div class="cw-mc-progress-fill"></div>
+                        </div>
+                        <span contenteditable="true" spellcheck="false">5:20</span>
+                    </div>
+                    <div class="cw-mc-controls">
+                        <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                        <svg viewBox="0 0 24 24"><polygon points="11 19 2 12 11 5 11 19"></polygon><polygon points="22 19 13 12 22 5 22 19"></polygon></svg>
+                        <svg class="cw-stroke-icon" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                        <svg viewBox="0 0 24 24"><polygon points="13 19 22 12 13 5 13 19"></polygon><polygon points="2 19 11 12 2 5 2 19"></polygon></svg>
+                        <svg class="cw-stroke-icon" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                    </div>
+                </div>
+
+                <!-- 居中拍立得相框 -->
+                <div class="cw-photo-frame cw-card-style">
+                    <div class="cw-pf-image uploadable-img" style="background-image: url('https://i.postimg.cc/66mWb6G6/1000024838.jpg');"></div>
+                    
+                    <div class="cw-pf-stars">
+                        <svg class="cw-pf-star" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                        <svg class="cw-pf-star cw-empty" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                        <svg class="cw-pf-star cw-empty" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                        <svg class="cw-pf-star cw-empty" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                        <svg class="cw-pf-star" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                    </div>
+
+                    <div class="cw-pf-tags">
+                        <div class="cw-pf-tag" contenteditable="true" spellcheck="false">#cute</div>
+                        <div class="cw-pf-tag" contenteditable="true" spellcheck="false">#qwq</div>
+                        <div class="cw-pf-tag" contenteditable="true" spellcheck="false">#beatiful</div>
+                    </div>
+                </div>
+
+                <!-- 悬浮在照片上的文字标签 -->
+                <div class="cw-overlap-tag cw-card-style">
+                    <span contenteditable="true" spellcheck="false">" ๑'~'๑ 被你萌晕了！！ "</span>
+                    <svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+                </div>
+
+                <!-- 右下角电话控制胶囊 -->
+                <div class="cw-call-capsule cw-card-style">
+                    <div class="cw-call-btn cw-hangup">
+                        <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                    </div>
+                    <div class="cw-call-btn cw-answer">
+                        <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+
+        const wrapper = document.getElementById('homeScreenWrapper');
+        const isPage2 = wrapper && wrapper.scrollLeft > wrapper.clientWidth / 2;
+        const targetBgId = isPage2 ? 'desktopGridBg2' : 'desktopGridBg';
+        
+        document.getElementById(targetBgId).insertAdjacentHTML('afterend', collageWidgetHTML);
+        
+        // 绑定图片上传事件
+        document.querySelectorAll('#collage-widget-container .uploadable-img').forEach(el => {
+            handleImageUpload(el, (imgUrl, targetEl) => {
+                targetEl.style.backgroundImage = `url(${imgUrl})`;
+                targetEl.classList.add('has-image');
+            });
+        });
+        
+        fillDesktopPlaceholders();
+        closeWidgetModal();
+        bindDesktopLongPress();
+        if (typeof triggerAutoSave === 'function') triggerAutoSave(); // 强制保存，防止刷新丢失
     }
 }
 

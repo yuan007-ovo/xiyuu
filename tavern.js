@@ -219,6 +219,34 @@ function tavEnterChat() {
     let statusBars = JSON.parse(ChatDB.getItem('tav_status_bars') || '[]');
     const hasFloating = statusBars.some(sb => sb.active && sb.pos === 'floating');
     document.getElementById('tav-floating-ball-container').style.display = hasFloating ? 'flex' : 'none';
+
+    // 读取并应用外观设置
+    const savedBg = ChatDB.getItem('tav_bg_image');
+    if (savedBg) {
+        tavChangeBackground(savedBg);
+        if (savedBg.length < 500) document.getElementById('tavBgUrlInput').value = savedBg;
+    }
+    
+    const savedBall = ChatDB.getItem('tav_ball_image');
+    if (savedBall) {
+        tavChangeBallImage(savedBall);
+        if (savedBall.length < 500) document.getElementById('tavBallUrlInput').value = savedBall;
+    }
+
+    const savedBrightness = ChatDB.getItem('tav_brightness') || '0';
+    const brightnessInput = document.getElementById('tavBrightnessInput');
+    if (brightnessInput) brightnessInput.value = savedBrightness;
+    tavChangeBrightness(savedBrightness);
+
+    const savedFontSize = ChatDB.getItem('tav_font_size') || '15';
+    const fontSizeInput = document.getElementById('tavFontSizeInput');
+    if (fontSizeInput) fontSizeInput.value = savedFontSize;
+    tavChangeFontSize(savedFontSize);
+
+    const savedFontColor = ChatDB.getItem('tav_font_color') || '#111111';
+    const fontColorInput = document.getElementById('tavFontColorInput');
+    if (fontColorInput) fontColorInput.value = savedFontColor;
+    tavChangeFontColor(savedFontColor);
 }
 
 function closeTavernMode() {
@@ -478,16 +506,100 @@ function tavChangeBackground(url) {
     } else {
         panel.style.backgroundImage = 'none';
     }
+    ChatDB.setItem('tav_bg_image', url || '');
 }
 
-// 外观设置：亮度
+function tavHandleBgUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const base64 = e.target.result;
+        document.getElementById('tavBgUrlInput').value = ''; // 清空URL输入框
+        tavChangeBackground(base64);
+    };
+    reader.readAsDataURL(file);
+}
+
+// 外观设置：悬浮小球图片
+function tavChangeBallImage(url) {
+    const ball = document.getElementById('tav-floating-ball');
+    if(url) {
+        ball.style.backgroundImage = `url('${url}')`;
+    } else {
+        ball.style.backgroundImage = `url('https://api.dicebear.com/7.x/bottts/svg?seed=Status')`;
+    }
+    ChatDB.setItem('tav_ball_image', url || '');
+}
+
+function tavHandleBallUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const base64 = e.target.result;
+        document.getElementById('tavBallUrlInput').value = '';
+        tavChangeBallImage(base64);
+    };
+    reader.readAsDataURL(file);
+}
+
+// 外观设置：深色模式 (动态计算并修改 CSS 变量)
 function tavChangeBrightness(val) {
-    document.getElementById('tav-brightness-overlay').style.background = `rgba(0,0,0,${val / 100})`;
+    const ratio = val / 100;
+    const interpolate = (start, end) => Math.round(start + (end - start) * ratio);
+
+    // 背景色: #f9f9f9 (249) -> #111111 (17)
+    const bg = interpolate(249, 17);
+    // 卡片/表面色: #ffffff (255) -> #1e1e1e (30)
+    const surface = interpolate(255, 30);
+    // 边框色: #eeeeee (238) -> #333333 (51)
+    const border = interpolate(238, 51);
+    // 主文本色: #111111 (17) -> #eeeeee (238)
+    const textMain = interpolate(17, 238);
+    // 副文本色: #888888 (136) -> #aaaaaa (170)
+    const textSub = interpolate(136, 170);
+
+    const setVars = (elId) => {
+        const el = document.getElementById(elId);
+        if (!el) return;
+        el.style.setProperty('--tav-bg-color', `rgb(${bg}, ${bg}, ${bg})`);
+        el.style.setProperty('--tav-surface-color', `rgb(${surface}, ${surface}, ${surface})`);
+        el.style.setProperty('--tav-surface-rgb', `${surface}, ${surface}, ${surface}`); // 用于支持透明度
+        el.style.setProperty('--tav-border-color', `rgb(${border}, ${border}, ${border})`);
+        
+        // 如果用户没有自定义字体颜色，才动态改变主文本颜色
+        const customColor = ChatDB.getItem('tav_font_color');
+        if (!customColor) {
+            el.style.setProperty('--tav-text-main', `rgb(${textMain}, ${textMain}, ${textMain})`);
+        }
+        el.style.setProperty('--tav-text-sub', `rgb(${textSub}, ${textSub}, ${textSub})`);
+    };
+
+    setVars('tavernModePanel');
+    setVars('tavSidebarRight');
+
+    ChatDB.setItem('tav_brightness', val);
 }
 
 // 外观设置：字体大小
 function tavChangeFontSize(val) {
     document.getElementById('tavernModePanel').style.setProperty('--tav-base-font-size', val + 'px');
+    ChatDB.setItem('tav_font_size', val);
+}
+
+// 外观设置：字体颜色
+function tavChangeFontColor(color) {
+    document.getElementById('tavernModePanel').style.setProperty('--tav-text-main', color);
+    document.getElementById('tavSidebarRight').style.setProperty('--tav-text-main', color);
+    ChatDB.setItem('tav_font_color', color);
+}
+
+// 外观设置：重置字体颜色 (跟随深色模式)
+function tavResetFontColor() {
+    ChatDB.removeItem('tav_font_color');
+    const val = ChatDB.getItem('tav_brightness') || '0';
+    tavChangeBrightness(val); // 重新计算并应用深色模式的默认文字颜色
 }
 
 // 外观设置：自定义字体
@@ -795,6 +907,7 @@ function openTavAddStatusBarPanel() {
     document.getElementById('tavNewStatusName').value = '';
     document.getElementById('tavNewStatusPos').value = 'floating';
     document.getElementById('tavNewStatusRegex').value = '';
+    document.getElementById('tavNewStatusPrompt').value = '';
     document.getElementById('tavNewStatusHtml').value = '';
     document.getElementById('tavAddStatusBarPanel').style.display = 'flex';
 }
@@ -807,6 +920,7 @@ function saveTavStatusBar() {
     const name = document.getElementById('tavNewStatusName').value.trim();
     const pos = document.getElementById('tavNewStatusPos').value;
     const regex = document.getElementById('tavNewStatusRegex').value.trim();
+    const promptText = document.getElementById('tavNewStatusPrompt').value.trim();
     const html = document.getElementById('tavNewStatusHtml').value.trim();
 
     if (!name || !regex || !html) return alert('请填写完整信息！');
@@ -814,7 +928,7 @@ function saveTavStatusBar() {
     let statusBars = JSON.parse(ChatDB.getItem('tav_status_bars') || '[]');
     statusBars.push({
         id: Date.now().toString(),
-        name, pos, regex, html, active: true
+        name, pos, regex, prompt: promptText, html, active: true
     });
     ChatDB.setItem('tav_status_bars', JSON.stringify(statusBars));
     
@@ -862,6 +976,10 @@ function renderTavStatusBars() {
                 <div class="tav-setting-row-col">
                     <span>提取规则</span>
                     <input type="text" class="tav-ins-input" value="${sb.regex.replace(/"/g, '&quot;')}" onchange="updateTavStatusBar('${sb.id}', 'regex', this.value)" style="font-family:monospace; margin-top:4px;">
+                </div>
+                <div class="tav-setting-row-col">
+                    <span>附加提示词 (字数/内容限制)</span>
+                    <textarea class="tav-ins-textarea" onchange="updateTavStatusBar('${sb.id}', 'prompt', this.value)" style="margin-top:4px; height: 60px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;" placeholder="例如：字数严格限制在20字以内。">${(sb.prompt || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
                 </div>
                 <div class="tav-setting-row-col">
                     <span>HTML 代码</span>
@@ -1512,7 +1630,11 @@ async function tavTriggerAI(isRegenerate = false, isContinue = false) {
     if (activeStatusBars.length > 0) {
         sysPrompt += `\n\n【状态栏输出要求】\n请在回复的正文末尾，严格按照以下格式输出当前的状态数据，以便系统正则提取：\n`;
         activeStatusBars.forEach(sb => {
-            sysPrompt += `- ${sb.name} (必须符合正则提取规则: ${sb.regex})\n`;
+            sysPrompt += `- ${sb.name} (必须符合正则提取规则: ${sb.regex})`;
+            if (sb.prompt) {
+                sysPrompt += `。内容要求：${sb.prompt}`;
+            }
+            sysPrompt += `\n`;
         });
     }
 

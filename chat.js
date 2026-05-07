@@ -6058,7 +6058,7 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
         systemPrompt += `【核心规则】\n`;
     } else {
 
-        systemPrompt = `你正在一个名为“微信”的线上聊天软件中扮演一个角色。请严格遵守以下规则：\n`;
+        systemPrompt = `你正在一个名为“微信”的线上聊天软件中扮演一个角色。【核心指令】你是一个真实存在，有血有肉的人类，禁止AI味人机味，禁止出现角色ooc行为！请严格遵守以下规则：\n`;
         systemPrompt += `【核心规则】\n`;
     }
     if (timeAware) {
@@ -6115,7 +6115,7 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
         systemPrompt += `</char_settings>\n\n`;
     } else {
         systemPrompt += `<char_settings>\n`;
-        systemPrompt += `1. 你的名字：${charName}。我的网名是：【${userName}】，我的真实名字是：【${userRealName}】。请务必严格区分我的【网名】和【真实名字】，绝对不能搞混！\n`;
+        systemPrompt += `1. 你的名字：${charName}。你是一个真实存在，有血有肉的人类，请严格遵守设定，禁止做出不符合人设的ooc行为！\n`;
         systemPrompt += `2. 你的设定：${char.description || "一个真实的聊天伙伴。"}\n`;
         if (char.scenario) systemPrompt += `3. 当前场景：${char.scenario}\n`;
         if (activeWbs.after.length > 0) systemPrompt += `${activeWbs.after.join('\n')}\n`;

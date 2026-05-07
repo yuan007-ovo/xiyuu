@@ -30,7 +30,7 @@
     <link rel="stylesheet" href="style.css">    
     <!-- 引入 MapLibre 原生 3D 真实地图库 -->
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" />
-    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js" defer></script>
     <!-- 登录界面的专属样式 -->
     <style>
         /* 全屏登录遮罩层，层级设为最高 999999，挡住所有东西 */
@@ -133,13 +133,15 @@
 <body>
 
     <!-- 【极速拦截脚本】：在浏览器画出画面前瞬间判断，彻底消灭闪烁！ -->
+    <style id="auth-fast-style"></style>
     <script>
+        const authStyle = document.getElementById('auth-fast-style');
         if (localStorage.getItem('auth_token')) {
             // 如果已登录，瞬间隐藏登录框，显示主程序
-            document.write('<style>#auth-overlay { display: none; } #iphone-container { display: flex; }</style>');
+            authStyle.innerHTML = '#auth-overlay { display: none !important; } #iphone-container { display: flex !important; }';
         } else {
             // 如果未登录，瞬间隐藏主程序，防止泄露
-            document.write('<style>#iphone-container { display: none; }</style>');
+            authStyle.innerHTML = '#iphone-container { display: none !important; }';
         }
     </script>
 
@@ -961,6 +963,36 @@
                                 </div>
                                 <div class="wp-date-text">Today</div>
                                 <div class="wp-note-icon"><svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 新增：手账风拼贴小组件预览 -->
+                <div class="widget-preview-item" onclick="addWidgetToDesktop('collage')" style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                    <div style="font-size: 14px; font-weight: bold; color: #333; width: 100%;">手账风拼贴小组件</div>
+                    <div style="width: 100%; height: 160px; position: relative; overflow: hidden; border-radius: 12px; background: #e5e5ea; display: flex; justify-content: center; align-items: center;">
+                        <div style="transform: scale(0.35); transform-origin: center; pointer-events: none; width: 360px; height: 460px; position: relative;">
+                            <div class="cw-container">
+                                <div class="cw-pill-tag cw-tag-top-left">nice day</div>
+                                <div class="cw-music-card cw-card-style">
+                                    <div class="cw-mc-header">
+                                        <div class="cw-mc-cover" style="background-image: url('https://images.unsplash.com/photo-1516483638261-f40af5bea09f?q=80&w=200&auto=format&fit=crop');"></div>
+                                        <div class="cw-mc-info">
+                                            <div class="cw-mc-title">Love Yourself</div>
+                                            <div class="cw-mc-hearts"><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="cw-photo-frame cw-card-style">
+                                    <div class="cw-pf-image" style="background-image: url('https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=400&auto=format&fit=crop');"></div>
+                                </div>
+                                <div class="cw-overlap-tag cw-card-style">" 🖤 Happy Moment ₊. ▷ "</div>
+                                <div class="cw-pill-tag cw-tag-bottom-left">happy life</div>
+                                <div class="cw-call-capsule cw-card-style">
+                                    <div class="cw-call-btn cw-hangup"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg></div>
+                                    <div class="cw-call-btn cw-answer"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1991,7 +2023,7 @@
                 <!-- 动态渲染的角色卡片将放在这里 -->
             </div>
         </div>
-    </div> <!-- 👈 删掉多余代码后，只留这一个 div 闭合标签 -->
+    </div>
 
     <!-- =========================================
          9. 全屏角色编辑面板 (Char Edit) - 仿面具UI
@@ -5327,8 +5359,13 @@
         <div class="header-title-wrapper">
             <div class="header-title" id="mallHeaderTitle">Shopping</div>
         </div>
-        <div class="header-refresh" id="mallRefreshBtn" onclick="refreshMallData()">
-            <svg viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <div class="header-refresh" onclick="openMallAddPage()" title="手动添加商品/店铺">
+                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </div>
+            <div class="header-refresh" id="mallRefreshBtn" onclick="refreshMallData()" title="AI生成商城数据">
+                <svg viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+            </div>
         </div>
     </div>
 
@@ -5700,6 +5737,87 @@
             <div style="text-align: center; color: #ff3b30; font-weight: bold; padding: 15px; background: #fff; border-radius: 16px; border: 1px solid #eee; cursor: pointer;" onclick="mallLogout()">
                 退出登录账号
             </div>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         子页面：手动添加商品/店铺 (全屏设计感)
+         ========================================== -->
+    <div class="mall-sub-page" id="mallSubPageAdd" style="z-index: 160; background: #f4f4f5;">
+        <div class="panel-header">
+            <div class="header-back" onclick="closeMallAddPage()">BACK</div>
+            <div class="header-title-wrapper">
+                <div class="mall-add-tabs">
+                    <div class="mall-add-tab active" id="mallAddTabProduct" onclick="switchMallAddTab('product')">商品</div>
+                    <div class="mall-add-tab" id="mallAddTabShop" onclick="switchMallAddTab('shop')">店铺</div>
+                </div>
+            </div>
+            <div class="header-refresh" style="font-size: 14px; font-weight: bold; color: #111; cursor: pointer;" onclick="confirmMallAdd()">保存</div>
+        </div>
+        <div class="mall-sub-content" style="padding: 20px;">
+            
+            <!-- 添加商品表单 -->
+            <div id="mallAddProductForm" class="mall-add-form-container active">
+                <div class="mall-add-form-card">
+                    <div class="mall-add-input-row">
+                        <label>商品名称</label>
+                        <input type="text" id="mallAddProductTitle" placeholder="输入商品名称">
+                    </div>
+                    <div class="mall-add-input-row">
+                        <label>商品价格</label>
+                        <input type="number" id="mallAddProductPrice" placeholder="0.00">
+                    </div>
+                    <div class="mall-add-input-row">
+                        <label>图片描述</label>
+                        <input type="text" id="mallAddProductImg" placeholder="如: [衣服图]">
+                    </div>
+                    <div class="mall-add-input-row">
+                        <label>商品标签</label>
+                        <input type="text" id="mallAddProductTag" placeholder="如: 包邮">
+                    </div>
+                </div>
+                
+                <div class="mall-add-form-card">
+                    <div class="mall-add-input-row">
+                        <label>所属店铺</label>
+                        <select id="mallAddProductShopId"></select>
+                    </div>
+                    <div class="mall-add-input-row">
+                        <label>商品类型</label>
+                        <select id="mallAddProductType">
+                            <option value="shopping">普通商品 (Shopping)</option>
+                            <option value="delivery">外卖餐饮 (Delivery)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mall-add-form-card" style="padding: 15px;">
+                    <textarea id="mallAddProductDesc" placeholder="输入商品详细描述..." style="width: 100%; height: 100px; border: none; outline: none; resize: none; font-size: 14px; color: #111;"></textarea>
+                </div>
+            </div>
+
+            <!-- 添加店铺表单 -->
+            <div id="mallAddShopForm" class="mall-add-form-container">
+                <div class="mall-add-form-card">
+                    <div class="mall-add-input-row">
+                        <label>店铺名称</label>
+                        <input type="text" id="mallAddShopName" placeholder="输入店铺名称">
+                    </div>
+                    <div class="mall-add-input-row">
+                        <label>Logo描述</label>
+                        <input type="text" id="mallAddShopLogo" placeholder="如: [店]">
+                    </div>
+                    <div class="mall-add-input-row">
+                        <label>店铺标签</label>
+                        <input type="text" id="mallAddShopTag" placeholder="如: 品牌直营">
+                    </div>
+                </div>
+                
+                <div class="mall-add-form-card" style="padding: 15px;">
+                    <textarea id="mallAddShopDesc" placeholder="输入店铺简介..." style="width: 100%; height: 100px; border: none; outline: none; resize: none; font-size: 14px; color: #111;"></textarea>
+                </div>
+            </div>
+            
         </div>
     </div>
 
@@ -7249,10 +7367,6 @@
             </div>
         </div>
     </div>
-    <!-- 隐藏的上传输入框 -->
-    <input type="file" id="wallpaperUploadInput" accept="image/*" style="display: none;" onchange="handleWallpaperUpload(event)">
-    <input type="file" id="iconUploadInput" accept="image/*" style="display: none;" onchange="handleIconUpload(event)">
-    <input type="file" id="widgetBgUploadInput" accept="image/*" style="display: none;" onchange="handleWidgetBgUpload(event)">
     <!-- =========================================
          新增：线下大厅 (Tavern Lobby) 全屏面板
          ========================================= -->
@@ -7303,7 +7417,7 @@
         </div>
 
         <!-- 顶部导航栏 -->
-        <header class="tav-chat-header panel-header" style="background: #fff; border-bottom: 1px solid #f0f0f0; z-index: 50; position: relative; padding-top: calc(20px + env(safe-area-inset-top)); height: auto; min-height: auto;">
+        <header class="tav-chat-header panel-header" style="z-index: 50; position: relative; padding-top: calc(20px + env(safe-area-inset-top)); height: auto; min-height: auto;">
             <div class="header-close" onclick="closeTavernMode()" style="font-size: 15px; color: #8888; padding: 10px; cursor: pointer; font-weight: bold;">BACK</div>
             <!-- 将 transform: translate(-50%, 15px) 改为 transform: translate(-50%, 0px) 使其整体上移 -->
             <div class="header-title-wrapper" style="flex-direction: column; gap: 4px; transform: translate(-50%, 0px);">
@@ -7483,12 +7597,24 @@
                     <div class="tav-setting-title">视觉设置 (VISUALS)</div>
                     <div class="tav-setting-card">
                         <div class="tav-setting-row-col">
-                            <span>自定义背景 (URL)</span>
-                            <input type="text" class="tav-ins-input" placeholder="输入图片链接..." oninput="tavChangeBackground(this.value)">
+                            <span>自定义背景</span>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="text" id="tavBgUrlInput" class="tav-ins-input" placeholder="输入图片链接..." oninput="tavChangeBackground(this.value)" style="flex: 1;">
+                                <div class="tav-ins-btn outline" onclick="document.getElementById('tavBgLocalInput').click()" style="padding: 0 15px; white-space: nowrap;">本地上传</div>
+                                <input type="file" id="tavBgLocalInput" accept="image/*" style="display: none;" onchange="tavHandleBgUpload(event)">
+                            </div>
+                        </div>
+                        <div class="tav-setting-row-col">
+                            <span>悬浮小球图片</span>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="text" id="tavBallUrlInput" class="tav-ins-input" placeholder="输入图片链接..." oninput="tavChangeBallImage(this.value)" style="flex: 1;">
+                                <div class="tav-ins-btn outline" onclick="document.getElementById('tavBallLocalInput').click()" style="padding: 0 15px; white-space: nowrap;">本地上传</div>
+                                <input type="file" id="tavBallLocalInput" accept="image/*" style="display: none;" onchange="tavHandleBallUpload(event)">
+                            </div>
                         </div>
                         <div class="tav-setting-row">
-                            <span>屏幕亮度</span>
-                            <input type="range" min="0" max="80" value="0" style="width: 120px;" oninput="tavChangeBrightness(this.value)">
+                            <span>深色模式程度</span>
+                            <input type="range" id="tavBrightnessInput" min="0" max="100" value="0" style="width: 120px;" oninput="tavChangeBrightness(this.value)">
                         </div>
                     </div>
                 </div>
@@ -7502,7 +7628,14 @@
                         </div>
                         <div class="tav-setting-row">
                             <span>全局字体大小</span>
-                            <input type="range" min="12" max="24" value="15" style="width: 120px;" oninput="tavChangeFontSize(this.value)">
+                            <input type="range" id="tavFontSizeInput" min="12" max="24" value="15" style="width: 120px;" oninput="tavChangeFontSize(this.value)">
+                        </div>
+                        <div class="tav-setting-row">
+                            <span>全局字体颜色</span>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <input type="color" id="tavFontColorInput" value="#111111" style="width: 30px; height: 30px; border: none; cursor: pointer; background: transparent;" onchange="tavChangeFontColor(this.value)">
+                                <div class="tav-ins-btn outline" style="padding: 4px 8px; font-size: 11px;" onclick="tavResetFontColor()">重置</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -7652,14 +7785,17 @@
                 </div>
                 <div style="height: 1px; background: #f5f5f5; width: 100%;"></div>
                 <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <span style="font-size: 14px; font-weight: bold; color: #111;">附加提示词 (可选，用于限制字数和内容)</span>
+                    <textarea id="tavNewStatusPrompt" style="border: none; outline: none; font-size: 14px; color: #555; padding: 4px 0; height: 60px; resize: none;" placeholder="例如：字数严格限制在20字以内，语气要傲娇。"></textarea>
+                </div>
+                <div style="height: 1px; background: #f5f5f5; width: 100%;"></div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
                     <span style="font-size: 14px; font-weight: bold; color: #111;">HTML 代码</span>
                     <textarea id="tavNewStatusHtml" style="border: none; outline: none; font-size: 14px; color: #555; padding: 4px 0; height: 80px; resize: none; font-family: monospace;" placeholder="例如：<div>金币: {{1}}</div>"></textarea>
                 </div>
             </div>
         </div>
     </div>
-
-</div>
 
     <!-- 预设库弹窗 (使用全局通用样式) -->
     <div class="preset-modal-overlay" id="tavPresetModalOverlay" onclick="tavClosePresetModal()" style="z-index: 9999;">
@@ -7867,7 +8003,7 @@
                     </div>
                     <div class="alipay-game-card" onclick="openYanglegeyangGame()">
                         <div class="alipay-game-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg></div>
-                        <div class="alipay-game-title">果了个果</div>
+                        <div class="alipay-game-title">养了个羊</div>
                         <div class="alipay-game-desc">3D堆叠消除赚余额</div>
                     </div>
                     <!-- 新增2048游戏卡片 -->
@@ -8058,7 +8194,7 @@
                 <input type="text" id="alipayChatInput" placeholder="发消息..." style="flex: 1; height: 40px; border: none; border-radius: 20px; padding: 0 15px; font-size: 15px; outline: none; background: #fff; color: #111; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
                 
                 <!-- 发送按钮 -->
-                <div onclick="sendAlipayChatMessage()" style="background: #111; color: #fff; padding: 0 18px; height: 36px; border-radius: 18px; display: flex; justify-content: center; align-items: center; font-size: 14px; font-weight: bold; cursor: pointer; flex-shrink: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">发送</div>
+                <div onclick="sendAlipayChatMessage()" style="background: #111; color: #fff; padding: 0 16px; height: 36px; border-radius: 18px; display: flex; justify-content: center; align-items: center; font-size: 14px; font-weight: bold; cursor: pointer; flex-shrink: 0; white-space: nowrap; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">发送</div>
             </div>
         </div>
 
@@ -8347,10 +8483,13 @@
     <!-- 2048游戏面板 -->
     <div class="game-panel" id="game2048Panel">
         <div class="game-header">
-            <div class="game-title">2048赚余额</div>
-            <div class="game-close" onclick="close2048Game()">×</div>
+            <div class="game-header-btn" onclick="close2048Game()">退出</div>
+            <div style="font-size: 20px; color: #111; font-weight: 900;">2048</div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="game-header-btn" onclick="init2048Game()" style="background: #111; color: #fff;">重置</div>
+            </div>
         </div>
-        <div class="score-row">
+        <div class="score-row" style="margin-top: 20px;">
             <div class="score-item">
                 <div class="score-label">当前分数</div>
                 <div class="score-num" id="game2048Score">0</div>
@@ -8379,8 +8518,7 @@
             <div class="grid-cell"></div>
         </div>
         <div class="game-buttons">
-            <button class="game-btn restart" onclick="init2048Game()">重新开始</button>
-            <button class="game-btn reward" onclick="get2048Reward()">领取奖励</button>
+            <button class="game-btn reward" onclick="get2048Reward()" style="background: #1677ff; color: #fff;">领取奖励</button>
         </div>
         <div class="game-tip">滑动或方向键操控，合成2048赢取余额奖励</div>
     </div>
@@ -8560,6 +8698,8 @@
     <input type="file" id="wallpaperUploadInput" accept="image/*" style="display: none;" onchange="handleWallpaperUpload(event)">
     <input type="file" id="iconUploadInput" accept="image/*" style="display: none;" onchange="handleIconUpload(event)">
     <input type="file" id="widgetBgUploadInput" accept="image/*" style="display: none;" onchange="handleWidgetBgUpload(event)">
+
+</div> <!-- 闭合 iphone-container -->
 
     <script>
 // PWA Service Worker Registration

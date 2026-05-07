@@ -2594,6 +2594,12 @@ async function generateWeiboCommentsAPI() {
         existingCommentsText = post.commentsList.map(c => `${c.authorName}: ${c.content}`).join('\n');
     }
 
+    // 4. 获取微博图片描述
+    let imagesText = "无图片";
+    if (post.images && post.images.length > 0) {
+        imagesText = post.images.map(img => img.type === 'desc' ? img.text : '真实图片').join(' | ');
+    }
+
     const prompt = `你是一个微博评论生成器，请极度逼真地模拟真实微博的评论区生态（包括粉丝控评、路人吃瓜、玩梗、杠精、前排热赞等）。
 请根据以下上下文，生成10条新的网友评论。新的评论可以是针对微博内容的独立评论，也可以是对已有评论的回复（楼中楼互动）。
 
@@ -2605,6 +2611,9 @@ ${authorDesc}
 
 【微博正文】：
 ${post.content}
+
+【微博图片】：
+${imagesText}
 
 【已有评论】：
 ${existingCommentsText}
