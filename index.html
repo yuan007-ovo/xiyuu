@@ -7855,10 +7855,20 @@
                         <div class="alipay-game-title">俄罗斯方块</div>
                         <div class="alipay-game-desc">像素街机赚余额</div>
                     </div>
-                    <div class="alipay-game-card" onclick="alipayPlayGame(8)">
-                        <div class="alipay-game-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg></div>
-                        <div class="alipay-game-title">浏览赚积分</div>
-                        <div class="alipay-game-desc">阅读精选文章 (+8元)</div>
+                    <div class="alipay-game-card" onclick="openPopStarGame()">
+                        <div class="alipay-game-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></div>
+                        <div class="alipay-game-title">消灭星星</div>
+                        <div class="alipay-game-desc">大面积消除赚余额</div>
+                    </div>
+                    <div class="alipay-game-card" onclick="openLianliankanGame()">
+                        <div class="alipay-game-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg></div>
+                        <div class="alipay-game-title">连连看</div>
+                        <div class="alipay-game-desc">经典连线赚余额</div>
+                    </div>
+                    <div class="alipay-game-card" onclick="openYanglegeyangGame()">
+                        <div class="alipay-game-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg></div>
+                        <div class="alipay-game-title">羊了个羊</div>
+                        <div class="alipay-game-desc">3D堆叠消除赚余额</div>
                     </div>
                 </div>
             </div>
@@ -8311,6 +8321,116 @@
             </div>
 
             <div class="tetris-toast" id="tetrisToastMsg"></div>
+        </div>
+
+        <!-- =========================================
+             新增：消灭星星 游戏面板
+             ========================================= -->
+        <div class="popstar-panel" id="popstarPanel">
+            <div class="popstar-header">
+                <div class="popstar-header-btn" onclick="closePopStarGame()">退出</div>
+                <div id="popstarTopScore" style="font-size: 26px; font-weight: 900; color: #ff5000; font-family: 'Helvetica Neue', sans-serif;">0</div>
+                <div class="popstar-header-btn" onclick="initPopStarGame()" style="background: #111; color: #fff;">重置</div>
+            </div>
+
+            <div class="popstar-game-area">
+                <div class="popstar-target-hint" id="popstarTargetHint">点击相连同色方块消除，剩余越少奖励越高</div>
+                <div class="popstar-board-bg">
+                    <div class="popstar-grid" id="popstarGrid"></div>
+                </div>
+            </div>
+
+            <div class="popstar-toast" id="popstarToast"></div>
+        </div>
+
+        <!-- =========================================
+             新增：连连看 游戏面板
+             ========================================= -->
+        <div class="llk-panel" id="lianliankanPanel">
+            <div class="llk-header">
+                <div class="llk-header-btn" onclick="closeLianliankanGame()">退出</div>
+                <div style="display: flex; flex-direction: column; align-items: center;">
+                    <div id="llkLevelTitle" style="font-size: 14px; color: #888; font-weight: bold;">第一关</div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div id="llkTopScore" style="font-size: 22px; font-weight: 900; color: #1677ff; font-family: 'Helvetica Neue', sans-serif; line-height: 1;">0</div>
+                        <div id="llkTimer" style="font-size: 14px; font-weight: bold; color: #ff3b30; background: #ffe5e5; padding: 2px 8px; border-radius: 10px;">60s</div>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <!-- 洗牌按钮 (SVG) -->
+                    <div onclick="shuffleLianliankanBoard()" style="width: 32px; height: 32px; background: #f4f4f4; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer;" title="洗牌 (花费 ¥1.00)">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+                    </div>
+                    <div class="llk-header-btn" onclick="initLianliankanGame(llkCurrentLevel)" style="background: #111; color: #fff;">重置</div>
+                </div>
+            </div>
+
+            <div class="llk-game-area">
+                <div class="llk-target-hint" id="llkTargetHint">连接两个相同的图案即可消除</div>
+                <div class="llk-board-bg">
+                    <svg class="llk-svg-layer" id="llkSvgLayer"></svg>
+                    <div class="llk-grid" id="llkGrid"></div>
+                </div>
+            </div>
+
+            <div class="llk-game-over-overlay" id="llkGameOverOverlay">
+                <div class="llk-game-over-title" id="llkGameOverTitle">过关！</div>
+                <div style="color: #ccc; font-size: 14px; margin-bottom: 10px; text-align: center;" id="llkGameOverSub">准备好迎接更难的挑战了吗？</div>
+                <div class="llk-game-over-btn" id="llkGameOverBtn" onclick="initLianliankanGame(llkCurrentLevel + 1)">进入下一关</div>
+            </div>
+
+            <div class="llk-toast" id="llkToast"></div>
+        </div>
+
+        <!-- =========================================
+             新增：羊了个羊 游戏面板
+             ========================================= -->
+        <div class="ylgy-panel" id="yanglegeyangPanel">
+            <div class="ylgy-header">
+                <div class="ylgy-header-btn" onclick="closeYanglegeyangGame()">退出</div>
+                <div id="ylgyLevelTitle" style="font-size: 20px; color: #111; font-weight: 900;">第一关</div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div onclick="shuffleYlgyTiles()" style="width: 32px; height: 32px; background: #f4f4f4; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer;" title="洗牌 (花费 ¥1.00)">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+                    </div>
+                    <div class="ylgy-header-btn" onclick="initYanglegeyangGame(ylgyCurrentLevel)" style="background: #111; color: #fff;">重置</div>
+                </div>
+            </div>
+
+            <div class="ylgy-game-area">
+                <div class="ylgy-target-hint">凑齐3个相同图案消除，槽位满了则失败</div>
+                <div class="ylgy-board" id="ylgyBoard">
+                    <!-- 动态生成的方块 -->
+                </div>
+            </div>
+
+            <div class="ylgy-slot-area">
+                <div class="ylgy-slot-container" id="ylgySlotContainer">
+                    <!-- 槽位 -->
+                </div>
+                <div class="ylgy-tools-row">
+                    <button class="ylgy-tool-btn" onclick="undoYlgyMove()">
+                        <span class="ylgy-tool-icon">
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg>
+                        </span>
+                        <span>撤回</span>
+                    </button>
+                    <button class="ylgy-tool-btn" onclick="shuffleYlgyTiles()">
+                        <span class="ylgy-tool-icon">
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+                        </span>
+                        <span>洗牌</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="ylgy-game-over-overlay" id="ylgyGameOverOverlay">
+                <div class="ylgy-game-over-title" id="ylgyGameOverTitle">槽位已满！</div>
+                <div style="color: #ccc; font-size: 14px; margin-bottom: 10px; text-align: center;" id="ylgyGameOverSub">很遗憾，挑战失败</div>
+                <div class="ylgy-game-over-btn" id="ylgyGameOverBtn" onclick="initYanglegeyangGame(ylgyCurrentLevel)">再来一局</div>
+            </div>
+
+            <div class="ylgy-toast" id="ylgyToast"></div>
         </div>
     </div>
 

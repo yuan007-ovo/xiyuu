@@ -9160,6 +9160,294 @@ body.ios-standalone .status-bar {
     box-shadow: 0 0 15px #ffe600; line-height: 1.5;
 }
 .tetris-toast.show { opacity: 1; }
+/* =========================================
+   新增：消灭星星 专属样式
+   ========================================= */
+.popstar-panel {
+    position: absolute; inset: 0; background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%); z-index: 300;
+    display: none; flex-direction: column; overflow: hidden;
+    transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    --ps-cols: 12;
+    --ps-rows: 18; /* 增加行数，扩大游戏区域 */
+    --ps-board-width: 360px; /* 扩大宽度，撑满屏幕 */
+    --ps-board-height: calc(var(--ps-board-width) / var(--ps-cols) * var(--ps-rows));
+    --ps-cell-size: calc(var(--ps-board-width) / var(--ps-cols));
+}
+.popstar-panel.show { display: flex; transform: translateY(0); }
+
+.popstar-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: calc(20px + env(safe-area-inset-top)) 20px 15px;
+    background: #fff; color: #111; font-size: 18px; font-weight: 900;
+    border-bottom: 1px solid #f0f0f0; z-index: 10;
+}
+.popstar-header-btn {
+    font-size: 14px; color: #666; cursor: pointer; font-weight: bold;
+    background: #f4f4f4; padding: 6px 12px; border-radius: 16px;
+}
+
+.popstar-game-area {
+    flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;
+    padding: 10px; background: #fafafa;
+}
+
+.popstar-target-hint {
+    font-size: 13px; color: #888; font-weight: bold; margin-bottom: 15px; text-align: center;
+}
+
+.popstar-board-bg {
+    width: var(--ps-board-width); height: var(--ps-board-height);
+    background: #2c2c2e; border-radius: 16px; padding: 2px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.15), inset 0 0 10px rgba(0,0,0,0.5);
+    position: relative;
+}
+
+.popstar-grid {
+    width: 100%; height: 100%; position: relative;
+    border-radius: 14px; overflow: hidden;
+}
+
+.popstar-block {
+    position: absolute;
+    width: var(--ps-cell-size); height: var(--ps-cell-size);
+    padding: 1px;
+    /* 核心优化：缩短动画时间，改用 ease-out，让下落和靠拢更干脆流畅 */
+    transition: transform 0.15s ease-out, opacity 0.15s;
+    cursor: pointer; z-index: 10;
+}
+
+.popstar-block-inner {
+    width: 100%; height: 100%; border-radius: 4px;
+    display: flex; justify-content: center; align-items: center;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,0.2), inset 0 2px 3px rgba(255,255,255,0.4);
+    transition: transform 0.1s, filter 0.1s;
+    position: relative;
+}
+
+.popstar-star-svg {
+    position: absolute; width: 60%; height: 60%;
+    fill: rgba(255, 255, 255, 0.35); pointer-events: none;
+}
+
+.popstar-block:active .popstar-block-inner { transform: scale(0.85); filter: brightness(1.2); }
+.popstar-block.pop { transform: scale(0) !important; opacity: 0; }
+
+.popstar-floating-score {
+    position: absolute; color: #ffcc00; font-size: 18px; font-weight: 900;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8), 0 0 10px #ff5000;
+    pointer-events: none; z-index: 100;
+    animation: popstarFloatUp 0.8s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+}
+@keyframes popstarFloatUp {
+    0% { transform: translateY(0) scale(0.5); opacity: 0; }
+    20% { transform: translateY(-20px) scale(1.2); opacity: 1; }
+    100% { transform: translateY(-60px) scale(1); opacity: 0; }
+}
+
+.popstar-toast {
+    position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%) scale(0.8);
+    background: rgba(0,0,0,0.8); color: #fff; padding: 15px 25px; border-radius: 16px;
+    font-size: 15px; font-weight: bold; opacity: 0; pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 1000; text-align: center;
+    line-height: 1.5; white-space: pre-wrap;
+}
+.popstar-toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+/* =========================================
+   新增：连连看 专属样式
+   ========================================= */
+.llk-panel {
+    position: absolute; inset: 0; background: #e5e5ea; z-index: 300;
+    display: none; flex-direction: column; overflow: hidden;
+    transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    --llk-cols: 6;
+    --llk-rows: 10;
+    --llk-board-width: 340px;
+    --llk-cell-size: calc(var(--llk-board-width) / var(--llk-cols));
+    --llk-board-height: calc(var(--llk-cell-size) * var(--llk-rows));
+}
+.llk-panel.show { display: flex; transform: translateY(0); }
+
+.llk-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: calc(20px + env(safe-area-inset-top)) 20px 15px;
+    background: #fff; color: #111; font-size: 18px; font-weight: 900;
+    border-bottom: 1px solid #f0f0f0; z-index: 10;
+}
+.llk-header-btn {
+    font-size: 14px; color: #666; cursor: pointer; font-weight: bold;
+    background: #f4f4f4; padding: 6px 12px; border-radius: 16px;
+}
+
+.llk-game-area {
+    flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;
+    padding: 10px; background: transparent;
+}
+
+.llk-target-hint {
+    font-size: 13px; color: #888; font-weight: bold; margin-bottom: 15px; text-align: center;
+}
+
+.llk-board-bg {
+    width: var(--llk-board-width); height: var(--llk-board-height);
+    position: relative; margin: 20px;
+}
+
+.llk-grid {
+    width: 100%; height: 100%; position: relative; z-index: 2;
+}
+
+.llk-svg-layer {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 1; pointer-events: none; overflow: visible;
+}
+
+.llk-block {
+    position: absolute; width: var(--llk-cell-size); height: var(--llk-cell-size);
+    padding: 3px; cursor: pointer; z-index: 10;
+    transition: opacity 0.2s, transform 0.2s;
+}
+
+.llk-block-inner {
+    width: 100%; height: 100%; border-radius: 10px; background: #fff;
+    display: flex; justify-content: center; align-items: center; font-size: 26px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.08), inset 0 -2px 0 rgba(0,0,0,0.05);
+    border: 1px solid #eaeaea; transition: all 0.1s;
+}
+
+.llk-block.selected .llk-block-inner {
+    background: #e6f0ff; border: 2px solid #1677ff; transform: scale(1.05);
+    box-shadow: 0 6px 12px rgba(22, 119, 255, 0.2);
+}
+
+.llk-block.pop { transform: scale(0) !important; opacity: 0; }
+
+.llk-toast {
+    position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%) scale(0.8);
+    background: rgba(0,0,0,0.8); color: #fff; padding: 15px 25px; border-radius: 16px;
+    font-size: 15px; font-weight: bold; opacity: 0; pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 1000; text-align: center;
+    line-height: 1.5; white-space: pre-wrap;
+}
+.llk-toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+.llk-game-over-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8); z-index: 100; display: none; flex-direction: column;
+    justify-content: center; align-items: center; gap: 20px; backdrop-filter: blur(5px);
+}
+.llk-game-over-overlay.show { display: flex; animation: llkFadeIn 0.3s; }
+@keyframes llkFadeIn { from { opacity: 0; } to { opacity: 1; } }
+.llk-game-over-title { font-size: 32px; font-weight: 900; color: #fff; letter-spacing: 2px; text-align: center; }
+.llk-game-over-btn {
+    background: #1677ff; color: #fff; padding: 14px 40px;
+    border-radius: 25px; font-size: 16px; font-weight: bold; cursor: pointer;
+    box-shadow: 0 4px 15px rgba(22, 119, 255, 0.4);
+}
+.llk-game-over-btn:active { transform: scale(0.95); }
+
+/* =========================================
+   新增：羊了个羊 专属样式
+   ========================================= */
+.ylgy-panel {
+    position: absolute; inset: 0; background: #e5e5ea; z-index: 300;
+    display: none; flex-direction: column; overflow: hidden;
+    transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    --ylgy-tile-size: 48px;
+    --ylgy-board-size: 360px; /* 扩大游戏区域 */
+    background-image: radial-gradient(#d1d5db 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+.ylgy-panel.show { display: flex; transform: translateY(0); }
+
+.ylgy-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: calc(20px + env(safe-area-inset-top)) 20px 15px;
+    background: #fff; color: #111; font-size: 18px; font-weight: 900;
+    border-bottom: 1px solid #f0f0f0; z-index: 10;
+}
+.ylgy-header-btn {
+    font-size: 14px; color: #666; cursor: pointer; font-weight: bold;
+    background: #f4f4f4; padding: 6px 12px; border-radius: 16px;
+}
+
+.ylgy-game-area {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 10px; padding-bottom: 120px; position: relative;
+}
+
+.ylgy-target-hint {
+    font-size: 13px; color: #888; font-weight: bold; margin-bottom: 10px; text-align: center;
+}
+
+.ylgy-board {
+    width: var(--ylgy-board-size); height: var(--ylgy-board-size);
+    position: relative; margin-top: 10px;
+}
+
+.ylgy-tile {
+    position: absolute;
+    width: var(--ylgy-tile-size); height: var(--ylgy-tile-size);
+    background: #fff; border-radius: 8px;
+    display: flex; justify-content: center; align-items: center;
+    font-size: 28px; cursor: pointer;
+    box-shadow: 0 4px 0 #d1d5db, 0 5px 5px rgba(0,0,0,0.15);
+    border: 1px solid #e5e7eb;
+    transition: left 0.15s ease-out, top 0.15s ease-out, transform 0.1s, filter 0.15s, opacity 0.15s;
+}
+
+.ylgy-tile.covered { filter: brightness(0.6); pointer-events: none; }
+.ylgy-tile:active:not(.covered) { transform: translateY(4px); box-shadow: 0 0 0 #d1d5db, 0 1px 2px rgba(0,0,0,0.15); }
+.ylgy-tile.pop { transform: scale(0) !important; opacity: 0; }
+
+.ylgy-slot-area {
+    width: 100%; padding: 0 10px 30px; display: flex; flex-direction: column; align-items: center; gap: 15px;
+    z-index: 20; position: absolute; bottom: 0; pointer-events: none;
+}
+
+.ylgy-slot-container {
+    width: calc(var(--ylgy-tile-size) * 7 + 14px);
+    height: calc(var(--ylgy-tile-size) + 14px);
+    background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px);
+    border-radius: 12px; border: 2px solid #d1d5db;
+    display: flex; align-items: center; padding: 0 5px; position: relative;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1), inset 0 4px 8px rgba(0,0,0,0.05);
+    pointer-events: auto;
+}
+
+.ylgy-tools-row { display: flex; gap: 20px; pointer-events: auto; }
+.ylgy-tool-btn {
+    background: #fff; color: #333; border: 1px solid #ddd; padding: 10px 24px;
+    border-radius: 24px; font-size: 15px; font-weight: bold; cursor: pointer;
+    display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    transition: all 0.1s;
+}
+.ylgy-tool-btn:active { transform: scale(0.95); background: #f4f4f4; }
+.ylgy-tool-icon { display: flex; justify-content: center; align-items: center; }
+
+.ylgy-toast {
+    position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%) scale(0.8);
+    background: rgba(0,0,0,0.8); color: #fff; padding: 15px 25px; border-radius: 16px;
+    font-size: 15px; font-weight: bold; opacity: 0; pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 1000; text-align: center;
+    line-height: 1.5; white-space: pre-wrap;
+}
+.ylgy-toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+.ylgy-game-over-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8); z-index: 100; display: none; flex-direction: column;
+    justify-content: center; align-items: center; gap: 20px; backdrop-filter: blur(5px);
+}
+.ylgy-game-over-overlay.show { display: flex; animation: ylgyFadeIn 0.3s; }
+@keyframes ylgyFadeIn { from { opacity: 0; } to { opacity: 1; } }
+.ylgy-game-over-title { font-size: 32px; font-weight: 900; color: #fff; letter-spacing: 2px; text-align: center; }
+.ylgy-game-over-btn {
+    background: #1677ff; color: #fff; padding: 14px 40px;
+    border-radius: 25px; font-size: 16px; font-weight: bold; cursor: pointer;
+    box-shadow: 0 4px 15px rgba(22, 119, 255, 0.4);
+}
+.ylgy-game-over-btn:active { transform: scale(0.95); }
 
 /* =========================================
    新增：拍立得风格小组件专属样式 (4x4 布局)
