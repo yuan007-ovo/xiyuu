@@ -9262,7 +9262,7 @@ body.ios-standalone .status-bar {
     transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
     --llk-cols: 6;
     --llk-rows: 10;
-    --llk-board-width: 340px;
+    --llk-board-width: 300px; /* 减小宽度，整体高度也会随之缩小 */
     --llk-cell-size: calc(var(--llk-board-width) / var(--llk-cols));
     --llk-board-height: calc(var(--llk-cell-size) * var(--llk-rows));
 }
@@ -9285,12 +9285,12 @@ body.ios-standalone .status-bar {
 }
 
 .llk-target-hint {
-    font-size: 13px; color: #888; font-weight: bold; margin-bottom: 15px; text-align: center;
+    font-size: 13px; color: #888; font-weight: bold; margin-bottom: 5px; text-align: center;
 }
 
 .llk-board-bg {
     width: var(--llk-board-width); height: var(--llk-board-height);
-    position: relative; margin: 20px;
+    position: relative; margin: 10px; /* 减小外边距，让出更多空间 */
 }
 
 .llk-grid {

@@ -703,7 +703,7 @@ function checkPopStarGameOver() {
 
         document.getElementById('popstarTopScore').innerText = psScore;
         
-        psFinalReward = (psScore / 1000).toFixed(2);
+        psFinalReward = (psScore / 100).toFixed(2);
         
         // 自动结算奖励
         if (parseFloat(psFinalReward) > 0 && currentAlipayLoginId) {
@@ -775,6 +775,22 @@ function openLianliankanGame() {
 function closeLianliankanGame() {
     document.getElementById('lianliankanPanel').classList.remove('show');
     clearInterval(llkTimerInterval);
+    
+    // 中途退出结算
+    if (llkScore > 0) {
+        let reward = (llkScore / 100).toFixed(2);
+        if (parseFloat(reward) > 0 && currentAlipayLoginId) {
+            let balance = parseFloat(ChatDB.getItem(`alipay_balance_${currentAlipayLoginId}`) || '0');
+            balance += parseFloat(reward);
+            ChatDB.setItem(`alipay_balance_${currentAlipayLoginId}`, balance.toFixed(2));
+            addAlipayRecord(currentAlipayLoginId, 'in', '连连看奖励', reward);
+            if (document.getElementById('alipay-page-me').classList.contains('active')) {
+                renderAlipayData();
+            }
+            alert(`游戏结束，共赚取 ${reward} 元，已存入支付宝余额！`);
+        }
+        llkScore = 0; // 防止重复领取
+    }
 }
 
 function initLianliankanGame(level = 1) {
@@ -792,8 +808,8 @@ function initLianliankanGame(level = 1) {
     
     if (level === 1) llkScore = 0;
     
-    // 设置倒计时：每关减少5秒，最低30秒
-    llkTimeLeft = Math.max(30, 60 - (level - 1) * 5);
+    // 设置倒计时：每关减少5秒，最低60秒，初始120秒
+    llkTimeLeft = Math.max(60, 120 - (level - 1) * 5);
     document.getElementById('llkTimer').innerText = llkTimeLeft + 's';
     
     document.getElementById('llkTopScore').innerText = llkScore;
@@ -840,11 +856,24 @@ function initLianliankanGame(level = 1) {
         if (llkTimeLeft <= 0) {
             clearInterval(llkTimerInterval);
             llkIsGameOver = true;
+            let reward = (llkScore / 100).toFixed(2);
             document.getElementById('llkGameOverTitle').innerText = '时间到！';
-            document.getElementById('llkGameOverSub').innerText = '很遗憾，挑战失败';
+            document.getElementById('llkGameOverSub').innerText = `很遗憾，挑战失败\n结算奖励 ¥${reward}`;
             let btn = document.getElementById('llkGameOverBtn');
-            btn.innerText = '重新开始本关';
-            btn.onclick = () => initLianliankanGame(llkCurrentLevel);
+            btn.innerText = '领取奖励并重置';
+            btn.onclick = () => {
+                if (parseFloat(reward) > 0 && currentAlipayLoginId) {
+                    let balance = parseFloat(ChatDB.getItem(`alipay_balance_${currentAlipayLoginId}`) || '0');
+                    balance += parseFloat(reward);
+                    ChatDB.setItem(`alipay_balance_${currentAlipayLoginId}`, balance.toFixed(2));
+                    addAlipayRecord(currentAlipayLoginId, 'in', '连连看奖励', reward);
+                    if (document.getElementById('alipay-page-me').classList.contains('active')) {
+                        renderAlipayData();
+                    }
+                }
+                llkScore = 0;
+                initLianliankanGame(1);
+            };
             document.getElementById('llkGameOverOverlay').classList.add('show');
         }
     }, 1000);
@@ -1115,6 +1144,58 @@ function drawLlkPath(path) {
     svgLayer.appendChild(polyline);
 }
 
+function hintLianliankanBoard() {
+    if (llkIsAnimating || llkIsGameOver) return;
+    
+    const hintCost = 0.50;
+    if (!currentAlipayLoginId) {
+        showLlkToast("请先登录支付宝！");
+        return;
+    }
+    
+    let balance = parseFloat(ChatDB.getItem(`alipay_balance_${currentAlipayLoginId}`) || '0');
+    if (balance < hintCost) {
+        showLlkToast(`余额不足！提示需要 ¥${hintCost.toFixed(2)}`);
+        return;
+    }
+    
+    // 寻找一对可以消除的方块
+    for (let r1 = 1; r1 <= LLK_ROWS; r1++) {
+        for (let c1 = 1; c1 <= LLK_COLS; c1++) {
+            let b1 = llkLogicalBoard[r1][c1];
+            if (b1 === 0) continue;
+            for (let r2 = 1; r2 <= LLK_ROWS; r2++) {
+                for (let c2 = 1; c2 <= LLK_COLS; c2++) {
+                    let b2 = llkLogicalBoard[r2][c2];
+                    if (b2 === 0 || b1 === b2 || b1.icon !== b2.icon) continue;
+                    
+                    let path = findLlkPath(b1, b2);
+                    if (path) {
+                        // 扣款
+                        balance -= hintCost;
+                        ChatDB.setItem(`alipay_balance_${currentAlipayLoginId}`, balance.toFixed(2));
+                        addAlipayRecord(currentAlipayLoginId, 'out', '连连看提示', hintCost);
+                        if (document.getElementById('alipay-page-me').classList.contains('active')) {
+                            renderAlipayData();
+                        }
+                        
+                        b1.dom.classList.add('selected');
+                        b2.dom.classList.add('selected');
+                        setTimeout(() => {
+                            if (llkSelectedBlock !== b1) b1.dom.classList.remove('selected');
+                            if (llkSelectedBlock !== b2) b2.dom.classList.remove('selected');
+                        }, 1000);
+                        
+                        showLlkToast(`已扣除 ¥${hintCost.toFixed(2)}，提示成功`);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+    showLlkToast("当前没有可以消除的方块，请洗牌！");
+}
+
 function shuffleLianliankanBoard() {
     if (llkIsAnimating || llkIsGameOver) return;
     
@@ -1182,15 +1263,16 @@ function checkLlkGameOver() {
         clearInterval(llkTimerInterval); // 过关清除定时器
         
         if (llkCurrentLevel < LLK_MAX_LEVEL) {
+            let currentReward = (llkScore / 100).toFixed(2);
             document.getElementById('llkGameOverTitle').innerText = '过关！';
-            document.getElementById('llkGameOverSub').innerText = '准备好迎接更难的挑战了吗？';
+            document.getElementById('llkGameOverSub').innerText = `当前累计奖励 ¥${currentReward}\n准备好迎接更难的挑战了吗？`;
             let btn = document.getElementById('llkGameOverBtn');
             btn.innerText = '进入下一关';
             btn.onclick = () => initLianliankanGame(llkCurrentLevel + 1);
             document.getElementById('llkGameOverOverlay').classList.add('show');
         } else {
-            // 结算金额：100分 = 0.1元
-            llkFinalReward = (llkScore / 1000).toFixed(2);
+            // 结算金额：100分 = 1元
+            llkFinalReward = (llkScore / 100).toFixed(2);
             
             document.getElementById('llkGameOverTitle').innerText = '恭喜通关！';
             document.getElementById('llkGameOverSub').innerText = `太强了！获得奖励 ¥${llkFinalReward}`;
@@ -1208,6 +1290,7 @@ function checkLlkGameOver() {
                     }
                 }
                 showLlkToast(`成功领取 ¥${llkFinalReward} 元！`);
+                llkScore = 0; // 清空分数
                 setTimeout(() => { initLianliankanGame(1); }, 1500);
             };
             document.getElementById('llkGameOverOverlay').classList.add('show');
@@ -1245,6 +1328,22 @@ function openYanglegeyangGame() {
 
 function closeYanglegeyangGame() {
     document.getElementById('yanglegeyangPanel').classList.remove('show');
+    
+    // 中途退出结算
+    if (ylgyScore > 0) {
+        let reward = (ylgyScore / 100).toFixed(2);
+        if (parseFloat(reward) > 0 && currentAlipayLoginId) {
+            let balance = parseFloat(ChatDB.getItem(`alipay_balance_${currentAlipayLoginId}`) || '0');
+            balance += parseFloat(reward);
+            ChatDB.setItem(`alipay_balance_${currentAlipayLoginId}`, balance.toFixed(2));
+            addAlipayRecord(currentAlipayLoginId, 'in', '羊了个羊奖励', reward);
+            if (document.getElementById('alipay-page-me').classList.contains('active')) {
+                renderAlipayData();
+            }
+            alert(`游戏结束，共赚取 ${reward} 元，已存入支付宝余额！`);
+        }
+        ylgyScore = 0;
+    }
 }
 
 function initYanglegeyangGame(level = 1) {
@@ -1485,14 +1584,15 @@ function checkYlgyWinOrLose() {
         ylgyIsGameOver = true;
         
         if (ylgyCurrentLevel === 1) {
+            let reward = (ylgyScore / 100).toFixed(2);
             document.getElementById('ylgyGameOverTitle').innerText = '热身结束！';
-            document.getElementById('ylgyGameOverSub').innerText = '准备好迎接真正的挑战了吗？';
+            document.getElementById('ylgyGameOverSub').innerText = `当前累计奖励 ¥${reward}\n准备好迎接真正的挑战了吗？`;
             let btn = document.getElementById('ylgyGameOverBtn');
             btn.innerText = '进入第二关';
             btn.onclick = () => initYanglegeyangGame(2);
             document.getElementById('ylgyGameOverOverlay').classList.add('show');
         } else {
-            let reward = (ylgyScore / 1000).toFixed(2);
+            let reward = (ylgyScore / 100).toFixed(2);
             
             document.getElementById('ylgyGameOverTitle').innerText = '恭喜通关！';
             document.getElementById('ylgyGameOverSub').innerText = `太强了！获得奖励 ¥${reward}`;
@@ -1509,17 +1609,31 @@ function checkYlgyWinOrLose() {
                     }
                 }
                 showYlgyToast(`成功领取 ¥${reward} 元！`);
+                ylgyScore = 0; // 清空分数
                 setTimeout(() => { initYanglegeyangGame(1); }, 1500);
             };
             document.getElementById('ylgyGameOverOverlay').classList.add('show');
         }
     } else if (ylgySlot.length >= YLGY_SLOT_CAPACITY) {
         ylgyIsGameOver = true;
+        let reward = (ylgyScore / 100).toFixed(2);
         document.getElementById('ylgyGameOverTitle').innerText = '槽位已满！';
-        document.getElementById('ylgyGameOverSub').innerText = '很遗憾，挑战失败';
+        document.getElementById('ylgyGameOverSub').innerText = `很遗憾，挑战失败\n结算奖励 ¥${reward}`;
         let btn = document.getElementById('ylgyGameOverBtn');
-        btn.innerText = '再来一局';
-        btn.onclick = () => initYanglegeyangGame(ylgyCurrentLevel);
+        btn.innerText = '领取奖励并重置';
+        btn.onclick = () => {
+            if (parseFloat(reward) > 0 && currentAlipayLoginId) {
+                let balance = parseFloat(ChatDB.getItem(`alipay_balance_${currentAlipayLoginId}`) || '0');
+                balance += parseFloat(reward);
+                ChatDB.setItem(`alipay_balance_${currentAlipayLoginId}`, balance.toFixed(2));
+                addAlipayRecord(currentAlipayLoginId, 'in', '羊了个羊奖励', reward);
+                if (document.getElementById('alipay-page-me').classList.contains('active')) {
+                    renderAlipayData();
+                }
+            }
+            ylgyScore = 0; // 清空分数
+            initYanglegeyangGame(1);
+        };
         document.getElementById('ylgyGameOverOverlay').classList.add('show');
     }
 }

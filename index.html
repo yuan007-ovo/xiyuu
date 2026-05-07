@@ -7867,7 +7867,7 @@
                     </div>
                     <div class="alipay-game-card" onclick="openYanglegeyangGame()">
                         <div class="alipay-game-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg></div>
-                        <div class="alipay-game-title">羊了个羊</div>
+                        <div class="alipay-game-title">果了个果</div>
                         <div class="alipay-game-desc">3D堆叠消除赚余额</div>
                     </div>
                 </div>
@@ -8357,10 +8357,6 @@
                     </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <!-- 洗牌按钮 (SVG) -->
-                    <div onclick="shuffleLianliankanBoard()" style="width: 32px; height: 32px; background: #f4f4f4; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer;" title="洗牌 (花费 ¥1.00)">
-                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
-                    </div>
                     <div class="llk-header-btn" onclick="initLianliankanGame(llkCurrentLevel)" style="background: #111; color: #fff;">重置</div>
                 </div>
             </div>
@@ -8370,6 +8366,16 @@
                 <div class="llk-board-bg">
                     <svg class="llk-svg-layer" id="llkSvgLayer"></svg>
                     <div class="llk-grid" id="llkGrid"></div>
+                </div>
+                <div style="display: flex; gap: 20px; margin-top: 20px;">
+                    <div onclick="shuffleLianliankanBoard()" style="display: flex; align-items: center; gap: 8px; background: #fff; padding: 10px 20px; border-radius: 20px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+                        <span style="font-size: 14px; font-weight: bold; color: #333;">洗牌</span>
+                    </div>
+                    <div onclick="hintLianliankanBoard()" style="display: flex; align-items: center; gap: 8px; background: #fff; padding: 10px 20px; border-radius: 20px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                        <span style="font-size: 14px; font-weight: bold; color: #333;">提示</span>
+                    </div>
                 </div>
             </div>
 
@@ -8390,9 +8396,6 @@
                 <div class="ylgy-header-btn" onclick="closeYanglegeyangGame()">退出</div>
                 <div id="ylgyLevelTitle" style="font-size: 20px; color: #111; font-weight: 900;">第一关</div>
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <div onclick="shuffleYlgyTiles()" style="width: 32px; height: 32px; background: #f4f4f4; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer;" title="洗牌 (花费 ¥1.00)">
-                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
-                    </div>
                     <div class="ylgy-header-btn" onclick="initYanglegeyangGame(ylgyCurrentLevel)" style="background: #111; color: #fff;">重置</div>
                 </div>
             </div>
