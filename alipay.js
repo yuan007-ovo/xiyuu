@@ -763,7 +763,7 @@ const LLK_MAX_LEVEL = 6;
 
 const LLK_COLS = 6;
 const LLK_ROWS = 10;
-const LLK_CELL_SIZE = 340 / 6; 
+const LLK_CELL_SIZE = 300 / 6; 
 const llkIcons = ['🍎','🍊','🍇','🍉','🍓','🍌','🍒','🍑','🍍','🥝','🥑','🥥','🍅','🍆','🌽'];
 
 function openLianliankanGame() {
@@ -815,17 +815,6 @@ function initLianliankanGame(level = 1) {
     document.getElementById('llkTopScore').innerText = llkScore;
     document.getElementById('llkLevelTitle').innerText = `第 ${llkCurrentLevel} 关`;
     document.getElementById('llkGameOverOverlay').classList.remove('show');
-
-    // 根据关卡设置提示语
-    const hints = [
-        "经典模式：连接两个相同的图案即可消除",
-        "重力模式：消除后方块会向下掉落",
-        "左移模式：消除后方块会向左平移",
-        "右移模式：消除后方块会向右平移",
-        "上浮模式：消除后方块会向上平移",
-        "聚拢模式：消除后方块会向中间靠拢"
-    ];
-    document.getElementById('llkTargetHint').innerText = hints[llkCurrentLevel - 1] || hints[0];
 
     llkLogicalBoard = Array(LLK_ROWS + 2).fill(0).map(() => Array(LLK_COLS + 2).fill(0));
 

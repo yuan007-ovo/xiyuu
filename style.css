@@ -9290,7 +9290,7 @@ body.ios-standalone .status-bar {
 
 .llk-board-bg {
     width: var(--llk-board-width); height: var(--llk-board-height);
-    position: relative; margin: 10px; /* 减小外边距，让出更多空间 */
+    position: relative; margin: 0 auto; /* 居中显示，去掉上下外边距让整体上移 */
 }
 
 .llk-grid {
