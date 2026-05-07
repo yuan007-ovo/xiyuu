@@ -1202,6 +1202,23 @@ function openTetrisGame() {
 function closeTetrisGame() {
     document.getElementById('tetrisPanel').classList.remove('show');
     cancelAnimationFrame(tetrisAnimationId);
+    
+    // 退出时结算奖励
+    if (tetrisPlayer && tetrisPlayer.reward && !tetrisIsGameOver) {
+        let reward = parseFloat(tetrisPlayer.reward);
+        if (reward > 0 && currentAlipayLoginId) {
+            let balance = parseFloat(ChatDB.getItem(`alipay_balance_${currentAlipayLoginId}`) || '0');
+            balance += reward;
+            ChatDB.setItem(`alipay_balance_${currentAlipayLoginId}`, balance.toFixed(2));
+            addAlipayRecord(currentAlipayLoginId, 'in', '俄罗斯方块奖励', reward);
+            
+            if (document.getElementById('alipay-page-me').classList.contains('active')) {
+                renderAlipayData();
+            }
+            alert(`游戏结束，共赚取 ${reward} 元，已存入支付宝余额！`);
+            tetrisPlayer.reward = '0.00';
+        }
+    }
 }
 
 function tetrisInit() {
@@ -1351,6 +1368,7 @@ function tetrisPlayerReset() {
                 if (document.getElementById('alipay-page-me').classList.contains('active')) {
                     renderAlipayData();
                 }
+                tetrisPlayer.reward = '0.00'; // 防止重复领取
             }
         }
     }
