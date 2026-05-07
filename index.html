@@ -7870,6 +7870,12 @@
                         <div class="alipay-game-title">果了个果</div>
                         <div class="alipay-game-desc">3D堆叠消除赚余额</div>
                     </div>
+                    <!-- 新增2048游戏卡片 -->
+                    <div class="alipay-game-card" onclick="open2048Game()">
+                        <div class="alipay-game-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><path d="M7 7h4v4H7zM13 7h4v4h-4zM7 13h4v4H7zM13 13h4v4h-4z"></path></svg></div>
+                        <div class="alipay-game-title">2048</div>
+                        <div class="alipay-game-desc">数字合成赚余额</div>
+                    </div>
                 </div>
             </div>
 
@@ -8321,8 +8327,49 @@
             </div>
 
             <div class="tetris-toast" id="tetrisToastMsg"></div>
+    </div>
+    <!-- 俄罗斯方块游戏面板结束 -->
+    <!-- 2048游戏面板 -->
+    <div class="game-panel" id="game2048Panel">
+        <div class="game-header">
+            <div class="game-title">2048赚余额</div>
+            <div class="game-close" onclick="close2048Game()">×</div>
         </div>
-
+        <div class="score-row">
+            <div class="score-item">
+                <div class="score-label">当前分数</div>
+                <div class="score-num" id="game2048Score">0</div>
+            </div>
+            <div class="score-item">
+                <div class="score-label">可领奖励</div>
+                <div class="score-num" id="game2048Reward">¥0.00</div>
+            </div>
+        </div>
+        <div class="game-board" id="game2048Board">
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+        </div>
+        <div class="game-buttons">
+            <button class="game-btn restart" onclick="init2048Game()">重新开始</button>
+            <button class="game-btn reward" onclick="get2048Reward()">领取奖励</button>
+        </div>
+        <div class="game-tip">滑动或方向键操控，合成2048赢取余额奖励</div>
+    </div>
+    <!-- 2048游戏面板结束 -->
         <!-- =========================================
              新增：消灭星星 游戏面板
              ========================================= -->

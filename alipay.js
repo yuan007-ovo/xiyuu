@@ -2665,3 +2665,228 @@ function tetrisBindControls() {
     bindBtn('tetrisBtnRotate', () => tetrisPlayerRotate(), false); // A键旋转
     bindBtn('tetrisBtnDrop', () => tetrisPlayerHardDrop(), false); // B键直接下落
 }
+// ==========================================
+// 2048 游戏逻辑
+// ==========================================
+let game2048Board = [];
+let game2048Score = 0;
+let game2048Reward = 0.00;
+let game2048Cells = [];
+
+// 打开2048游戏
+function open2048Game() {
+    if (!currentAlipayLoginId) return alert('请先登录支付宝！');
+    document.getElementById('game2048Panel').classList.add('show');
+    init2048Game();
+}
+
+// 关闭2048游戏
+function close2048Game() {
+    document.getElementById('game2048Panel').classList.remove('show');
+    
+    // 退出结算奖励
+    if (game2048Score > 0 && currentAlipayLoginId) {
+        let reward = (game2048Score / 200).toFixed(2);
+        if (parseFloat(reward) > 0) {
+            let balance = parseFloat(ChatDB.getItem(`alipay_balance_${currentAlipayLoginId}`) || '0');
+            balance += parseFloat(reward);
+            ChatDB.setItem(`alipay_balance_${currentAlipayLoginId}`, balance.toFixed(2));
+            addAlipayRecord(currentAlipayLoginId, 'in', '2048游戏奖励', reward);
+            
+            if (document.getElementById('alipay-page-me').classList.contains('active')) {
+                renderAlipayData();
+            }
+            alert(`游戏结束，共赚取 ${reward} 元，已存入支付宝余额！`);
+        }
+    }
+    game2048Score = 0;
+    game2048Reward = 0.00;
+}
+
+// 初始化2048游戏
+function init2048Game() {
+    game2048Board = [
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0]
+    ];
+    game2048Score = 0;
+    game2048Reward = 0.00;
+    game2048Cells = document.querySelectorAll('#game2048Board .grid-cell');
+    
+    update2048UI();
+    add2048RandomNumber();
+    add2048RandomNumber();
+    
+    // 绑定键盘事件
+    document.addEventListener('keydown', handle2048Keydown);
+    // 绑定触屏滑动
+    bind2048TouchSwipe();
+}
+
+// 更新2048界面
+function update2048UI() {
+    document.getElementById('game2048Score').innerText = game2048Score;
+    game2048Reward = (game2048Score / 200).toFixed(2);
+    document.getElementById('game2048Reward').innerText = `¥${game2048Reward}`;
+
+    for (let i = 0; i < 4; i++) {
+        for (let j = 0; j < 4; j++) {
+            const value = game2048Board[i][j];
+            const index = i * 4 + j;
+            const cell = game2048Cells[index];
+            
+            cell.innerText = value || '';
+            cell.className = 'grid-cell';
+            if (value) {
+                cell.classList.add(`grid-cell-${value}`);
+            }
+        }
+    }
+}
+
+// 随机生成数字2/4
+function add2048RandomNumber() {
+    const emptyCells = [];
+    for (let i = 0; i < 4; i++) {
+        for (let j = 0; j < 4; j++) {
+            if (game2048Board[i][j] === 0) {
+                emptyCells.push([i, j]);
+            }
+        }
+    }
+    if (emptyCells.length === 0) return;
+    
+    const [row, col] = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+    game2048Board[row][col] = Math.random() < 0.9 ? 2 : 4;
+    update2048UI();
+}
+
+// 左移一行
+function move2048RowLeft(row) {
+    let arr = row.filter(num => num !== 0);
+    for (let i = 0; i < arr.length - 1; i++) {
+        if (arr[i] === arr[i + 1]) {
+            arr[i] *= 2;
+            game2048Score += arr[i];
+            arr[i + 1] = 0;
+        }
+    }
+    arr = arr.filter(num => num !== 0);
+    while (arr.length < 4) {
+        arr.push(0);
+    }
+    return arr;
+}
+
+// 棋盘旋转
+function rotate2048Board() {
+    const newBoard = [[], [], [], []];
+    for (let i = 0; i < 4; i++) {
+        for (let j = 0; j < 4; j++) {
+            newBoard[i][j] = game2048Board[j][3 - i];
+        }
+    }
+    game2048Board = newBoard;
+}
+
+// 移动方向
+function move2048Left() {
+    for (let i = 0; i < 4; i++) {
+        game2048Board[i] = move2048RowLeft(game2048Board[i]);
+    }
+}
+
+function move2048Right() {
+    for (let i = 0; i < 4; i++) {
+        game2048Board[i] = move2048RowLeft(game2048Board[i].reverse()).reverse();
+    }
+}
+
+function move2048Up() {
+    rotate2048Board();
+    rotate2048Board();
+    rotate2048Board();
+    move2048Left();
+    rotate2048Board();
+}
+
+function move2048Down() {
+    rotate2048Board();
+    move2048Left();
+    rotate2048Board();
+    rotate2048Board();
+    rotate2048Board();
+}
+
+// 执行移动
+function do2048Move(moveFunc) {
+    const beforeBoard = JSON.stringify(game2048Board);
+    moveFunc();
+    if (JSON.stringify(game2048Board) !== beforeBoard) {
+        add2048RandomNumber();
+        update2048UI();
+    }
+}
+
+// 键盘控制
+function handle2048Keydown(e) {
+    if (!document.getElementById('game2048Panel').classList.contains('show')) return;
+    switch (e.key) {
+        case 'ArrowLeft': do2048Move(move2048Left); break;
+        case 'ArrowRight': do2048Move(move2048Right); break;
+        case 'ArrowUp': do2048Move(move2048Up); break;
+        case 'ArrowDown': do2048Move(move2048Down); break;
+    }
+}
+
+// 触屏滑动
+function bind2048TouchSwipe() {
+    let startX = 0;
+    let startY = 0;
+    const board = document.getElementById('game2048Board');
+    
+    board.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+    }, { passive: true });
+    
+    board.addEventListener('touchend', (e) => {
+        if (!startX || !startY) return;
+        const endX = e.changedTouches[0].clientX;
+        const endY = e.changedTouches[0].clientY;
+        const dx = endX - startX;
+        const dy = endY - startY;
+        
+        if (Math.abs(dx) > Math.abs(dy)) {
+            if (dx > 50) do2048Move(move2048Right);
+            if (dx < -50) do2048Move(move2048Left);
+        } else {
+            if (dy > 50) do2048Move(move2048Down);
+            if (dy < -50) do2048Move(move2048Up);
+        }
+        startX = 0;
+        startY = 0;
+    }, { passive: true });
+}
+
+// 领取奖励
+function get2048Reward() {
+    if (!currentAlipayLoginId) return alert('请先登录支付宝！');
+    if (parseFloat(game2048Reward) <= 0) return alert('暂无奖励可领取！');
+    
+    let balance = parseFloat(ChatDB.getItem(`alipay_balance_${currentAlipayLoginId}`) || '0');
+    balance += parseFloat(game2048Reward);
+    ChatDB.setItem(`alipay_balance_${currentAlipayLoginId}`, balance.toFixed(2));
+    addAlipayRecord(currentAlipayLoginId, 'in', '2048游戏奖励', game2048Reward);
+    
+    if (document.getElementById('alipay-page-me').classList.contains('active')) {
+        renderAlipayData();
+    }
+    
+    alert(`成功领取 ${game2048Reward} 元，已存入支付宝余额！`);
+    game2048Score = 0;
+    game2048Reward = 0.00;
+    update2048UI();
+}
