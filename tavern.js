@@ -1207,10 +1207,52 @@ function tavRenderChat() {
 
     // 获取激活的正则规则
     let regexList = JSON.parse(ChatDB.getItem('tav_regex_list') || '[]').filter(r => r.active);
+    
+    // 获取激活的状态栏
+    let statusBars = JSON.parse(ChatDB.getItem('tav_status_bars') || '[]').filter(sb => sb.active);
+    let latestGlobalStatusData = {};
 
     history.forEach(msg => {
         const isMe = msg.sender === 'me';
         let content = msg.content || '';
+        
+        let cardTopHtml = '';
+        let cardBottomHtml = '';
+
+        // 提取状态栏数据 (仅对角色的消息提取)
+        if (!isMe) {
+            statusBars.forEach(sb => {
+                try {
+                    const regex = new RegExp(sb.regex, 'g');
+                    let match;
+                    let lastMatch = null;
+                    // 找到最后一次匹配
+                    while ((match = regex.exec(content)) !== null) {
+                        lastMatch = match;
+                    }
+                    
+                    if (lastMatch) {
+                        // 替换 HTML 中的占位符 {{1}}, {{2}} 等
+                        let renderedHtml = sb.html;
+                        for (let i = 1; i < lastMatch.length; i++) {
+                            renderedHtml = renderedHtml.replace(new RegExp(`\\{\\{${i}\\}\\}`, 'g'), lastMatch[i]);
+                        }
+                        
+                        // 从正文中移除匹配到的纯文本
+                        content = content.replace(lastMatch[0], '').trim();
+                        
+                        if (sb.pos === 'card_top') {
+                            cardTopHtml += renderedHtml;
+                        } else if (sb.pos === 'card_bottom') {
+                            cardBottomHtml += renderedHtml;
+                        } else {
+                            // 全局状态栏，记录最新的一条
+                            latestGlobalStatusData[sb.id] = renderedHtml;
+                        }
+                    }
+                } catch (e) { console.error('Status bar regex error:', e); }
+            });
+        }
 
         // 应用正则替换
         regexList.forEach(r => {
@@ -1245,16 +1287,37 @@ function tavRenderChat() {
                 <div class="tav-chat-card-avatar" style="background-image: url('${isMe ? userAvatar : charAvatar}');"></div>
                 <div class="tav-chat-card-name">${isMe ? userRealName : charName}</div>
             </div>
+            ${cardTopHtml ? `<div class="tav-demo-inner-status top">${cardTopHtml}</div>` : ''}
             <div class="tav-chat-card-content">${content}</div>
+            ${cardBottomHtml ? `<div class="tav-demo-inner-status bottom">${cardBottomHtml}</div>` : ''}
             ${menuHtml}
         `;
         streamEl.appendChild(card);
     });
 
+    // 更新全局状态栏
+    updateGlobalStatusBars(statusBars, latestGlobalStatusData);
+
     // 滚动到底部
     setTimeout(() => {
         streamEl.scrollTop = streamEl.scrollHeight;
     }, 100);
+}
+
+function updateGlobalStatusBars(statusBars, latestData) {
+    const floatingPanel = document.getElementById('tav-floating-panel-content');
+    if (floatingPanel) floatingPanel.innerHTML = '';
+    
+    statusBars.forEach(sb => {
+        if (latestData[sb.id]) {
+            if (sb.pos === 'floating' && floatingPanel) {
+                const div = document.createElement('div');
+                div.innerHTML = latestData[sb.id];
+                floatingPanel.appendChild(div);
+            }
+            // 如果有 top 或 bottom 的全局状态栏，可以在这里扩展
+        }
+    });
 }
 
 // ==========================================
