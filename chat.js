@@ -6636,10 +6636,42 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
                     messagesArray = [messagesArray]; 
                 }
             } catch (e) {
-                console.warn("JSON解析失败，启动兜底方案");
-                messagesArray = replyRaw.split('\n')
-                                        .filter(line => line.trim() !== "" && !line.includes('inner_voice') && !line.includes('messages'))
-                                        .map(line => ({ type: 'text', content: line.trim() }));
+                console.warn("JSON解析失败，启动智能兜底方案", e);
+                messagesArray = [];
+                
+                // 1. 尝试用正则精准提取所有 "content": "实际内容" 中的文本
+                const contentRegex = /"content"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/g;
+                let match;
+                while ((match = contentRegex.exec(replyRaw)) !== null) {
+                    let extractedText = match[1];
+                    // 处理可能存在的转义字符 (如 \n, \")
+                    try { extractedText = JSON.parse(`"${extractedText}"`); } catch(err) {}
+                    if (extractedText.trim()) {
+                        messagesArray.push({ type: 'text', content: extractedText.trim() });
+                    }
+                }
+
+                // 2. 如果正则没提取到任何内容，说明格式破坏得非常彻底，启动暴力清理
+                if (messagesArray.length === 0) {
+                    let cleanText = replyRaw
+                        .replace(/[\{\}\[\]]/g, '') // 去除大括号和中括号
+                        .replace(/"type"\s*:\s*"[^"]*"/g, '') // 去除 type 字段
+                        .replace(/"messages"\s*:/g, '') // 去除 messages 键
+                        .replace(/"inner_voice"\s*:\s*"[^"]*"/g, '') // 去除 inner_voice 字段
+                        .replace(/"content"\s*:/g, '') // 去除 content 键
+                        .replace(/"/g, '') // 去除双引号
+                        .replace(/,/g, '') // 去除逗号
+                        .trim();
+                    
+                    // 按换行符分割，避免把所有话挤在一个超级大的气泡里
+                    let lines = cleanText.split('\n').filter(line => line.trim() !== '');
+                    if (lines.length > 0) {
+                        messagesArray = lines.map(line => ({ type: 'text', content: line.trim() }));
+                    } else {
+                        // 实在提取不到任何文字，给个默认省略号，防止报错卡死
+                        messagesArray = [{ type: 'text', content: "..." }];
+                    }
+                }
             }
 
             if (innerVoiceEnabled && innerVoice) {
@@ -7097,19 +7129,51 @@ function showChatBubbleMenu(x, y) {
 
     overlay.classList.add('show');
     
-    // 动态计算位置防止溢出
-    menu.style.left = x + 'px';
-    menu.style.top = y + 'px';
+    // 先设置为透明并显示，以获取真实宽高
+    menu.style.opacity = '0';
+    menu.classList.add('show');
     
     setTimeout(() => {
         const rect = menu.getBoundingClientRect();
-        let finalX = x;
-        let finalY = y;
-        if (x + rect.width > window.innerWidth - 20) finalX = window.innerWidth - rect.width - 20;
-        if (y + rect.height > window.innerHeight - 20) finalY = window.innerHeight - rect.height - 20;
+        const menuWidth = rect.width;
+        const menuHeight = rect.height;
+        
+        // 默认显示在点击位置正上方居中
+        let finalX = x - menuWidth / 2;
+        let finalY = y - menuHeight - 15; // 15px 留给箭头和手指间距
+        
+        let arrowLeft = '50%'; // 默认箭头居中
+        let isArrowTop = false;
+
+        // 水平边界处理
+        if (finalX < 10) {
+            finalX = 10;
+            // 箭头需要向左偏移，对准点击位置
+            arrowLeft = Math.max(15, x - finalX) + 'px';
+        } else if (finalX + menuWidth > window.innerWidth - 10) {
+            finalX = window.innerWidth - menuWidth - 10;
+            // 箭头需要向右偏移
+            arrowLeft = Math.min(menuWidth - 15, x - finalX) + 'px';
+        }
+
+        // 垂直边界处理 (如果上方空间不足，显示在手指下方)
+        if (finalY < 10) {
+            finalY = y + 20; 
+            isArrowTop = true;
+        }
+
         menu.style.left = finalX + 'px';
         menu.style.top = finalY + 'px';
-        menu.classList.add('show');
+        
+        // 动态设置箭头的 CSS 变量
+        menu.style.setProperty('--arrow-left', arrowLeft);
+        if (isArrowTop) {
+            menu.classList.add('arrow-top');
+        } else {
+            menu.classList.remove('arrow-top');
+        }
+
+        menu.style.opacity = ''; // 恢复 CSS 控制的 opacity
     }, 10);
 }
 

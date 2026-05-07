@@ -2927,7 +2927,7 @@ body.ios-standalone .status-bar {
     100% { transform: rotate(360deg); }
 }
 /* =========================================
-   聊天气泡长按菜单 (仿 iOS 微信)
+   聊天气泡长按菜单 (仿 iOS 原生文本选择菜单)
    ========================================= */
 .chat-bubble-menu-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -2935,18 +2935,54 @@ body.ios-standalone .status-bar {
 }
 .chat-bubble-menu-overlay.show { display: block; }
 .chat-bubble-menu {
-    position: absolute; background: #2c2c2e; border-radius: 12px;
-    display: flex; padding: 0 5px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    transform: scale(0.9); opacity: 0; transition: all 0.15s cubic-bezier(0.2, 0.8, 0.2, 1);
+    position: absolute; 
+    background: rgba(255, 255, 255, 0.95); /* 白色半透明 */
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-radius: 10px;
+    display: flex; 
+    flex-direction: row; /* 水平排列 */
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    transform: scale(0.9); opacity: 0; 
+    transition: all 0.15s cubic-bezier(0.2, 0.8, 0.2, 1);
+    white-space: nowrap;
+    border: 1px solid rgba(0,0,0,0.05);
 }
 .chat-bubble-menu.show { transform: scale(1); opacity: 1; }
-.chat-bubble-menu-item {
-    padding: 12px 16px; color: #fff; font-size: 13px; font-weight: bold;
-    display: flex; flex-direction: column; align-items: center; gap: 4px;
-    cursor: pointer; border-right: 1px solid #444;
+
+/* 向下的小箭头 */
+.chat-bubble-menu::after {
+    content: '';
+    position: absolute;
+    bottom: -6px; /* 箭头在底部外侧 */
+    left: var(--arrow-left, 50%);
+    transform: translateX(-50%);
+    border-width: 6px 6px 0;
+    border-style: solid;
+    border-color: rgba(255, 255, 255, 0.95) transparent transparent transparent;
 }
-.chat-bubble-menu-item:last-child { border-right: none; }
-.chat-bubble-menu-item:active { background: #3a3a3c; border-radius: 8px; }
+/* 当菜单在屏幕顶部，需要显示在手指下方时，箭头朝上 */
+.chat-bubble-menu.arrow-top::after {
+    top: -6px;
+    bottom: auto;
+    border-width: 0 6px 6px;
+    border-color: transparent transparent rgba(255, 255, 255, 0.95) transparent;
+}
+
+.chat-bubble-menu-item {
+    padding: 10px 16px; 
+    color: #000; /* 黑色文字 */
+    font-size: 14px; 
+    font-weight: 500; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center;
+    cursor: pointer; 
+    border-right: 1px solid #e5e5e5; /* 浅色分割线 */
+    transition: background 0.2s;
+}
+.chat-bubble-menu-item:first-child { border-top-left-radius: 10px; border-bottom-left-radius: 10px; }
+.chat-bubble-menu-item:last-child { border-right: none; border-top-right-radius: 10px; border-bottom-right-radius: 10px; }
+.chat-bubble-menu-item:active { background: rgba(0,0,0,0.05); }
 
 /* =========================================
    引用内容块样式 (独立于气泡上方)
