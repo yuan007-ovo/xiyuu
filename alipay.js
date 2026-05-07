@@ -630,8 +630,9 @@ function findPopStarConnectedBlocks(startR, startC, targetTypeId) {
 }
 
 function applyPopStarGravityAndShift() {
-    let moved = false;
+    let blocksToUpdate = [];
 
+    // 下落逻辑收集需要移动的方块
     for (let c = 0; c < PS_COLS; c++) {
         let emptySpaces = 0;
         for (let r = PS_ROWS - 1; r >= 0; r--) {
@@ -642,12 +643,12 @@ function applyPopStarGravityAndShift() {
                 psBoard[r + emptySpaces][c] = block;
                 psBoard[r][c] = null;
                 block.r += emptySpaces;
-                updatePopStarBlockPosition(block);
-                moved = true;
+                blocksToUpdate.push(block);
             }
         }
     }
 
+    // 左移逻辑收集
     let emptyCols = 0;
     for (let c = 0; c < PS_COLS; c++) {
         if (psBoard[PS_ROWS - 1][c] === null) {
@@ -659,18 +660,24 @@ function applyPopStarGravityAndShift() {
                     psBoard[r][c - emptyCols] = block;
                     psBoard[r][c] = null;
                     block.c -= emptyCols;
-                    updatePopStarBlockPosition(block);
-                    moved = true;
+                    blocksToUpdate.push(block);
                 }
             }
         }
     }
 
-    // 缩短下落和靠拢的判定等待时间
+    // 集中一次性更新所有方块位置
+    requestAnimationFrame(() => {
+        for (let block of blocksToUpdate) {
+            updatePopStarBlockPosition(block);
+        }
+    });
+
+    const moved = blocksToUpdate.length > 0;
     setTimeout(() => {
         psIsAnimating = false;
         checkPopStarGameOver();
-    }, moved ? 150 : 20);
+    }, moved ? 120 : 20);
 }
 
 function checkPopStarGameOver() {
@@ -2666,12 +2673,16 @@ function tetrisBindControls() {
     bindBtn('tetrisBtnDrop', () => tetrisPlayerHardDrop(), false); // B键直接下落
 }
 // ==========================================
-// 2048 游戏逻辑
+// 2048 游戏逻辑 (重写版，流畅灵敏)
 // ==========================================
 let game2048Board = [];
 let game2048Score = 0;
 let game2048Reward = 0.00;
 let game2048Cells = [];
+let game2048TouchStartX = 0;
+let game2048TouchStartY = 0;
+let game2048TouchMoved = false;
+const G2048_SIZE = 4;
 
 // 打开2048游戏
 function open2048Game() {
@@ -2683,7 +2694,15 @@ function open2048Game() {
 // 关闭2048游戏
 function close2048Game() {
     document.getElementById('game2048Panel').classList.remove('show');
-    
+    // 移除监听器，避免内存泄漏
+    document.removeEventListener('keydown', handle2048Keydown);
+    const board = document.getElementById('game2048Board');
+    if (board) {
+        board.removeEventListener('touchstart', on2048TouchStart);
+        board.removeEventListener('touchmove', on2048TouchMove);
+        board.removeEventListener('touchend', on2048TouchEnd);
+        board.removeEventListener('touchcancel', on2048TouchEnd);
+    }
     // 退出结算奖励
     if (game2048Score > 0 && currentAlipayLoginId) {
         let reward = (game2048Score / 200).toFixed(2);
@@ -2705,12 +2724,7 @@ function close2048Game() {
 
 // 初始化2048游戏
 function init2048Game() {
-    game2048Board = [
-        [0, 0, 0, 0],
-        [0, 0, 0, 0],
-        [0, 0, 0, 0],
-        [0, 0, 0, 0]
-    ];
+    game2048Board = Array.from({length: G2048_SIZE}, () => Array(G2048_SIZE).fill(0));
     game2048Score = 0;
     game2048Reward = 0.00;
     game2048Cells = document.querySelectorAll('#game2048Board .grid-cell');
@@ -2719,10 +2733,21 @@ function init2048Game() {
     add2048RandomNumber();
     add2048RandomNumber();
     
-    // 绑定键盘事件
+    // 先移除旧的监听器，防止重复绑定
+    document.removeEventListener('keydown', handle2048Keydown);
     document.addEventListener('keydown', handle2048Keydown);
-    // 绑定触屏滑动
-    bind2048TouchSwipe();
+    
+    const board = document.getElementById('game2048Board');
+    if (board) {
+        board.removeEventListener('touchstart', on2048TouchStart);
+        board.removeEventListener('touchmove', on2048TouchMove);
+        board.removeEventListener('touchend', on2048TouchEnd);
+        board.removeEventListener('touchcancel', on2048TouchEnd);
+        board.addEventListener('touchstart', on2048TouchStart, { passive: false });
+        board.addEventListener('touchmove', on2048TouchMove, { passive: false });
+        board.addEventListener('touchend', on2048TouchEnd, { passive: false });
+        board.addEventListener('touchcancel', on2048TouchEnd, { passive: false });
+    }
 }
 
 // 更新2048界面
@@ -2731,12 +2756,11 @@ function update2048UI() {
     game2048Reward = (game2048Score / 200).toFixed(2);
     document.getElementById('game2048Reward').innerText = `¥${game2048Reward}`;
 
-    for (let i = 0; i < 4; i++) {
-        for (let j = 0; j < 4; j++) {
-            const value = game2048Board[i][j];
-            const index = i * 4 + j;
+    for (let r = 0; r < G2048_SIZE; r++) {
+        for (let c = 0; c < G2048_SIZE; c++) {
+            const value = game2048Board[r][c];
+            const index = r * G2048_SIZE + c;
             const cell = game2048Cells[index];
-            
             cell.innerText = value || '';
             cell.className = 'grid-cell';
             if (value) {
@@ -2749,129 +2773,144 @@ function update2048UI() {
 // 随机生成数字2/4
 function add2048RandomNumber() {
     const emptyCells = [];
-    for (let i = 0; i < 4; i++) {
-        for (let j = 0; j < 4; j++) {
+    for (let i = 0; i < G2048_SIZE; i++) {
+        for (let j = 0; j < G2048_SIZE; j++) {
             if (game2048Board[i][j] === 0) {
                 emptyCells.push([i, j]);
             }
         }
     }
-    if (emptyCells.length === 0) return;
-    
+    if (emptyCells.length === 0) return false;
     const [row, col] = emptyCells[Math.floor(Math.random() * emptyCells.length)];
     game2048Board[row][col] = Math.random() < 0.9 ? 2 : 4;
     update2048UI();
+    return true;
+}
+
+// 检查游戏是否结束
+function check2048GameOver() {
+    for (let i = 0; i < G2048_SIZE; i++) {
+        for (let j = 0; j < G2048_SIZE; j++) {
+            if (game2048Board[i][j] === 0) return false;
+            if (j < G2048_SIZE - 1 && game2048Board[i][j] === game2048Board[i][j+1]) return false;
+            if (i < G2048_SIZE - 1 && game2048Board[i][j] === game2048Board[i+1][j]) return false;
+        }
+    }
+    return true;
 }
 
 // 左移一行
-function move2048RowLeft(row) {
-    let arr = row.filter(num => num !== 0);
-    for (let i = 0; i < arr.length - 1; i++) {
-        if (arr[i] === arr[i + 1]) {
-            arr[i] *= 2;
-            game2048Score += arr[i];
-            arr[i + 1] = 0;
+function move2048RowLeft(arr) {
+    let filtered = arr.filter(v => v !== 0);
+    for (let i = 0; i < filtered.length - 1; i++) {
+        if (filtered[i] === filtered[i+1]) {
+            filtered[i] *= 2;
+            game2048Score += filtered[i];
+            filtered[i+1] = 0;
         }
     }
-    arr = arr.filter(num => num !== 0);
-    while (arr.length < 4) {
-        arr.push(0);
-    }
-    return arr;
+    filtered = filtered.filter(v => v !== 0);
+    while (filtered.length < G2048_SIZE) filtered.push(0);
+    return filtered;
 }
 
-// 棋盘旋转
+// 棋盘旋转 一次旋转90度顺时针
 function rotate2048Board() {
-    const newBoard = [[], [], [], []];
-    for (let i = 0; i < 4; i++) {
-        for (let j = 0; j < 4; j++) {
-            newBoard[i][j] = game2048Board[j][3 - i];
+    const n = G2048_SIZE;
+    const newBoard = Array.from({length: n}, () => Array(n).fill(0));
+    for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n; j++) {
+            newBoard[j][n - 1 - i] = game2048Board[i][j];
         }
     }
     game2048Board = newBoard;
 }
 
-// 移动方向
-function move2048Left() {
-    for (let i = 0; i < 4; i++) {
-        game2048Board[i] = move2048RowLeft(game2048Board[i]);
+// 执行方向移动
+function do2048Move(direction) {
+    const copyBefore = JSON.stringify(game2048Board);
+    switch (direction) {
+        case 'left':
+            for (let i = 0; i < G2048_SIZE; i++) game2048Board[i] = move2048RowLeft(game2048Board[i]);
+            break;
+        case 'right':
+            for (let i = 0; i < G2048_SIZE; i++) game2048Board[i] = move2048RowLeft([...game2048Board[i]].reverse()).reverse();
+            break;
+        case 'up':
+            rotate2048Board(); // 向上转一次
+            rotate2048Board(); // 再转一次就是向下，实际上向上等于顺时针转两次再左移？我们需要标准实现：向上 = 逆时针转一次，左移，顺时针转一次
+            // 用更简单的方法：上 = 先转置再对每行左移？ 为保持一致，我们用旋转三次的方法等价于逆时针一次
+            // 统一采用旋转技巧：上 = 逆时针90度 = 顺时针旋转3次
+            rotate2048Board(); // 第三次
+            for (let i = 0; i < G2048_SIZE; i++) game2048Board[i] = move2048RowLeft(game2048Board[i]);
+            rotate2048Board(); // 回转一次 回到原始方向
+            break;
+        case 'down':
+            rotate2048Board(); // 顺时针一次
+            for (let i = 0; i < G2048_SIZE; i++) game2048Board[i] = move2048RowLeft(game2048Board[i]);
+            for (let k = 0; k < 3; k++) rotate2048Board(); // 转回三次
+            break;
     }
-}
-
-function move2048Right() {
-    for (let i = 0; i < 4; i++) {
-        game2048Board[i] = move2048RowLeft(game2048Board[i].reverse()).reverse();
-    }
-}
-
-function move2048Up() {
-    rotate2048Board();
-    rotate2048Board();
-    rotate2048Board();
-    move2048Left();
-    rotate2048Board();
-}
-
-function move2048Down() {
-    rotate2048Board();
-    move2048Left();
-    rotate2048Board();
-    rotate2048Board();
-    rotate2048Board();
-}
-
-// 执行移动
-function do2048Move(moveFunc) {
-    const beforeBoard = JSON.stringify(game2048Board);
-    moveFunc();
-    if (JSON.stringify(game2048Board) !== beforeBoard) {
+    if (JSON.stringify(game2048Board) !== copyBefore) {
         add2048RandomNumber();
         update2048UI();
+        if (check2048GameOver()) {
+            setTimeout(() => {
+                alert('Game Over! 奖励已自动结算。');
+                // 自动结算奖励 (不退出面板，用户可手动领取)
+            }, 100);
+        }
     }
 }
 
 // 键盘控制
 function handle2048Keydown(e) {
     if (!document.getElementById('game2048Panel').classList.contains('show')) return;
+    e.preventDefault();
     switch (e.key) {
-        case 'ArrowLeft': do2048Move(move2048Left); break;
-        case 'ArrowRight': do2048Move(move2048Right); break;
-        case 'ArrowUp': do2048Move(move2048Up); break;
-        case 'ArrowDown': do2048Move(move2048Down); break;
+        case 'ArrowLeft': do2048Move('left'); break;
+        case 'ArrowRight': do2048Move('right'); break;
+        case 'ArrowUp': do2048Move('up'); break;
+        case 'ArrowDown': do2048Move('down'); break;
     }
 }
 
-// 触屏滑动
-function bind2048TouchSwipe() {
-    let startX = 0;
-    let startY = 0;
-    const board = document.getElementById('game2048Board');
-    
-    board.addEventListener('touchstart', (e) => {
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
-    }, { passive: true });
-    
-    board.addEventListener('touchend', (e) => {
-        if (!startX || !startY) return;
-        const endX = e.changedTouches[0].clientX;
-        const endY = e.changedTouches[0].clientY;
-        const dx = endX - startX;
-        const dy = endY - startY;
-        
-        if (Math.abs(dx) > Math.abs(dy)) {
-            if (dx > 50) do2048Move(move2048Right);
-            if (dx < -50) do2048Move(move2048Left);
-        } else {
-            if (dy > 50) do2048Move(move2048Down);
-            if (dy < -50) do2048Move(move2048Up);
-        }
-        startX = 0;
-        startY = 0;
-    }, { passive: true });
+// 触屏事件处理函数 (非被动，以阻止页面滚动)
+function on2048TouchStart(e) {
+    e.preventDefault();
+    const touch = e.touches[0];
+    game2048TouchStartX = touch.clientX;
+    game2048TouchStartY = touch.clientY;
+    game2048TouchMoved = false;
 }
 
-// 领取奖励
+function on2048TouchMove(e) {
+    e.preventDefault();
+    game2048TouchMoved = true;
+}
+
+function on2048TouchEnd(e) {
+    e.preventDefault();
+    if (!game2048TouchStartX || !game2048TouchStartY) return;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - game2048TouchStartX;
+    const dy = touch.clientY - game2048TouchStartY;
+    const absDx = Math.abs(dx);
+    const absDy = Math.abs(dy);
+    const threshold = 15; // 极低阈值，手指轻轻滑动即可触发
+
+    if (absDx < threshold && absDy < threshold) return; // 忽略轻触
+
+    if (absDx > absDy) {
+        do2048Move(dx > 0 ? 'right' : 'left');
+    } else {
+        do2048Move(dy > 0 ? 'down' : 'up');
+    }
+    game2048TouchStartX = 0;
+    game2048TouchStartY = 0;
+}
+
+// 领取奖励 (保持不变)
 function get2048Reward() {
     if (!currentAlipayLoginId) return alert('请先登录支付宝！');
     if (parseFloat(game2048Reward) <= 0) return alert('暂无奖励可领取！');
@@ -2890,3 +2929,348 @@ function get2048Reward() {
     game2048Reward = 0.00;
     update2048UI();
 }
+// ==========================================
+// 滑动拼图 游戏逻辑
+// ==========================================
+let puzzleGridSize = 4;
+let puzzleTiles = [];
+let puzzleEmptyRow, puzzleEmptyCol;
+let puzzleMoveCount = 0;
+let puzzleIsActive = false;
+let puzzleIsComplete = false;
+let puzzleImageUrl = '';
+let puzzleReward = 0.00;
+
+// 打开拼图面板
+function openPuzzleGame() {
+    if (!currentAlipayLoginId) return alert('请先登录支付宝！');
+    document.getElementById('puzzleGamePanel').classList.add('show');
+    if (!puzzleImageUrl) {
+        puzzleImageUrl = generatePuzzleDefaultImage();
+    }
+    buildPuzzleBoard();
+    updatePuzzleLayoutButtons();
+    resetPuzzleState();
+    document.getElementById('puzzlePauseOverlay').classList.add('show');
+    document.getElementById('puzzleBtnText').innerText = '开始游戏';
+    document.getElementById('puzzleBtnIcon').innerText = '▶';
+    puzzleIsActive = false;
+    updateAllPuzzleTiles();  // 修复：原先的 updatePuzzleUI 不存在
+}
+
+// 关闭拼图面板
+function closePuzzleGame() {
+    document.getElementById('puzzleGamePanel').classList.remove('show');
+    // 退出时结算奖励
+    if (puzzleIsActive && puzzleMoveCount > 0) {
+        let reward = calculatePuzzleReward();
+        if (reward > 0 && currentAlipayLoginId) {
+            let balance = parseFloat(ChatDB.getItem(`alipay_balance_${currentAlipayLoginId}`) || '0');
+            balance += reward;
+            ChatDB.setItem(`alipay_balance_${currentAlipayLoginId}`, balance.toFixed(2));
+            addAlipayRecord(currentAlipayLoginId, 'in', '滑动拼图奖励', reward);
+            if (document.getElementById('alipay-page-me').classList.contains('active')) {
+                renderAlipayData();
+            }
+        }
+    }
+    puzzleIsActive = false;
+}
+
+// 生成默认黑白灰图片
+function generatePuzzleDefaultImage() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 600; canvas.height = 600;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fafafa'; ctx.fillRect(0, 0, 600, 600);
+    ctx.fillStyle = '#e8e8ec'; ctx.beginPath(); ctx.arc(200, 180, 160, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#d0d0d5'; ctx.beginPath(); ctx.arc(420, 400, 140, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#1a1a1a'; ctx.fillRect(40, 40, 16, 16);
+    ctx.fillStyle = '#3a3a3c'; ctx.fillRect(540, 40, 20, 20);
+    return canvas.toDataURL('image/jpeg', 0.9);
+}
+
+// 构建拼图板
+function buildPuzzleBoard() {
+    const grid = document.getElementById('puzzleGrid');
+    grid.innerHTML = '';
+    puzzleTiles = [];
+    for (let r = 0; r < puzzleGridSize; r++) {
+        for (let c = 0; c < puzzleGridSize; c++) {
+            if (r === puzzleGridSize - 1 && c === puzzleGridSize - 1) continue;
+            const el = document.createElement('div');
+            el.className = 'puzzle-tile';
+            el.addEventListener('pointerdown', (e) => onPuzzleTileClick(e, el));
+            grid.appendChild(el);
+            puzzleTiles.push({
+                id: r * puzzleGridSize + c,
+                targetRow: r, targetCol: c,
+                currentRow: r, currentCol: c,
+                el: el
+            });
+        }
+    }
+    puzzleEmptyRow = puzzleGridSize - 1;
+    puzzleEmptyCol = puzzleGridSize - 1;
+    updateAllPuzzleTiles();
+}
+
+// 更新布局按钮高亮
+function updatePuzzleLayoutButtons() {
+    document.querySelectorAll('.puzzle-layout-option').forEach(btn => {
+        btn.classList.toggle('active', parseInt(btn.dataset.size) === puzzleGridSize);
+    });
+}
+
+// 重置游戏状态
+function resetPuzzleState() {
+    puzzleMoveCount = 0;
+    puzzleIsComplete = false;
+    puzzleReward = 0.00;
+    document.getElementById('puzzleMoveCount').innerText = '0';
+    document.getElementById('puzzleReward').innerText = '¥0.00';
+}
+
+// 更新所有拼图块
+function updateAllPuzzleTiles() {
+    const grid = document.getElementById('puzzleGrid');
+    if (!grid) return;
+    const boardSize = grid.clientWidth;          // 使用 grid 的实际渲染宽度
+    const tileSize = boardSize / puzzleGridSize;
+    const emptyIndicator = document.getElementById('puzzleEmptyIndicator');
+    
+    puzzleTiles.forEach(t => {
+        const left = t.currentCol * tileSize;
+        const top = t.currentRow * tileSize;
+        t.el.style.left = left + 'px';
+        t.el.style.top = top + 'px';
+        t.el.style.width = tileSize + 'px';
+        t.el.style.height = tileSize + 'px';
+        t.el.style.backgroundImage = `url('${puzzleImageUrl}')`;
+        // 背景总尺寸为 boardSize，保证图片裁剪正确
+        t.el.style.backgroundSize = `${boardSize}px ${boardSize}px`;
+        t.el.style.backgroundPosition = `-${t.targetCol * tileSize}px -${t.targetRow * tileSize}px`;
+        
+        const isCorrect = (t.currentRow === t.targetRow && t.currentCol === t.targetCol);
+        t.el.classList.toggle('correct', isCorrect);
+        const canMove = puzzleIsActive && !puzzleIsComplete && isAdjacentToPuzzleEmpty(t);
+        t.el.classList.toggle('movable', canMove);
+    });
+
+    // 空格指示器与拼图块完全对齐
+    emptyIndicator.style.left = (puzzleEmptyCol * tileSize) + 'px';
+    emptyIndicator.style.top = (puzzleEmptyRow * tileSize) + 'px';
+    emptyIndicator.style.width = tileSize + 'px';
+    emptyIndicator.style.height = tileSize + 'px';
+}
+
+function isAdjacentToPuzzleEmpty(tile) {
+    return Math.abs(tile.currentRow - puzzleEmptyRow) + Math.abs(tile.currentCol - puzzleEmptyCol) === 1;
+}
+
+function movePuzzleTile(tile) {
+    if (!puzzleIsActive || puzzleIsComplete) return false;
+    if (!isAdjacentToPuzzleEmpty(tile)) return false;
+    const oldRow = tile.currentRow, oldCol = tile.currentCol;
+    tile.currentRow = puzzleEmptyRow;
+    tile.currentCol = puzzleEmptyCol;
+    puzzleEmptyRow = oldRow;
+    puzzleEmptyCol = oldCol;
+    puzzleMoveCount++;
+    document.getElementById('puzzleMoveCount').innerText = puzzleMoveCount;
+    puzzleReward = calculatePuzzleReward();
+    document.getElementById('puzzleReward').innerText = '¥' + puzzleReward.toFixed(2);
+    updateAllPuzzleTiles();
+    checkPuzzleComplete();
+    return true;
+}
+
+function calculatePuzzleReward() {
+    if (puzzleMoveCount === 0) return 0;
+    const base = 0.30;
+    const extra = Math.max(0, (puzzleGridSize * puzzleGridSize * 3 - puzzleMoveCount) * 0.02);
+    return Math.max(0, Math.round((base + extra) * 100) / 100);
+}
+
+function checkPuzzleComplete() {
+    const allOk = puzzleTiles.every(t => t.currentRow === t.targetRow && t.currentCol === t.targetCol);
+    if (allOk && puzzleMoveCount > 0 && puzzleIsActive) {
+        puzzleIsComplete = true;
+        puzzleIsActive = false;
+        document.getElementById('puzzleBtnText').innerText = '开始游戏';
+        document.getElementById('puzzleBtnIcon').innerText = '▶';
+        document.getElementById('puzzlePauseOverlay').classList.remove('show');
+        updateAllPuzzleTiles();
+        if (puzzleReward > 0 && currentAlipayLoginId) {
+            let balance = parseFloat(ChatDB.getItem(`alipay_balance_${currentAlipayLoginId}`) || '0');
+            balance += puzzleReward;
+            ChatDB.setItem(`alipay_balance_${currentAlipayLoginId}`, balance.toFixed(2));
+            addAlipayRecord(currentAlipayLoginId, 'in', '滑动拼图奖励', puzzleReward);
+            if (document.getElementById('alipay-page-me').classList.contains('active')) {
+                renderAlipayData();
+            }
+            alert(`拼图完成！获得 ${puzzleReward.toFixed(2)} 元奖励！`);
+        }
+    }
+}
+
+function shufflePuzzleSilent(moves = 150) {
+    puzzleTiles.forEach(t => { t.currentRow = t.targetRow; t.currentCol = t.targetCol; });
+    puzzleEmptyRow = puzzleGridSize - 1;
+    puzzleEmptyCol = puzzleGridSize - 1;
+    const totalMoves = Math.max(80, moves * puzzleGridSize);
+    let lastDr = 0, lastDc = 0;
+    for (let i = 0; i < totalMoves; i++) {
+        const dirs = [];
+        if (puzzleEmptyRow > 0) dirs.push({ dr: -1, dc: 0 });
+        if (puzzleEmptyRow < puzzleGridSize - 1) dirs.push({ dr: 1, dc: 0 });
+        if (puzzleEmptyCol > 0) dirs.push({ dr: 0, dc: -1 });
+        if (puzzleEmptyCol < puzzleGridSize - 1) dirs.push({ dr: 0, dc: 1 });
+        const filtered = dirs.filter(d => !(d.dr === -lastDr && d.dc === -lastDc));
+        const pick = filtered.length > 0 ? filtered[Math.floor(Math.random() * filtered.length)] : dirs[0];
+        const tileRow = puzzleEmptyRow + pick.dr;
+        const tileCol = puzzleEmptyCol + pick.dc;
+        const tile = puzzleTiles.find(t => t.currentRow === tileRow && t.currentCol === tileCol);
+        if (tile) {
+            tile.currentRow = puzzleEmptyRow;
+            tile.currentCol = puzzleEmptyCol;
+            puzzleEmptyRow = tileRow;
+            puzzleEmptyCol = tileCol;
+        }
+        lastDr = pick.dr; lastDc = pick.dc;
+    }
+    updateAllPuzzleTiles();
+}
+
+function shufflePuzzleManually() {
+    if (!currentAlipayLoginId) return alert('请先登录支付宝！');
+    resetPuzzleState();
+    shufflePuzzleSilent(180);
+    puzzleIsActive = true;
+    document.getElementById('puzzleBtnText').innerText = '暂停游戏';
+    document.getElementById('puzzleBtnIcon').innerText = '⏸';
+    document.getElementById('puzzlePauseOverlay').classList.remove('show');
+    updateAllPuzzleTiles();
+}
+
+function togglePuzzleGame() {
+    if (!currentAlipayLoginId) return alert('请先登录支付宝！');
+    if (puzzleIsComplete) {
+        resetPuzzleState();
+        shufflePuzzleSilent(180);
+        puzzleIsActive = true;
+        document.getElementById('puzzleBtnText').innerText = '暂停游戏';
+        document.getElementById('puzzleBtnIcon').innerText = '⏸';
+        document.getElementById('puzzlePauseOverlay').classList.remove('show');
+        updateAllPuzzleTiles();
+        return;
+    }
+    if (puzzleIsActive) {
+        puzzleIsActive = false;
+        document.getElementById('puzzleBtnText').innerText = '开始游戏';
+        document.getElementById('puzzleBtnIcon').innerText = '▶';
+        document.getElementById('puzzlePauseOverlay').classList.add('show');
+    } else {
+        const allSame = puzzleTiles.every(t => t.currentRow === t.targetRow && t.currentCol === t.targetCol);
+        if (allSame) {
+            shufflePuzzleSilent(180);
+            resetPuzzleState();
+        }
+        puzzleIsActive = true;
+        document.getElementById('puzzleBtnText').innerText = '暂停游戏';
+        document.getElementById('puzzleBtnIcon').innerText = '⏸';
+        document.getElementById('puzzlePauseOverlay').classList.remove('show');
+    }
+    updateAllPuzzleTiles();
+}
+
+function onPuzzleTileClick(e, el) {
+    e.preventDefault();
+    const tile = puzzleTiles.find(t => t.el === el);
+    if (tile) movePuzzleTile(tile);
+}
+
+function resetPuzzleGame() {
+    puzzleTiles.forEach(t => { t.currentRow = t.targetRow; t.currentCol = t.targetCol; });
+    puzzleEmptyRow = puzzleGridSize - 1;
+    puzzleEmptyCol = puzzleGridSize - 1;
+    resetPuzzleState();
+    puzzleIsActive = false;
+    document.getElementById('puzzleBtnText').innerText = '开始游戏';
+    document.getElementById('puzzleBtnIcon').innerText = '▶';
+    document.getElementById('puzzlePauseOverlay').classList.add('show');
+    updateAllPuzzleTiles();
+}
+
+function uploadPuzzleImage() {
+    document.getElementById('puzzleImageInput').click();
+}
+
+function handlePuzzleImageUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            const canvas = document.createElement('canvas');
+            const size = Math.min(img.width, img.height);
+            canvas.width = 600; canvas.height = 600;
+            const ctx = canvas.getContext('2d');
+            const sx = (img.width - size) / 2;
+            const sy = (img.height - size) / 2;
+            ctx.drawImage(img, sx, sy, size, size, 0, 0, 600, 600);
+            puzzleImageUrl = canvas.toDataURL('image/jpeg', 0.92);
+            updateAllPuzzleTiles();
+            resetPuzzleGame();
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+}
+
+// 预览原图
+function previewPuzzleImage() {
+    const overlay = document.getElementById('puzzlePreviewOverlay');
+    const img = document.getElementById('puzzlePreviewImg');
+    img.src = puzzleImageUrl;
+    overlay.classList.add('show');
+}
+
+// 布局切换委托
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('puzzle-layout-option')) {
+        const newSize = parseInt(e.target.dataset.size);
+        if (newSize !== puzzleGridSize) {
+            puzzleGridSize = newSize;
+            buildPuzzleBoard();
+            updatePuzzleLayoutButtons();
+            resetPuzzleState();
+            puzzleIsActive = false;
+            document.getElementById('puzzleBtnText').innerText = '开始游戏';
+            document.getElementById('puzzleBtnIcon').innerText = '▶';
+            document.getElementById('puzzlePauseOverlay').classList.add('show');
+            updateAllPuzzleTiles();
+        }
+    }
+});
+
+// 暂停遮罩点击继续
+(function() {
+    const pauseEl = document.getElementById('puzzlePauseOverlay');
+    if (pauseEl) {
+        pauseEl.addEventListener('click', function() {
+            if (!puzzleIsActive && !puzzleIsComplete) {
+                togglePuzzleGame();
+            }
+        });
+    }
+})();
+
+// 窗口大小变化时刷新
+window.addEventListener('resize', () => {
+    if (document.getElementById('puzzleGamePanel').classList.contains('show')) {
+        updateAllPuzzleTiles();
+    }
+});

@@ -9211,8 +9211,8 @@ body.ios-standalone .status-bar {
     position: absolute;
     width: var(--ps-cell-size); height: var(--ps-cell-size);
     padding: 1px;
-    /* 核心优化：缩短动画时间，改用 ease-out，让下落和靠拢更干脆流畅 */
-    transition: transform 0.15s ease-out, opacity 0.15s;
+    transition: transform 0.12s ease-out, opacity 0.12s;
+    will-change: transform, opacity;
     cursor: pointer; z-index: 10;
 }
 
@@ -9862,4 +9862,121 @@ body.ios-standalone .status-bar {
     width: 100%;
     max-width: 360px;
 }
+/* =========================================
+   新增：滑动拼图 游戏样式
+   ========================================= */
+#puzzleGamePanel {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: #f7f7f9; z-index: 300; display: none;
+    flex-direction: column; align-items: center;
+    transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    padding: 0; overflow-y: auto; overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+}
+#puzzleGamePanel.show { display: flex; transform: translateY(0); }
 
+.puzzle-header {
+    display: flex; justify-content: space-between; align-items: center;
+    width: 100%; padding: calc(20px + env(safe-area-inset-top)) 20px 15px;
+    background: #fff; border-bottom: 1px solid #eee; flex-shrink: 0;
+}
+.puzzle-header-btn {
+    font-size: 14px; color: #666; cursor: pointer; font-weight: bold;
+    background: #f4f4f4; padding: 6px 14px; border-radius: 16px; border: none;
+    display: flex; align-items: center; gap: 4px;
+}
+.puzzle-score-display {
+    display: flex; flex-direction: column; align-items: center;
+    font-size: 12px; color: #888; font-weight: bold;
+}
+.puzzle-score-display span:last-child {
+    font-size: 20px; font-weight: 900; color: #111;
+    font-family: "Helvetica Neue", sans-serif;
+}
+
+.puzzle-layout-selector {
+    display: flex; gap: 8px; margin: 15px 0;
+    background: #fff; padding: 4px; border-radius: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #eee;
+}
+.puzzle-layout-option {
+    padding: 8px 16px; border-radius: 20px; border: none;
+    background: transparent; font-size: 14px; font-weight: 600;
+    color: #888; cursor: pointer; transition: all 0.2s;
+}
+.puzzle-layout-option.active {
+    background: #111; color: #fff; font-weight: 700;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+.puzzle-board-wrapper {
+    position: relative; width: 90%; max-width: 350px;
+    aspect-ratio: 1/1; background: #fff; border-radius: 16px;
+    padding: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+    border: 1px solid #eaeaea; margin-bottom: 20px;
+}
+.puzzle-grid {
+    position: relative; width: 100%; height: 100%; border-radius: 8px;
+    overflow: hidden; touch-action: none;
+    box-sizing: border-box; /* 确保尺寸包含 border */
+    padding: 0;             /* 清除可能的默认内边距 */
+    margin: 0;
+}
+.puzzle-tile {
+    position: absolute; cursor: pointer; border-radius: 3px;
+    transition: transform 0.13s cubic-bezier(0.25, 0.1, 0.25, 1);
+    will-change: transform; z-index: 1;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    background-size: cover; background-repeat: no-repeat;
+}
+.puzzle-tile:active { transform: scale(0.94); z-index: 5; }
+.puzzle-tile.movable {
+    box-shadow: 0 1px 6px rgba(0,0,0,0.15), 0 0 0 1.5px rgba(0,0,0,0.2);
+}
+.puzzle-tile.correct {
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.08);
+}
+
+.puzzle-empty-indicator {
+    position: absolute; border-radius: 3px; z-index: 0;
+    background: rgba(0,0,0,0.02); border: 1.5px dashed rgba(0,0,0,0.15);
+    pointer-events: none; transition: all 0.13s;
+}
+
+.puzzle-pause-overlay {
+    position: absolute; inset: 0; background: rgba(255,255,255,0.7);
+    backdrop-filter: blur(4px); border-radius: 16px;
+    z-index: 20; display: none;
+    flex-direction: column; justify-content: center; align-items: center;
+    gap: 8px; cursor: pointer;
+    font-size: 16px; font-weight: 700; color: #111;
+}
+.puzzle-pause-overlay.show { display: flex; }
+
+.puzzle-btn-row {
+    display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+    padding-bottom: 40px; width: 100%;
+}
+.puzzle-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 10px 18px; border-radius: 22px;
+    border: 1px solid #ddd; background: #fff;
+    font-size: 14px; font-weight: 600; color: #333;
+    cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    transition: all 0.2s;
+}
+.puzzle-btn:active { background: #f0f0f0; transform: scale(0.96); }
+.puzzle-btn.primary {
+    background: #111; color: #fff; border-color: #111;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.puzzle-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2.2; }
+
+/* 预览原图弹窗 */
+.puzzle-preview-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8); backdrop-filter: blur(8px);
+    display: none; justify-content: center; align-items: center;
+    z-index: 500; cursor: pointer;
+}
+.puzzle-preview-overlay.show { display: flex; }
