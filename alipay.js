@@ -3035,8 +3035,10 @@ function resetPuzzleState() {
 function updateAllPuzzleTiles() {
     const grid = document.getElementById('puzzleGrid');
     if (!grid) return;
-    const boardSize = grid.clientWidth;          // 使用 grid 的实际渲染宽度
-    const tileSize = boardSize / puzzleGridSize;
+    const boardSize = grid.clientWidth;
+    const rawTileSize = boardSize / puzzleGridSize;
+    const tileSize = Math.floor(rawTileSize);  // 强制向下取整，避免亚像素
+    
     const emptyIndicator = document.getElementById('puzzleEmptyIndicator');
     
     puzzleTiles.forEach(t => {
@@ -3047,7 +3049,6 @@ function updateAllPuzzleTiles() {
         t.el.style.width = tileSize + 'px';
         t.el.style.height = tileSize + 'px';
         t.el.style.backgroundImage = `url('${puzzleImageUrl}')`;
-        // 背景总尺寸为 boardSize，保证图片裁剪正确
         t.el.style.backgroundSize = `${boardSize}px ${boardSize}px`;
         t.el.style.backgroundPosition = `-${t.targetCol * tileSize}px -${t.targetRow * tileSize}px`;
         
@@ -3056,14 +3057,12 @@ function updateAllPuzzleTiles() {
         const canMove = puzzleIsActive && !puzzleIsComplete && isAdjacentToPuzzleEmpty(t);
         t.el.classList.toggle('movable', canMove);
     });
-
-    // 空格指示器与拼图块完全对齐
+    
     emptyIndicator.style.left = (puzzleEmptyCol * tileSize) + 'px';
     emptyIndicator.style.top = (puzzleEmptyRow * tileSize) + 'px';
     emptyIndicator.style.width = tileSize + 'px';
     emptyIndicator.style.height = tileSize + 'px';
 }
-
 function isAdjacentToPuzzleEmpty(tile) {
     return Math.abs(tile.currentRow - puzzleEmptyRow) + Math.abs(tile.currentCol - puzzleEmptyCol) === 1;
 }
