@@ -421,11 +421,11 @@
                 <div class="app-name" id="name-app-mall">Shopping</div>
             </div>
             <!-- 新增：DayAPP 桌面图标 -->
-            <div class="app-item" onclick="openDayApp()">
+            <div class="app-item" id="app-day" onclick="openDayApp()">
                 <div class="app-icon" id="icon-app-day">
                     <svg viewBox="0 0 24 24" width="28" height="28" stroke="#8e8e93" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                 </div>
-                <div class="app-name" id="name-app-day">DayAPP</div>
+                <div class="app-name" id="name-app-day">Day</div>
             </div>
         </div>
         
@@ -723,6 +723,19 @@
                         <div class="skeleton-subline"></div>
                     </div>
                     <div class="item-deco">alipay <svg viewBox="0 0 24 24" width="12" height="12" stroke="#d0d0d0" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></div>
+                </div>
+                <div class="app-setting-item">
+                    <div class="app-icon-upload" data-target="icon-app-day">
+                        <svg class="placeholder-svg" viewBox="0 0 24 24" width="24" height="24" stroke="#ccc" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                        <div class="camera-badge">
+                            <svg viewBox="0 0 24 24" width="10" height="10" stroke="#666" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                        </div>
+                    </div>
+                    <div class="app-input-group">
+                        <input type="text" class="app-name-input" data-target="name-app-day" value="Day">
+                        <div class="skeleton-subline"></div>
+                    </div>
+                    <div class="item-deco">day <svg viewBox="0 0 24 24" width="12" height="12" stroke="#d0d0d0" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></div>
                 </div>
             </div>
 
@@ -4519,6 +4532,16 @@
                             </div>
                             <div class="app-name">恋与U</div>
                         </div>
+                        <!-- 新增：第5行第3列 专属小宠 APP -->
+                        <div class="desktop-app" style="grid-row: 5; grid-column: 3;" onclick="openPhonePet()">
+                            <div class="app-icon" id="app-icon-pet" style="background: #fff; border: 1px solid #e5e5ea; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="#8e8e93" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 22c4.4 0 8-4.5 8-10.5S16.4 2 12 2 4 5.5 4 11.5 7.6 22 12 22z"></path>
+                                    <polyline points="4.5 12 9 10 12 13 16 9 19.5 12"></polyline>
+                                </svg>
+                            </div>
+                            <div class="app-name">专属小宠</div>
+                        </div>
                     </div>
 
                     <!-- Dock 栏 (3个 APP) -->
@@ -5329,6 +5352,109 @@
                             </div>
                         </div>
                     </div>
+    <!-- =========================================
+         新增：专属小宠 APP 主界面
+         ========================================= -->
+    <div class="phone-pet-app" id="phonePetApp">
+        <div class="pet-app-header">
+            <div class="pet-app-back" onclick="closePhonePet()">BACK</div>
+            <div style="display: flex; gap: 10px;">
+                <div class="pet-app-gen" onclick="openPetSettingsModal()" title="设置">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline><path d="M16 3v4h4"></path></svg>
+                </div>
+                <div class="pet-app-gen" onclick="generatePhonePetAPI()" title="生成宠物日记">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tamagotchi-shell">
+            <div class="keychain"></div>
+            <div class="shell-glare"></div>
+
+            <!-- 屏幕区域 -->
+            <div class="screen-bezel">
+                <div class="screen-glass"></div>
+                <div class="lcd-screen">
+                    
+                    <!-- 模式1：宠物互动界面 -->
+                    <div class="screen-content" id="pet-view-main">
+                        <div class="lcd-header">
+                            <span id="petLcdName">Char</span>
+                            <span>❤ 100</span>
+                        </div>
+                        <div class="pet-stage" id="petStage">
+                            <img src="https://i.postimg.cc/LspkSSWj/retouch-2026050906172575.png" class="pixel-pet" id="petImg">
+                        </div>
+                        <div class="lcd-toast" id="lcdToast"></div>
+                    </div>
+
+                    <!-- 模式2：饲养日记界面 -->
+                    <div class="diary-view" id="pet-view-diary">
+                        <div class="diary-title">观察日记</div>
+                        <div class="diary-text" id="petDiaryText">
+                            <div style="text-align: center; color: #888; margin-top: 20px;">点击右上角生成日记</div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- 物理按键区域 -->
+            <div class="buttons-container">
+                <div class="btn-wrapper">
+                    <div class="btn-label">投喂</div>
+                    <button class="physical-btn" onclick="actionPetFeed()">A</button>
+                </div>
+                <div class="btn-wrapper">
+                    <div class="btn-label">抚摸</div>
+                    <button class="physical-btn" onclick="actionPetTouch()">B</button>
+                </div>
+                <div class="btn-wrapper">
+                    <div class="btn-label">日记</div>
+                    <button class="physical-btn" onclick="actionPetDiary()">C</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 新增：AVG 沉浸式对话框 (复古左右分栏布局) -->
+        <div class="pet-avg-overlay" id="petAvgOverlay" onclick="closePetAvg()">
+            <div class="pet-avg-dialogue-wrapper" onclick="event.stopPropagation(); closePetAvg()">
+                <div class="pet-avg-text-section">
+                    <div class="pet-avg-text-content" id="petAvgText">对话内容...</div>
+                    <div class="pet-avg-next-hint">▼</div>
+                </div>
+                <div class="pet-avg-avatar-section">
+                    <div class="pet-avg-avatar" id="petAvgAvatar"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- 新增：小宠设置弹窗 -->
+    <div class="preset-modal-overlay" id="petSettingsModalOverlay" style="z-index: 10000;">
+        <div class="preset-modal" style="width: 300px;">
+            <div class="preset-modal-title">小宠设置</div>
+            <div style="width: 100%; padding: 15px 20px; display: flex; flex-direction: column; gap: 15px;">
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <span style="font-size: 12px; font-weight: bold; color: #333;">更换小宠图片 (URL)</span>
+                    <input type="text" id="petImgUrlInput" class="preset-modal-input" placeholder="输入图片 URL" style="width: 100%; margin: 0;">
+                    <div onclick="document.getElementById('petLocalImgInput').click()" style="background: #f0f0f0; color: #333; padding: 8px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer; text-align: center;">本地相册上传</div>
+                    <input type="file" id="petLocalImgInput" accept="image/*" style="display: none;" onchange="handlePetLocalImg(event)">
+                </div>
+                <div style="height: 1px; background: #eee; width: 100%;"></div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <span style="font-size: 12px; font-weight: bold; color: #333;">更换页面背景 (URL)</span>
+                    <input type="text" id="petBgUrlInput" class="preset-modal-input" placeholder="输入背景 URL" style="width: 100%; margin: 0;">
+                    <div onclick="document.getElementById('petLocalBgInput').click()" style="background: #f0f0f0; color: #333; padding: 8px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer; text-align: center;">本地相册上传</div>
+                    <input type="file" id="petLocalBgInput" accept="image/*" style="display: none;" onchange="handlePetLocalBg(event)">
+                </div>
+            </div>
+            <div class="preset-modal-actions">
+                <div class="preset-btn-cancel" onclick="closePetSettingsModal()">取消</div>
+                <div class="preset-btn-confirm" onclick="savePetSettings()">保存</div>
+            </div>
+        </div>
+    </div>
                 </div>
             </div>
         </div>
@@ -5392,6 +5518,9 @@
                 </label>
                 <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: #333; cursor: pointer;">
                     <input type="checkbox" class="phone-gen-checkbox" value="gacha" checked style="width: 16px; height: 16px; accent-color: #111;"> 恋与U
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: #333; cursor: pointer;">
+                    <input type="checkbox" class="phone-gen-checkbox" value="pet" checked style="width: 16px; height: 16px; accent-color: #111;"> 专属小宠
                 </label>
             </div>
             <div class="preset-modal-actions">
@@ -9030,7 +9159,6 @@
             </div>
         </div>
     </div>
-
     <!-- 隐藏的上传输入框 -->
     <input type="file" id="wallpaperUploadInput" accept="image/*" style="display: none;" onchange="handleWallpaperUpload(event)">
     <input type="file" id="iconUploadInput" accept="image/*" style="display: none;" onchange="handleIconUpload(event)">

@@ -2421,6 +2421,11 @@ async function generateAllPhoneDataAPI(selectedApps) {
         structureParts.push(`  "gacha": {\n    "diamonds": 12500,\n    "mainStory": [\n      {"name": "旁白", "text": "阳光洒在餐桌上，你正准备着早餐..."},\n      {"name": "${char.name}", "text": "早安，今天想吃点什么？"}\n    ],\n    "collection": [\n      {\n        "rarity": "SSR",\n        "name": "[卡牌前缀] ${userRealName}",\n        "desc": "卡牌的简短描述",\n        "story": [\n          {"name": "旁白", "text": "一段私密露骨的动作描写..."},\n          {"name": "${userRealName}", "text": "不要这样..."}\n        ],\n        "owned": false\n      }\n    ]\n  }`);
     }
 
+    if (selectedApps.includes('pet')) {
+        prompt += `9. 专属小宠 (电子宠物):\n在这个APP里，你把自己当成了一只被 ${userRealName} 饲养的电子宠物。\n日记的内容必须是你作为“宠物”视角的碎碎念，表达你对 ${userRealName} (主人) 的依恋、吐槽、吃醋或渴望被关注的心情。\n请生成 3-4 条日记。\n为了突出情感，请将日记中直接提到 ${userRealName} 或者表达强烈情绪的句子，用 <span> 标签包裹起来（例如：<span>明明一直在等消息的……</span>）。\n\n`;
+        structureParts.push(`  "pet": {\n    "diaries": [\n      {\n        "time": "时间(如: 昨天 23:15)",\n        "content": "日记内容，包含 <span> 标签高亮重点句子"\n      }\n    ]\n  }`);
+    }
+
     jsonStructure += structureParts.join(",\n") + "\n}";
     prompt += `必须返回合法的 JSON 对象，结构必须严格如下：\n${jsonStructure}`;
 
@@ -2448,6 +2453,7 @@ async function generateAllPhoneDataAPI(selectedApps) {
             if (selectedApps.includes('icity') && parsed.icity) ChatDB.setItem(`phone_icity_${currentChatRoomCharId}`, JSON.stringify(parsed.icity));
             if (selectedApps.includes('doubao') && parsed.doubao) ChatDB.setItem(`phone_doubao_${currentChatRoomCharId}`, JSON.stringify(parsed.doubao));
             if (selectedApps.includes('gacha') && parsed.gacha) ChatDB.setItem(`phone_gacha_${currentChatRoomCharId}`, JSON.stringify(parsed.gacha));
+            if (selectedApps.includes('pet') && parsed.pet) ChatDB.setItem(`phone_pet_${currentChatRoomCharId}`, JSON.stringify(parsed.pet));
             
             if (selectedApps.includes('browser') && parsed.browser) {
                 if (parsed.browser.history) ChatDB.setItem(`browser_history_${currentChatRoomCharId}`, JSON.stringify(parsed.browser.history));
@@ -3114,4 +3120,357 @@ function doGachaSummon(times) {
 
         }, 500); // 白屏持续时间
     }, 1500); // 加载动画持续时间
+}
+
+// ==========================================
+// 查手机 - 专属小宠 APP 交互逻辑
+// ==========================================
+let isPetDiaryMode = false;
+
+// ==========================================
+// 专属小宠 设置与图片更换逻辑
+// ==========================================
+function openPetSettingsModal() {
+    const dataStr = ChatDB.getItem(`phone_pet_settings_${currentChatRoomCharId}`) || '{}';
+    const data = JSON.parse(dataStr);
+    document.getElementById('petImgUrlInput').value = data.petImg || '';
+    document.getElementById('petBgUrlInput').value = data.petBg || '';
+    document.getElementById('petSettingsModalOverlay').classList.add('show');
+}
+
+function closePetSettingsModal() {
+    document.getElementById('petSettingsModalOverlay').classList.remove('show');
+}
+
+function handlePetLocalImg(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = e => { document.getElementById('petImgUrlInput').value = e.target.result; };
+        reader.readAsDataURL(file);
+    }
+    event.target.value = '';
+}
+
+function handlePetLocalBg(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = e => { document.getElementById('petBgUrlInput').value = e.target.result; };
+        reader.readAsDataURL(file);
+    }
+    event.target.value = '';
+}
+
+function savePetSettings() {
+    const petImg = document.getElementById('petImgUrlInput').value;
+    const petBg = document.getElementById('petBgUrlInput').value;
+    
+    ChatDB.setItem(`phone_pet_settings_${currentChatRoomCharId}`, JSON.stringify({ petImg, petBg }));
+    
+    applyPetSettings();
+    closePetSettingsModal();
+}
+
+function applyPetSettings() {
+    const dataStr = ChatDB.getItem(`phone_pet_settings_${currentChatRoomCharId}`) || '{}';
+    const data = JSON.parse(dataStr);
+    
+    const petImgSrc = data.petImg ? data.petImg : 'https://i.postimg.cc/LspkSSWj/retouch-2026050906172575.png';
+    document.getElementById('petImg').src = petImgSrc;
+    
+    // 新增：同步更新 AVG 对话框的小宠头像
+    const avgAvatar = document.getElementById('petAvgAvatar');
+    if (avgAvatar) {
+        avgAvatar.style.backgroundImage = `url(${petImgSrc})`;
+    }
+    
+    if (data.petBg) {
+        document.getElementById('phonePetApp').style.backgroundImage = `url(${data.petBg})`;
+        document.getElementById('phonePetApp').style.backgroundSize = 'cover';
+        document.getElementById('phonePetApp').style.backgroundPosition = 'center';
+    } else {
+        document.getElementById('phonePetApp').style.backgroundImage = 'radial-gradient(#a1a1aa 1px, transparent 1px)';
+        document.getElementById('phonePetApp').style.backgroundSize = '20px 20px';
+    }
+}
+
+// ==========================================
+// 专属小宠 核心交互逻辑
+// ==========================================
+function openPhonePet() {
+    if (!currentChatRoomCharId) return alert('请先进入聊天室！');
+    
+    // 动态加载当前角色的名字
+    let chars = JSON.parse(ChatDB.getItem('chat_chars') || '[]');
+    const char = chars.find(c => c.id === currentChatRoomCharId);
+    if (char) {
+        const name = char.netName || char.name || 'Char';
+        document.getElementById('petLcdName').innerText = name;
+    }
+
+    applyPetSettings(); // 应用保存的图片和背景
+    document.getElementById('phonePetApp').classList.add('show');
+    renderPhonePet();
+}
+
+function closePhonePet() {
+    document.getElementById('phonePetApp').classList.remove('show');
+}
+
+function renderPhonePet() {
+    const dataStr = ChatDB.getItem(`phone_pet_${currentChatRoomCharId}`);
+    const diaryContainer = document.getElementById('petDiaryText');
+    
+    if (!dataStr) {
+        diaryContainer.innerHTML = '<div style="text-align: center; color: #888; margin-top: 20px;">点击右上角生成日记</div>';
+        return;
+    }
+
+    const data = JSON.parse(dataStr);
+    diaryContainer.innerHTML = '';
+    
+    if (data.diaries && data.diaries.length > 0) {
+        data.diaries.forEach(diary => {
+            const item = document.createElement('div');
+            item.style.marginBottom = '10px';
+            item.innerHTML = `
+                <div style="font-size: 9px; color: #888;">${diary.time}</div>
+                ${diary.content}
+            `;
+            diaryContainer.appendChild(item);
+        });
+    } else {
+        diaryContainer.innerHTML = '<div style="text-align: center; color: #888; margin-top: 20px;">暂无日记</div>';
+    }
+}
+
+function showPetToast(text) {
+    if (isPetDiaryMode) return; 
+    const toast = document.getElementById('lcdToast');
+    toast.innerText = text;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 1500);
+}
+
+function spawnPetHeart() {
+    if (isPetDiaryMode) return;
+    const stage = document.getElementById('petStage');
+    const heart = document.createElement('div');
+    heart.className = 'floating-heart';
+    heart.innerText = '❤️';
+    heart.style.left = (Math.random() * 40 + 30) + '%';
+    heart.style.top = '40%';
+    stage.appendChild(heart);
+    setTimeout(() => heart.remove(), 1000);
+}
+
+function petJumpAnim() {
+    const pet = document.getElementById('petImg');
+    pet.style.animation = 'none';
+    pet.style.transform = 'translateY(-15px) scale(1.05)';
+    setTimeout(() => {
+        pet.style.transform = 'translateY(0) scale(1)';
+        setTimeout(() => {
+            pet.style.animation = 'petBreathe 2.5s ease-in-out infinite';
+        }, 100);
+    }, 150);
+}
+
+// ==========================================
+// 专属小宠 AVG 对话逻辑
+// ==========================================
+const petFeedDialogues = [
+    "吧唧吧唧... 勉强算你合格吧。",
+    "哼，别以为一点零食就能收买我！",
+    "（开心地摇尾巴）谢谢主人~",
+    "看在你这么有诚意的份上，我就吃一口吧。"
+];
+
+const petTouchDialogues = [
+    "呼噜呼噜... 再摸一下，就一下。",
+    "别乱摸！... 算了，随你便吧。",
+    "（蹭蹭你的手心）好温暖...",
+    "你今天怎么这么粘人？"
+];
+
+function showPetAvg(text) {
+    document.getElementById('petAvgText').innerText = text;
+    document.getElementById('petAvgOverlay').classList.add('show');
+}
+
+function closePetAvg() {
+    document.getElementById('petAvgOverlay').classList.remove('show');
+}
+
+function actionPetFeed() {
+    if (isPetDiaryMode) return;
+    petJumpAnim();
+    spawnPetHeart();
+    const text = petFeedDialogues[Math.floor(Math.random() * petFeedDialogues.length)];
+    showPetAvg(text);
+}
+
+function actionPetTouch() {
+    if (isPetDiaryMode) return;
+    petJumpAnim();
+    spawnPetHeart();
+    const text = petTouchDialogues[Math.floor(Math.random() * petTouchDialogues.length)];
+    showPetAvg(text);
+}
+
+
+function closePhonePet() {
+    document.getElementById('phonePetApp').classList.remove('show');
+}
+
+function renderPhonePet() {
+    const dataStr = ChatDB.getItem(`phone_pet_${currentChatRoomCharId}`);
+    const diaryContainer = document.getElementById('petDiaryText');
+    
+    if (!dataStr) {
+        diaryContainer.innerHTML = '<div style="text-align: center; color: #888; margin-top: 20px;">点击右上角生成日记</div>';
+        return;
+    }
+
+    const data = JSON.parse(dataStr);
+    diaryContainer.innerHTML = '';
+    
+    if (data.diaries && data.diaries.length > 0) {
+        data.diaries.forEach(diary => {
+            const item = document.createElement('div');
+            item.style.marginBottom = '10px';
+            item.innerHTML = `
+                <div style="font-size: 9px; color: #888;">${diary.time}</div>
+                ${diary.content}
+            `;
+            diaryContainer.appendChild(item);
+        });
+    } else {
+        diaryContainer.innerHTML = '<div style="text-align: center; color: #888; margin-top: 20px;">暂无日记</div>';
+    }
+}
+
+function showPetToast(text) {
+    if (isPetDiaryMode) return; 
+    const toast = document.getElementById('lcdToast');
+    toast.innerText = text;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 1500);
+}
+
+function spawnPetHeart() {
+    if (isPetDiaryMode) return;
+    const stage = document.getElementById('petStage');
+    const heart = document.createElement('div');
+    heart.className = 'floating-heart';
+    heart.innerText = '❤️';
+    heart.style.left = (Math.random() * 40 + 30) + '%';
+    heart.style.top = '40%';
+    stage.appendChild(heart);
+    setTimeout(() => heart.remove(), 1000);
+}
+
+function petJumpAnim() {
+    const pet = document.getElementById('petImg');
+    pet.style.animation = 'none';
+    pet.style.transform = 'translateY(-15px) scale(1.05)';
+    setTimeout(() => {
+        pet.style.transform = 'translateY(0) scale(1)';
+        setTimeout(() => {
+            pet.style.animation = 'petBreathe 2.5s ease-in-out infinite';
+        }, 100);
+    }, 150);
+}
+
+function actionPetDiary() {
+    const viewPet = document.getElementById('pet-view-main');
+    const viewDiary = document.getElementById('pet-view-diary');
+    
+    isPetDiaryMode = !isPetDiaryMode;
+    
+    if (isPetDiaryMode) {
+        viewPet.style.display = 'none';
+        viewDiary.classList.add('active');
+    } else {
+        viewPet.style.display = 'flex';
+        viewDiary.classList.remove('active');
+    }
+}
+
+async function generatePhonePetAPI() {
+    if (!currentChatRoomCharId) return;
+    const apiConfig = JSON.parse(ChatDB.getItem('current_api_config') || '{}');
+    if (!apiConfig.url || !apiConfig.key || !apiConfig.model) return alert('请先配置 API！');
+
+    let chars = JSON.parse(ChatDB.getItem('chat_chars') || '[]');
+    const char = chars.find(c => c.id === currentChatRoomCharId);
+    if (!char) return;
+
+    const currentLoginId = ChatDB.getItem('current_login_account');
+    let accounts = JSON.parse(ChatDB.getItem('chat_accounts') || '[]');
+    const account = accounts.find(a => a.id === currentLoginId);
+    let personas = JSON.parse(ChatDB.getItem('chat_personas') || '[]');
+    const persona = personas.find(p => p.id === (account ? account.personaId : null));
+    const userDesc = persona ? persona.persona : '普通用户';
+    const userName = account ? (account.netName || 'User') : 'User';
+    const userRealName = persona ? (persona.realName || userName) : userName;
+
+    let activeWbs = [];
+    let wbData = JSON.parse(ChatDB.getItem('worldbook_data')) || { entries: [] };
+    let entries = wbData.entries.filter(e => (char.wbEntries && char.wbEntries.includes(e.id)) || e.constant);
+    entries.forEach(entry => { activeWbs.push(entry.content); });
+
+    let history = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${currentChatRoomCharId}`) || '[]');
+    let recentHistory = history.slice(-30).map(m => `${m.role === 'user' ? userName : char.name}: ${m.content}`).join('\n');
+
+    let prompt = `你现在正在扮演角色：${char.name}。\n`;
+    prompt += `【你的设定】：${char.description || '无'}\n`;
+    prompt += `【用户身份】：用户的网名是：【${userName}】，真实名字是：【${userRealName}】。请严格区分网名和真名。TA在你的生活中的角色/人设是：${userDesc}。\n`;
+    if (activeWbs.length > 0) prompt += `【世界书背景】：\n${activeWbs.join('\n')}\n`;
+    if (recentHistory) prompt += `【最近的聊天记录参考】：\n${recentHistory}\n`;
+
+    prompt += `\n请基于你的人设、当前生活状态，以及我们最近的聊天上下文，生成你在“专属小宠”APP里的观察日记。
+在这个APP里，你把自己当成了一只被 ${userRealName} 饲养的电子宠物。
+日记的内容必须是你作为“宠物”视角的碎碎念，表达你对 ${userRealName} (主人) 的依恋、吐槽、吃醋或渴望被关注的心情。
+请生成 3-4 条日记。
+为了突出情感，请将日记中直接提到 ${userRealName} 或者表达强烈情绪的句子，用 <span> 标签包裹起来（例如：<span>明明一直在等消息的……</span>）。
+
+必须返回合法的 JSON 对象，结构如下：
+{
+  "diaries": [
+    {
+      "time": "时间(如: 昨天 23:15)",
+      "content": "日记内容，包含 <span> 标签高亮重点句子"
+    }
+  ]
+}`;
+
+    showToast('正在生成宠物日记...', 'loading');
+
+    try {
+        const response = await fetch(`${apiConfig.url.replace(/\/$/, '')}/chat/completions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.key}` },
+            body: JSON.stringify({ model: apiConfig.model, messages: [{ role: 'user', content: prompt }], temperature: 0.8 })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            let replyRaw = data.choices[0].message.content.trim();
+            replyRaw = replyRaw.replace(/^\s*```json/i, '').replace(/^\s*```/i, '').replace(/```\s*$/i, '').trim();
+            
+            const parsed = JSON.parse(replyRaw);
+            ChatDB.setItem(`phone_pet_${currentChatRoomCharId}`, JSON.stringify(parsed));
+            
+            renderPhonePet();
+            hideToast();
+            alert('宠物日记生成成功！');
+        } else {
+            throw new Error('API 请求失败');
+        }
+    } catch (e) {
+        hideToast();
+        alert('生成失败，请检查 API 配置或重试。');
+    }
 }
