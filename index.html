@@ -420,6 +420,13 @@
                 </div>
                 <div class="app-name" id="name-app-mall">Shopping</div>
             </div>
+            <!-- 新增：DayAPP 桌面图标 -->
+            <div class="app-item" onclick="openDayApp()">
+                <div class="app-icon" id="icon-app-day">
+                    <svg viewBox="0 0 24 24" width="28" height="28" stroke="#8e8e93" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                </div>
+                <div class="app-name" id="name-app-day">DayAPP</div>
+            </div>
         </div>
         
         <!-- 第 2 页 -->
@@ -2246,7 +2253,12 @@
                     <option value="core">核心记忆 (Core)</option>
                     <option value="note">作者备注 (Note)</option>
                 </select>
-                <textarea id="memoryEditText" style="width: 100%; height: 120px; padding: 10px; border: 1px solid #eee; border-radius: 8px; resize: none; outline: none; font-size: 13px; background: #f9f9f9;" placeholder="输入记忆内容..."></textarea>
+                <textarea id="memoryEditText" style="width: 100%; height: 100px; padding: 10px; border: 1px solid #eee; border-radius: 8px; resize: none; outline: none; font-size: 13px; background: #f9f9f9; margin-bottom: 10px;" placeholder="输入记忆内容..."></textarea>
+                <input type="text" id="memoryEditTags" style="width: 100%; padding: 8px 10px; border: 1px solid #eee; border-radius: 8px; outline: none; font-size: 12px; background: #f9f9f9; margin-bottom: 10px;" placeholder="输入标签，用逗号分隔 (如: 游乐园,下雨)">
+                <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #555;">
+                    <span>记忆权重比 (1-10):</span>
+                    <input type="number" id="memoryEditWeight" min="1" max="10" value="5" style="width: 60px; padding: 4px; border: 1px solid #eee; border-radius: 6px; text-align: center; outline: none;">
+                </div>
             </div>
             <div class="preset-modal-actions">
                 <div class="preset-btn-cancel" onclick="closeMemoryEditModal()">取消</div>
@@ -2277,6 +2289,14 @@
                 <div style="background: #f9f9f9; padding: 15px; border-radius: 12px; border: 1px solid #eee;">
                     <div style="font-size: 14px; font-weight: bold; color: #333; margin-bottom: 10px;">自定义总结提示词</div>
                     <textarea id="memCustomPrompt" style="width: 100%; height: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; resize: none; outline: none; font-size: 12px; background: #fff; color: #555;" placeholder="留空则使用默认提示词。&#10;例如：请用第一人称日记的口吻，总结今天发生的事情，语气要傲娇一点..."></textarea>
+                </div>
+                <!-- 近期记忆读取设置 -->
+                <div style="background: #f9f9f9; padding: 15px; border-radius: 12px; border: 1px solid #eee;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 14px; font-weight: bold; color: #333;">近期记忆读取条数</span>
+                        <input type="number" id="memRecentCount" style="width: 50px; text-align: center; border: 1px solid #ccc; border-radius: 4px; padding: 2px;" value="3" min="0" max="20">
+                    </div>
+                    <div style="font-size: 11px; color: #888; margin-top: 6px;">设置每轮对话固定读取的最新总结条数。</div>
                 </div>
                 <!-- 手动总结 -->
                 <div style="background: #f9f9f9; padding: 15px; border-radius: 12px; border: 1px solid #eee;">
@@ -8693,14 +8713,181 @@
             <div class="ylgy-toast" id="ylgyToast"></div>
         </div>
     </div>
+    <!-- =========================================
+         新增：DayAPP 全屏面板 (极简高级版)
+         ========================================= -->
+    <div class="theme-panel instant-panel" id="dayAppPanel" style="z-index: 155; background-color: #F7F7F9; padding: 0;">
+        <!-- 顶栏 -->
+        <div class="day-header">
+            <div class="day-header-info">
+                <div class="day-header-date" id="dayHeaderDate">MAY 8, WEDNESDAY</div>
+                <div class="day-header-title" id="dayHeaderTitle" onclick="closeDayApp()" style="cursor: pointer;" title="点击退出">User's Day</div>
+            </div>
+            <div class="day-header-avatar" id="dayTopAvatar" style="background-image: url('https://api.dicebear.com/7.x/notionists/svg?seed=User');" onclick="openDayAccountModal()"></div>
+        </div>
 
+        <!-- 内容区 -->
+        <div class="day-content" id="dayMainContent">
+            <!-- 完整月视图日历 -->
+            <div class="day-calendar-wrapper">
+                <div class="day-cal-header">
+                    <div class="day-cal-month" id="dayCalMonthTitle">2026年 5月</div>
+                    <div class="day-cal-nav">
+                        <svg viewBox="0 0 24 24" onclick="changeDayMonth(-1)"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                        <svg viewBox="0 0 24 24" onclick="changeDayMonth(1)"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    </div>
+                </div>
+                <div class="day-cal-weekdays">
+                    <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+                </div>
+                <div class="day-cal-days" id="dayCalDaysGrid">
+                    <!-- JS 动态渲染 -->
+                </div>
+            </div>
+
+            <!-- 日程列表 (动态渲染) -->
+            <div>
+                <div class="day-section-title" id="dayScheduleTitle">今日日程</div>
+                <div class="day-schedule-list" id="dayScheduleList"></div>
+            </div>
+
+            <!-- 每日食谱 (动态渲染) -->
+            <div>
+                <div class="day-section-title" id="dayRecipeTitle">每日食谱</div>
+                <div class="day-recipe-list" id="dayRecipeList"></div>
+            </div>
+
+            <!-- 纪念日与节假日 (动态渲染) -->
+            <div>
+                <div class="day-section-title" id="dayAnnivTitle" style="display: none;">纪念日 & 节假日</div>
+                <div class="day-anniv-list" id="dayAnnivList" style="position: relative; margin-top: 10px;"></div>
+            </div>
+        </div>
+
+        <!-- 悬浮胶囊底栏 -->
+        <div class="day-nav-capsule">
+            <div class="day-nav-avatar" id="dayNavCharAvatar" style="background-image: url('https://api.dicebear.com/7.x/adventurer/svg?seed=Sophia');" onclick="switchDayView('char')"></div>
+            <div class="day-nav-add-btn" onclick="openDayCenterModal()">
+                <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </div>
+            <div class="day-nav-avatar active" id="dayNavUserAvatar" style="background-image: url('https://api.dicebear.com/7.x/notionists/svg?seed=User');" onclick="switchDayView('user')"></div>
+        </div>
+
+        <!-- 居中弹窗 (点击 + 号) -->
+        <div class="day-center-modal-overlay" id="dayCenterModal" onclick="closeDayModal('dayCenterModal')">
+            <div class="day-center-modal-card" onclick="event.stopPropagation()">
+                <div class="day-cm-title">添加新记录</div>
+                <div class="day-cm-btn" onclick="openDayScheduleModal()">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    记录日程 / 待办
+                </div>
+                <div class="day-cm-btn" onclick="openDayRecipeModal()">
+                    <svg viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>
+                    记录一日三餐
+                </div>
+                <div class="day-cm-btn" onclick="openDayAnniversaryModal()">
+                    <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                    设置纪念日
+                </div>
+                <div class="day-cm-btn" onclick="openDayPeriodModal()">
+                    <svg viewBox="0 0 24 24"><path d="M12 2.69l5.66 4.2c1.43 1.06 2.34 2.76 2.34 4.56 0 3.06-2.48 5.55-5.54 5.55H9.54C6.48 17 4 14.51 4 11.45c0-1.8.91-3.5 2.34-4.56L12 2.69z"></path></svg>
+                    记录经期
+                </div>
+                <div class="day-cm-close" onclick="closeDayModal('dayCenterModal')">取消</div>
+            </div>
+        </div>
+
+        <!-- 日程弹窗 -->
+        <div class="day-center-modal-overlay" id="dayScheduleModal" onclick="closeDayModal('dayScheduleModal')">
+            <div class="day-center-modal-card" onclick="event.stopPropagation()">
+                <div class="day-cm-title">记录日程</div>
+                <input type="hidden" id="daySchId">
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <input type="text" id="daySchTitle" placeholder="准备做什么？" style="padding: 12px; border-radius: 12px; border: 1px solid #eee; outline: none; font-size: 14px; background: #f9f9f9;">
+                    <div style="display: flex; gap: 10px;">
+                        <input type="time" id="daySchStart" style="flex: 1; padding: 12px; border-radius: 12px; border: 1px solid #eee; outline: none; font-size: 14px; background: #f9f9f9;">
+                        <input type="time" id="daySchEnd" style="flex: 1; padding: 12px; border-radius: 12px; border: 1px solid #eee; outline: none; font-size: 14px; background: #f9f9f9;">
+                    </div>
+                    <input type="text" id="daySchDesc" placeholder="地点/备注 (选填)" style="padding: 12px; border-radius: 12px; border: 1px solid #eee; outline: none; font-size: 14px; background: #f9f9f9;">
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <div class="day-cm-btn" id="daySchDelBtn" style="display: none; flex: 1; justify-content: center; background: #ffe5e5; color: #ff3b30;" onclick="deleteDaySchedule()">删除</div>
+                    <div class="day-cm-btn" style="flex: 1; justify-content: center; background: #f4f4f4; color: #666;" onclick="closeDayModal('dayScheduleModal')">取消</div>
+                    <div class="day-cm-btn" style="flex: 1; justify-content: center; background: #111; color: #fff;" onclick="saveDaySchedule()">保存</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 食谱弹窗 -->
+        <div class="day-center-modal-overlay" id="dayRecipeModal" onclick="closeDayModal('dayRecipeModal')">
+            <div class="day-center-modal-card" onclick="event.stopPropagation()">
+                <div class="day-cm-title">记录食谱</div>
+                <input type="hidden" id="dayRecId">
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <select id="dayRecType" style="padding: 12px; border-radius: 12px; border: 1px solid #eee; outline: none; font-size: 14px; background: #f9f9f9;">
+                        <option value="早餐">早餐</option>
+                        <option value="午餐">午餐</option>
+                        <option value="晚餐">晚餐</option>
+                        <option value="加餐">加餐</option>
+                    </select>
+                    <input type="text" id="dayRecName" placeholder="吃了什么好吃的？" style="padding: 12px; border-radius: 12px; border: 1px solid #eee; outline: none; font-size: 14px; background: #f9f9f9;">
+                    <input type="number" id="dayRecCal" placeholder="卡路里 (kcal)" style="padding: 12px; border-radius: 12px; border: 1px solid #eee; outline: none; font-size: 14px; background: #f9f9f9;">
+                    <input type="text" id="dayRecEmoji" placeholder="Emoji (如: 🍔)" style="padding: 12px; border-radius: 12px; border: 1px solid #eee; outline: none; font-size: 14px; background: #f9f9f9;">
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <div class="day-cm-btn" id="dayRecDelBtn" style="display: none; flex: 1; justify-content: center; background: #ffe5e5; color: #ff3b30;" onclick="deleteDayRecipe()">删除</div>
+                    <div class="day-cm-btn" style="flex: 1; justify-content: center; background: #f4f4f4; color: #666;" onclick="closeDayModal('dayRecipeModal')">取消</div>
+                    <div class="day-cm-btn" style="flex: 1; justify-content: center; background: #111; color: #fff;" onclick="saveDayRecipe()">保存</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 纪念日设置弹窗 -->
+        <div class="day-center-modal-overlay" id="dayAnniversaryModal" onclick="closeDayModal('dayAnniversaryModal')">
+            <div class="day-center-modal-card" onclick="event.stopPropagation()">
+                <div class="day-cm-title">设置纪念日</div>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <input type="text" id="dayAnnivName" placeholder="纪念日名称 (如: 恋爱纪念日)" style="padding: 12px; border-radius: 12px; border: 1px solid #eee; outline: none; font-size: 14px; background: #f9f9f9;">
+                    <input type="date" id="dayAnnivDate" style="padding: 12px; border-radius: 12px; border: 1px solid #eee; outline: none; font-size: 14px; background: #f9f9f9;">
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <div class="day-cm-btn" style="flex: 1; justify-content: center; background: #f4f4f4; color: #666;" onclick="closeDayModal('dayAnniversaryModal')">取消</div>
+                    <div class="day-cm-btn" style="flex: 1; justify-content: center; background: #111; color: #fff;" onclick="saveDayAnniversary()">保存</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 经期设置弹窗 -->
+        <div class="day-center-modal-overlay" id="dayPeriodModal" onclick="closeDayModal('dayPeriodModal')">
+            <div class="day-center-modal-card" onclick="event.stopPropagation()">
+                <div class="day-cm-title">记录经期</div>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div style="font-size: 12px; color: #888;">选择开始日期：</div>
+                    <input type="date" id="dayPeriodDate" style="padding: 12px; border-radius: 12px; border: 1px solid #eee; outline: none; font-size: 14px; background: #f9f9f9;">
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <div class="day-cm-btn" style="flex: 1; justify-content: center; background: #f4f4f4; color: #666;" onclick="closeDayModal('dayPeriodModal')">取消</div>
+                    <div class="day-cm-btn" style="flex: 1; justify-content: center; background: #ff2d55; color: #fff;" onclick="saveDayPeriod()">记录</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部抽屉弹窗 (切换账号) -->
+        <div class="day-bottom-modal-overlay" id="dayAccountModal" onclick="closeDayModal('dayAccountModal')">
+            <div class="day-bottom-modal-sheet" onclick="event.stopPropagation()">
+                <div class="day-bm-drag-bar"></div>
+                <div class="day-bm-title" id="dayAccountModalTitle">切换账号</div>
+                <div class="day-account-list" id="dayAccountModalList">
+                    <!-- 动态渲染 -->
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- 隐藏的上传输入框 -->
     <input type="file" id="wallpaperUploadInput" accept="image/*" style="display: none;" onchange="handleWallpaperUpload(event)">
     <input type="file" id="iconUploadInput" accept="image/*" style="display: none;" onchange="handleIconUpload(event)">
     <input type="file" id="widgetBgUploadInput" accept="image/*" style="display: none;" onchange="handleWidgetBgUpload(event)">
-
 </div> <!-- 闭合 iphone-container -->
-
     <script>
 // PWA Service Worker Registration
         if ('serviceWorker' in navigator) {
@@ -8733,7 +8920,7 @@
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <!-- 引入独立的激活码验证逻辑 -->
 <script src="auth.js"></script>
-
+<script src="day.js"></script>
 </body>
 </html>
 

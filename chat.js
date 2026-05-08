@@ -5837,6 +5837,17 @@ function playInnerVoiceAnimation(text) {
     type();
 }
 
+// ==========================================
+// 记忆检索辅助函数：提取关键词
+// ==========================================
+function extractKeywordsForMemory(text) {
+    if (!text) return [];
+    let cleanText = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, ' ');
+    let words = cleanText.split(/\s+/).filter(w => w.length >= 2);
+    const stopWords = ['什么','怎么','我们','你们','他们','这个','那个','就是','还是','可以','没有','知道','觉得','喜欢','为什么','时候','现在','今天','明天','昨天','真的','如果'];
+    return words.filter(w => !stopWords.includes(w));
+}
+
 let isGeneratingApiReply = false; // 新增：全局防误触锁
 
 async function generateApiReply(isProactive = false, proactiveCharId = null) {
@@ -6097,11 +6108,79 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
     const currentPersonaId = persona ? persona.id : currentLoginId;
     let memory = JSON.parse(ChatDB.getItem(`char_memory_${currentPersonaId}_${targetCharId}`) || '{}');
     
-    if (memory.summary && memory.summary.length > 0) {
-        systemPrompt += `[前情提要/故事总结]\n${memory.summary[0].content}\n\n`;
+    // --- 完美混合记忆系统：常驻记忆 + 动态向量检索 ---
+    
+    // 1. 【常驻记忆】：核心记忆 (Core) 必须每轮都读取！(Note 会在最底部读取)
+    let coreMemories = memory.core || [];
+    if (coreMemories.length > 0) {
+        // 按权重从小到大排序，权重越大的越靠下（越容易被 AI 记住）
+        coreMemories.sort((a, b) => (a.weight || 5) - (b.weight || 5));
+        systemPrompt += `[核心记忆 (Core Memory - 绝对不可遗忘)]\n`;
+        coreMemories.forEach(mem => {
+            systemPrompt += `- ${mem.content}\n`;
+        });
+        systemPrompt += `\n`;
     }
-    if (memory.core && memory.core.length > 0) {
-        systemPrompt += `[核心记忆]\n${memory.core.map(m => m.content).join('\n')}\n\n`;
+
+    // 2. 【近期剧情】：读取自定义条数的最新总结，防止 AI 忘记当前在干嘛
+    let recentCount = (memory.settings && memory.settings.recentSummaryCount !== undefined) ? memory.settings.recentSummaryCount : 3;
+    let allSummaries = memory.summary || [];
+    let recentSummaries = recentCount > 0 ? allSummaries.slice(-recentCount) : []; 
+    let olderSummaries = recentCount > 0 ? allSummaries.slice(0, -recentCount) : allSummaries; // 剩下的旧总结放入检索池
+
+    if (recentSummaries.length > 0) {
+        systemPrompt += `[近期剧情总结 (Story Context)]\n`;
+        recentSummaries.forEach(mem => {
+            systemPrompt += `${mem.content}\n`;
+        });
+        systemPrompt += `\n`;
+    }
+
+    // 3. 【动态检索】：用向量语义检索去翻找 "很久以前的旧总结"
+    let retrievedMemories = [];
+    let recentContextText = recentHistory.slice(-3).map(m => m.content.replace(/<[^>]+>/g, '')).join(' ');
+    let contextKeywords = extractKeywordsForMemory(recentContextText);
+
+    function calculateSemanticScore(memoryText, memoryTags, contextWords) {
+        let memWords = extractKeywordsForMemory(memoryText);
+        if (memoryTags && memoryTags.length > 0) memWords = memWords.concat(memoryTags);
+        if (memWords.length === 0 || contextWords.length === 0) return 0;
+        let intersection = memWords.filter(w => contextWords.includes(w)).length;
+        let union = new Set([...memWords, ...contextWords]).size;
+        return intersection / union;
+    }
+
+    if (olderSummaries.length > 0) {
+        olderSummaries.forEach(item => {
+            let score = calculateSemanticScore(item.content, item.tags, contextKeywords);
+            let weight = item.weight || 5;
+            let finalScore = score * (weight / 5); 
+            
+            // 只要有相关性，就加入候选池
+            if (finalScore > 0.05) {
+                retrievedMemories.push({
+                    content: item.content,
+                    tags: item.tags || [],
+                    weight: weight,
+                    score: finalScore
+                });
+            }
+        });
+    }
+
+    // 注入检索到的旧记忆 (Flashback)
+    if (retrievedMemories.length > 0) {
+        retrievedMemories.sort((a, b) => b.score - a.score);
+        let topMemories = retrievedMemories.slice(0, 3); // 取最相关的3条旧记忆
+        topMemories.sort((a, b) => a.weight - b.weight);
+        
+        systemPrompt += `[脑海中闪过的旧回忆 (Flashback)]\n`;
+        systemPrompt += `当聊到相关话题时，你突然回想起了以前的这些事：\n`;
+        topMemories.forEach(mem => {
+            let tagStr = mem.tags.length > 0 ? ` [标签: ${mem.tags.join(',')}]` : '';
+            systemPrompt += `- (权重:${mem.weight})${tagStr} ${mem.content}\n`;
+        });
+        systemPrompt += `(请自然地体现出你记得这些事，不要生硬地复述)\n\n`;
     }
 
     systemPrompt += `【角色与对话规则】\n`;
@@ -7062,6 +7141,22 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
 
                 if (i < messagesArray.length - 1) {
                     await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
+
+            // 【恢复：触发分块自动总结】
+            const currentTurns = Math.floor(fullHistory.length / 2) + 1; 
+            let charMemoryForAuto = JSON.parse(ChatDB.getItem(`char_memory_${currentPersonaId}_${targetCharId}`) || 'null');
+            
+            if (charMemoryForAuto && charMemoryForAuto.settings && charMemoryForAuto.settings.autoSummarize) {
+                const autoTurns = charMemoryForAuto.settings.autoTurns || 10;
+                if (currentTurns > 0 && currentTurns % autoTurns === 0) {
+                    if (charMemoryForAuto.lastAutoSummaryTurn !== currentTurns) {
+                        charMemoryForAuto.lastAutoSummaryTurn = currentTurns;
+                        ChatDB.setItem(`char_memory_${currentPersonaId}_${targetCharId}`, JSON.stringify(charMemoryForAuto));
+                        // 静默调用总结，提取这几轮的独立记忆
+                        executeSilentAutoSummary(targetCharId, currentTurns, autoTurns);
+                    }
                 }
             }
 
@@ -9034,17 +9129,36 @@ function renderMemoryContent() {
         block.className = 'memory-step-block';
         if (index === 0) block.classList.add('expanded'); 
         
+        let tagsHtml = '';
+        if (item.tags && item.tags.length > 0) {
+            tagsHtml = `<div class="memory-tags-container">${item.tags.map(t => `<span class="memory-tag-item">${t}</span>`).join('')}</div>`;
+        }
+        let weightHtml = item.weight ? `<div class="memory-weight-badge">权重: ${item.weight}</div>` : '';
+        
+        // 提取轮数信息显示在折叠栏标题上
+        let turnBadge = '';
+        if (currentMemoryTab === 'summary') {
+            // 兼容自动总结和手动总结的格式
+            const match = item.content.match(/\[(第.*?轮记忆|当前聊天层数.*?)\]/);
+            if (match) {
+                turnBadge = `<div style="font-size: 10px; color: #007aff; background: #e5f0ff; padding: 2px 6px; border-radius: 6px; margin-top: 4px; display: inline-block; font-weight: bold;">${match[1]}</div>`;
+            }
+        }
+
         block.innerHTML = `
             <div class="memory-fold-header" onclick="this.parentElement.classList.toggle('expanded')">
                 <div>
                     <div class="memory-step-title">Step-${index + 1}</div>
                     <div class="memory-step-subtitle">${titleMap[currentMemoryTab].title} <span>${titleMap[currentMemoryTab].sub}</span></div>
+                    ${turnBadge}
                 </div>
+                ${weightHtml}
                 <svg class="memory-fold-arrow" viewBox="0 0 24 24" width="20" height="20" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
             </div>
             <div class="memory-fold-content">
                 <div class="memory-step-content">
                     <p>${item.content.replace(/\n/g, '</p><p>')}</p>
+                    ${tagsHtml}
                 </div>
                 <div class="memory-action-btns">
                     <svg onclick="editMemoryEntry('${item.id}')" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
@@ -9064,11 +9178,17 @@ function openMemoryEditModal(id = null) {
         const personaId = getCurrentPersonaIdForMemory();
         let memory = JSON.parse(ChatDB.getItem(`char_memory_${personaId}_${currentProfileCharId}`) || '{}');
         const item = memory[currentMemoryTab].find(m => m.id === id);
-        if (item) document.getElementById('memoryEditText').value = item.content;
+        if (item) {
+            document.getElementById('memoryEditText').value = item.content;
+            document.getElementById('memoryEditTags').value = item.tags ? item.tags.join(',') : '';
+            document.getElementById('memoryEditWeight').value = item.weight || 5;
+        }
     } else {
         document.getElementById('memoryEditTitle').innerText = '添加记忆';
         document.getElementById('memoryEditId').value = '';
         document.getElementById('memoryEditText').value = '';
+        document.getElementById('memoryEditTags').value = '';
+        document.getElementById('memoryEditWeight').value = 5;
     }
     document.getElementById('memoryEditModalOverlay').classList.add('show');
 }
@@ -9084,18 +9204,26 @@ function editMemoryEntry(id) {
 function saveMemoryEntry() {
     const type = document.getElementById('memoryEditType').value;
     const content = document.getElementById('memoryEditText').value.trim();
+    const tagsInput = document.getElementById('memoryEditTags').value.trim();
+    const weight = parseInt(document.getElementById('memoryEditWeight').value) || 5;
     const id = document.getElementById('memoryEditId').value;
     
     if (!content) return alert('内容不能为空！');
+
+    let tags = tagsInput ? tagsInput.split(/[,，]/).map(t => t.trim()).filter(t => t) : [];
 
     const personaId = getCurrentPersonaIdForMemory();
     let memory = JSON.parse(ChatDB.getItem(`char_memory_${personaId}_${currentProfileCharId}`) || '{}');
     
     if (id) {
         const index = memory[type].findIndex(m => m.id === id);
-        if (index !== -1) memory[type][index].content = content;
+        if (index !== -1) {
+            memory[type][index].content = content;
+            memory[type][index].tags = tags;
+            memory[type][index].weight = weight;
+        }
     } else {
-        memory[type].push({ id: Date.now().toString(), content: content });
+        memory[type].push({ id: Date.now().toString(), content: content, tags: tags, weight: weight });
     }
 
     ChatDB.setItem(`char_memory_${personaId}_${currentProfileCharId}`, JSON.stringify(memory));
@@ -9120,6 +9248,7 @@ function openMemorySettingsModal() {
     document.getElementById('memAutoToggle').checked = memory.settings.autoSummarize || false;
     document.getElementById('memAutoTurns').value = memory.settings.autoTurns || 10;
     document.getElementById('memCustomPrompt').value = memory.settings.customPrompt || '';
+    document.getElementById('memRecentCount').value = memory.settings.recentSummaryCount !== undefined ? memory.settings.recentSummaryCount : 3;
     
     document.getElementById('memorySettingsModalOverlay').classList.add('show');
 }
@@ -9132,6 +9261,7 @@ function closeMemorySettingsModal() {
     memory.settings.autoSummarize = document.getElementById('memAutoToggle').checked;
     memory.settings.autoTurns = parseInt(document.getElementById('memAutoTurns').value) || 10;
     memory.settings.customPrompt = document.getElementById('memCustomPrompt').value.trim();
+    memory.settings.recentSummaryCount = parseInt(document.getElementById('memRecentCount').value) || 0;
     
     ChatDB.setItem(`char_memory_${personaId}_${currentProfileCharId}`, JSON.stringify(memory));
     document.getElementById('memorySettingsModalOverlay').classList.remove('show');
@@ -9162,9 +9292,8 @@ async function executeManualSummary() {
     const personaId = getCurrentPersonaIdForMemory();
     let memory = JSON.parse(ChatDB.getItem(`char_memory_${personaId}_${currentProfileCharId}`) || '{}');
     if (!memory.summary) memory.summary = [];
-    // 【修复】：读取最新的一条总结作为旧总结参考，而不是永远读第 0 条
-    let oldSummary = memory.summary.length > 0 ? memory.summary[memory.summary.length - 1].content : "暂无前情提要。";
-    let customPrompt = (memory.settings && memory.settings.customPrompt) ? memory.settings.customPrompt : "1. 使用第三人称陈述句，保持客观、简短。\n2. 重点记录发生的关键事件、角色之间关系的改变、以及重要的新情报。\n3. 剥离废话，只输出总结的文本，不要输出任何其他格式或多余的解释。";
+    
+    let customPrompt = (memory.settings && memory.settings.customPrompt) ? memory.settings.customPrompt : "保持客观、简短，不要输出多余的废话。";
 
     let chars = JSON.parse(ChatDB.getItem('chat_chars') || '[]');
     const char = chars.find(c => c.id === currentProfileCharId);
@@ -9176,24 +9305,26 @@ async function executeManualSummary() {
     const persona = personas.find(p => p.id === (account ? account.personaId : null));
     const userDesc = persona ? (persona.persona || '无') : '无';
 
-    const summaryPrompt = `你是一个故事记录者。请根据以下信息，更新现有的故事总结。
+    const summaryPrompt = `你是一个专业的角色扮演记忆整理助手。请根据以下最新的聊天记录，提取记忆。
+要求输出两部分：
+1. 【故事梗概】：用第三人称简短概括这段对话中发生的主要事件（50字以内）。
+2. 【事实标签】：提取出对话中暴露的永久性事实、设定、重要物品或关系变化，以标签形式列出（如：[User对海鲜过敏]、[Char送了User一条项链]）。
 
-【角色设定】：
+【角色设定参考】：
 ${charDesc}
-
-【用户设定】：
-${userDesc}
-
-【旧的故事总结】：
-${oldSummary}
 
 【最新的聊天记录】：
 ${chatText}
 
-【总结要求】：
+【附加要求】：
 ${customPrompt}
 
-请输出更新后的【新的故事总结】：`;
+请严格按照以下格式输出：
+【故事梗概】：
+(你的概括)
+【事实标签】：
+- [事实1]
+- [事实2]`;
 
     document.getElementById('memorySettingsModalOverlay').classList.remove('show');
     showToast('正在生成记忆总结...', 'loading');
@@ -10491,3 +10622,81 @@ function openAppShareDetail(index) {
 function closeAppShareDetail() {
     document.getElementById('appShareDetailModalOverlay').classList.remove('show');
 }
+
+// ==========================================
+// 后台静默自动总结 (不弹窗，不打断聊天)
+// ==========================================
+async function executeSilentAutoSummary(charId, currentTurns, autoTurns) {
+    const currentLoginId = ChatDB.getItem('current_login_account');
+    if (!currentLoginId || !charId) return;
+
+    const apiConfig = JSON.parse(ChatDB.getItem('current_api_config') || '{}');
+    if (!apiConfig.url || !apiConfig.key || !apiConfig.model) return;
+
+    let history = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${charId}`) || '[]');
+    const targetHistory = history.slice(-(autoTurns * 2));
+    if (targetHistory.length === 0) return;
+    
+    let chatText = targetHistory.map(m => `${m.role === 'user' ? 'User' : 'Char'}: ${m.content}`).join('\n');
+
+    const personaId = getCurrentPersonaIdForMemory();
+    let memory = JSON.parse(ChatDB.getItem(`char_memory_${personaId}_${charId}`) || '{}');
+    let customPrompt = (memory.settings && memory.settings.customPrompt) ? memory.settings.customPrompt : "保持客观、简短。";
+
+    const summaryPrompt = `你是一个专业的角色扮演记忆整理助手。请根据以下最新的聊天记录，提取记忆。
+【最新的聊天记录】：
+${chatText}
+
+【附加要求】：
+${customPrompt}
+
+请严格按照 JSON 格式输出，包含以下两个字段：
+{
+  "summary": "用第三人称简短概括这段对话中发生的主要事件（50字以内）",
+  "tags": ["事实标签1", "事实标签2", "提取出对话中暴露的永久性事实、设定或物品"]
+}`;
+
+    try {
+        const response = await fetch(`${apiConfig.url.replace(/\/$/, '')}/chat/completions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.key}` },
+            body: JSON.stringify({
+                model: apiConfig.model,
+                messages: [{ role: 'user', content: summaryPrompt }],
+                temperature: 0.3
+            })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            let replyRaw = data.choices[0].message.content.trim();
+            replyRaw = replyRaw.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
+            
+            try {
+                const parsed = JSON.parse(replyRaw);
+                const finalText = `[第 ${currentTurns - autoTurns + 1} ~ ${currentTurns} 轮记忆]\n${parsed.summary || '无总结内容'}`;
+                const tags = Array.isArray(parsed.tags) ? parsed.tags : [];
+                
+                memory = JSON.parse(ChatDB.getItem(`char_memory_${personaId}_${charId}`) || '{}');
+                if (!memory.summary) memory.summary = [];
+                
+                // 存入记忆库，自动带上标签，并赋予默认权重 5
+                memory.summary.push({ 
+                    id: Date.now().toString(), 
+                    content: finalText,
+                    tags: tags,
+                    weight: 5
+                });
+                
+                ChatDB.setItem(`char_memory_${personaId}_${charId}`, JSON.stringify(memory));
+                console.log(`[记忆系统] 角色 ${charId} 的第 ${currentTurns} 轮自动总结已完成，提取标签:`, tags);
+                
+            } catch (parseErr) {
+                console.error("[记忆系统] 自动总结 JSON 解析失败:", parseErr);
+            }
+        }
+    } catch (e) {
+        console.error("[记忆系统] 自动总结请求失败:", e);
+    }
+}
+

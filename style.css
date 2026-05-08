@@ -3893,6 +3893,10 @@ body.ios-standalone .status-bar {
 .memory-step-content p { position: relative; padding-left: 10px; margin-bottom: 6px; }
 .memory-step-content p::before { content: '·'; position: absolute; left: 0; top: 0; font-weight: bold; color: #333; }
 
+.memory-tags-container { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.memory-tag-item { font-size: 10px; color: #888; padding: 2px 6px; border: 1px dashed #ccc; border-radius: 4px; background: #fff; }
+.memory-weight-badge { position: absolute; top: 15px; right: 45px; font-size: 10px; font-weight: bold; color: #fff; background: #111; padding: 2px 6px; border-radius: 8px; }
+
 /* 操作按钮移到内容区底部 */
 .memory-action-btns {
     display: flex; justify-content: flex-end; gap: 12px; margin-top: 15px; padding-top: 10px; border-top: 1px solid #f9f9f9;
@@ -10267,3 +10271,197 @@ body.ios-standalone .status-bar {
     z-index: 500; cursor: pointer;
 }
 .puzzle-preview-overlay.show { display: flex; }
+
+/* =========================================
+   新增：DayAPP 专属样式 (极简高级版)
+   ========================================= */
+#dayAppPanel {
+    --day-bg-color: #F7F7F9;
+    --day-card-bg: #FFFFFF;
+    --day-text-main: #111111;
+    --day-text-sub: #8E8E93;
+    --day-text-light: #C7C7CC;
+    --day-radius-lg: 28px;
+    --day-radius-md: 16px;
+    --day-shadow-sm: 0 4px 20px rgba(0, 0, 0, 0.03);
+    --day-shadow-md: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+#dayAppPanel .day-header {
+    padding: calc(44px + env(safe-area-inset-top)) 24px 15px; 
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--day-bg-color); z-index: 10; flex-shrink: 0;
+}
+#dayAppPanel .day-header-info { display: flex; flex-direction: column; gap: 4px; }
+#dayAppPanel .day-header-date { font-size: 12px; font-weight: 700; color: var(--day-text-sub); letter-spacing: 1px; text-transform: uppercase; }
+#dayAppPanel .day-header-title { font-size: 24px; font-weight: 900; color: var(--day-text-main); }
+
+#dayAppPanel .day-header-avatar { 
+    width: 44px; height: 44px; border-radius: 50%; background-size: cover; background-position: center; 
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.2s;
+}
+#dayAppPanel .day-header-avatar:active { transform: scale(0.9); }
+
+#dayAppPanel .day-content { 
+    flex: 1; overflow-y: auto; padding: 0 20px 120px; 
+    display: flex; flex-direction: column; gap: 20px; 
+    transition: opacity 0.3s ease, transform 0.3s ease; 
+    -webkit-overflow-scrolling: touch;
+}
+#dayAppPanel .day-content::-webkit-scrollbar { display: none; }
+#dayAppPanel .day-content.fade { opacity: 0; transform: translateY(10px); }
+
+/* 日历 */
+#dayAppPanel .day-calendar-wrapper { background: var(--day-card-bg); border-radius: var(--day-radius-lg); padding: 24px; box-shadow: var(--day-shadow-sm); }
+#dayAppPanel .day-cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+#dayAppPanel .day-cal-month { font-size: 18px; font-weight: 800; color: var(--day-text-main); }
+#dayAppPanel .day-cal-nav { display: flex; gap: 15px; }
+#dayAppPanel .day-cal-nav svg { width: 18px; height: 18px; stroke: var(--day-text-sub); stroke-width: 2.5; fill: none; cursor: pointer; }
+
+#dayAppPanel .day-cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 11px; font-weight: 700; color: var(--day-text-light); margin-bottom: 15px; }
+#dayAppPanel .day-cal-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px 0; text-align: center; }
+#dayAppPanel .day-cal-day { 
+    height: 36px; display: flex; flex-direction: column; justify-content: center; align-items: center; 
+    font-size: 15px; font-weight: 600; color: var(--day-text-main); cursor: pointer; position: relative; 
+}
+#dayAppPanel .day-cal-day.muted { color: var(--day-text-light); font-weight: 500; }
+#dayAppPanel .day-cal-day.today { color: #FF3B30; font-weight: 800; }
+#dayAppPanel .day-cal-day.selected { background: var(--day-text-main); color: #fff; border-radius: 50%; }
+#dayAppPanel .day-cal-day.has-event::after { content: ''; position: absolute; bottom: 2px; width: 4px; height: 4px; background: var(--day-text-sub); border-radius: 50%; }
+#dayAppPanel .day-cal-day.selected.has-event::after { background: #fff; }
+#dayAppPanel .day-cal-day.today.has-event::after { background: #FF3B30; }
+
+/* 纪念日与经期特殊标识 */
+#dayAppPanel .day-cal-day.has-anniv::before { content: ''; position: absolute; top: 2px; right: 4px; width: 6px; height: 6px; background: #ff9500; border-radius: 50%; }
+#dayAppPanel .day-cal-day.has-period { background: #ffe5e5; color: #ff2d55; border-radius: 50%; }
+#dayAppPanel .day-cal-day.selected.has-period { background: #ff2d55; color: #fff; }
+
+/* 模块标题 */
+#dayAppPanel .day-section-title { font-size: 18px; font-weight: 800; color: var(--day-text-main); margin-bottom: 12px; padding-left: 4px; }
+
+/* 日程列表 */
+#dayAppPanel .day-schedule-list { display: flex; flex-direction: column; gap: 12px; }
+#dayAppPanel .day-schedule-item { 
+    background: var(--day-card-bg); border-radius: var(--day-radius-md); padding: 16px; 
+    display: flex; align-items: center; gap: 16px; box-shadow: var(--day-shadow-sm); 
+}
+#dayAppPanel .day-schedule-time { 
+    display: flex; flex-direction: column; align-items: center; min-width: 45px; 
+    border-right: 1px solid #F0F0F0; padding-right: 16px; 
+}
+#dayAppPanel .day-time-start { font-size: 15px; font-weight: 800; color: var(--day-text-main); }
+#dayAppPanel .day-time-end { font-size: 11px; color: var(--day-text-sub); font-weight: 600; margin-top: 2px; }
+#dayAppPanel .day-schedule-info { flex: 1; }
+#dayAppPanel .day-schedule-title { font-size: 15px; font-weight: 700; color: var(--day-text-main); margin-bottom: 4px; }
+#dayAppPanel .day-schedule-desc { font-size: 12px; color: var(--day-text-sub); font-weight: 500; }
+
+#dayAppPanel .day-status-dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--day-text-main); flex-shrink: 0; }
+#dayAppPanel .day-schedule-item.done .day-status-dot { background: var(--day-text-main); }
+#dayAppPanel .day-schedule-item.done .day-schedule-title { text-decoration: line-through; color: var(--day-text-sub); }
+
+/* 食谱卡片 */
+#dayAppPanel .day-recipe-list { display: flex; flex-direction: column; gap: 12px; }
+#dayAppPanel .day-recipe-item { 
+    background: var(--day-card-bg); border-radius: var(--day-radius-md); padding: 16px; 
+    display: flex; align-items: center; gap: 15px; box-shadow: var(--day-shadow-sm); 
+}
+#dayAppPanel .day-recipe-emoji { 
+    width: 40px; height: 40px; border-radius: 12px; background: #F7F7F9; 
+    display: flex; justify-content: center; align-items: center; font-size: 20px; 
+}
+#dayAppPanel .day-recipe-info { flex: 1; }
+#dayAppPanel .day-recipe-type { font-size: 11px; font-weight: 700; color: var(--day-text-sub); margin-bottom: 2px; }
+#dayAppPanel .day-recipe-name { font-size: 15px; font-weight: 700; color: var(--day-text-main); }
+#dayAppPanel .day-recipe-cal { font-size: 16px; font-weight: 800; color: var(--day-text-main); }
+#dayAppPanel .day-recipe-cal span { font-size: 11px; color: var(--day-text-sub); font-weight: 600; }
+
+/* 日记卡片 */
+#dayAppPanel .day-diary-list { display: flex; flex-direction: column; gap: 12px; }
+#dayAppPanel .day-diary-item { 
+    background: var(--day-card-bg); border-radius: var(--day-radius-md); padding: 16px; 
+    box-shadow: var(--day-shadow-sm); font-size: 14px; color: var(--day-text-main); line-height: 1.6;
+    white-space: pre-wrap; border: 1px solid #eee;
+}
+
+/* 悬浮胶囊底栏 */
+#dayAppPanel .day-nav-capsule {
+    position: absolute; bottom: 35px; left: 50%; transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-radius: 40px; padding: 8px 12px; display: flex; align-items: center; gap: 25px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08); z-index: 50; border: 1px solid rgba(0,0,0,0.05);
+}
+#dayAppPanel .day-nav-avatar {
+    width: 40px; height: 40px; border-radius: 50%; background-size: cover; background-position: center;
+    cursor: pointer; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    opacity: 0.4; filter: grayscale(1); transform: scale(0.9);
+}
+#dayAppPanel .day-nav-avatar.active { 
+    opacity: 1; filter: grayscale(0); transform: scale(1.1); 
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: 2px solid #fff;
+}
+#dayAppPanel .day-nav-add-btn {
+    width: 44px; height: 44px; border-radius: 50%; background: var(--day-text-main); color: #fff;
+    display: flex; justify-content: center; align-items: center; cursor: pointer;
+    transition: transform 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+#dayAppPanel .day-nav-add-btn:active { transform: scale(0.9); }
+#dayAppPanel .day-nav-add-btn svg { width: 20px; height: 20px; stroke: #fff; stroke-width: 2.5; fill: none; }
+
+/* 居中弹窗 */
+#dayAppPanel .day-center-modal-overlay { 
+    position: absolute; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); 
+    z-index: 100; display: none; justify-content: center; align-items: center; 
+    opacity: 0; transition: opacity 0.3s; 
+}
+#dayAppPanel .day-center-modal-overlay.show { display: flex; opacity: 1; }
+
+#dayAppPanel .day-center-modal-card { 
+    width: 280px; background: #fff; border-radius: 28px; padding: 24px; 
+    display: flex; flex-direction: column; gap: 15px;
+    transform: scale(0.8); opacity: 0; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); 
+    box-shadow: var(--day-shadow-md);
+}
+#dayAppPanel .day-center-modal-overlay.show .day-center-modal-card { transform: scale(1); opacity: 1; }
+
+#dayAppPanel .day-cm-title { font-size: 18px; font-weight: 800; text-align: center; margin-bottom: 10px; color: var(--day-text-main); }
+#dayAppPanel .day-cm-btn { 
+    background: var(--day-bg-color); padding: 16px; border-radius: 16px; 
+    font-size: 15px; font-weight: 700; color: var(--day-text-main); 
+    display: flex; align-items: center; gap: 12px; cursor: pointer; transition: background 0.2s;
+}
+#dayAppPanel .day-cm-btn:active { background: #EAEAEA; }
+#dayAppPanel .day-cm-btn svg { width: 20px; height: 20px; stroke: currentColor; stroke-width: 2; fill: none; }
+#dayAppPanel .day-cm-close { text-align: center; font-size: 14px; font-weight: 600; color: var(--day-text-sub); margin-top: 10px; cursor: pointer; }
+
+/* 底部抽屉弹窗 */
+#dayAppPanel .day-bottom-modal-overlay { 
+    position: absolute; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); 
+    z-index: 100; display: none; justify-content: center; align-items: flex-end; 
+    opacity: 0; transition: opacity 0.3s; 
+}
+#dayAppPanel .day-bottom-modal-overlay.show { display: flex; opacity: 1; }
+
+#dayAppPanel .day-bottom-modal-sheet { 
+    width: 100%; background: #fff; border-radius: 32px 32px 0 0; padding: 24px; 
+    transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); 
+    display: flex; flex-direction: column; gap: 15px; padding-bottom: 40px; 
+}
+#dayAppPanel .day-bottom-modal-overlay.show .day-bottom-modal-sheet { transform: translateY(0); }
+
+#dayAppPanel .day-bm-drag-bar { width: 40px; height: 5px; background: #E5E5EA; border-radius: 3px; margin: 0 auto 10px; }
+#dayAppPanel .day-bm-title { font-size: 18px; font-weight: 800; color: var(--day-text-main); text-align: center; margin-bottom: 10px; }
+
+#dayAppPanel .day-account-list { display: flex; flex-direction: column; gap: 10px; background: var(--day-card-bg); border-radius: var(--day-radius-md); padding: 10px; }
+#dayAppPanel .day-account-item { 
+    display: flex; align-items: center; gap: 15px; padding: 16px; 
+    background: var(--day-bg-color); border-radius: 20px; cursor: pointer; transition: transform 0.1s; 
+}
+#dayAppPanel .day-account-item:active { transform: scale(0.98); }
+#dayAppPanel .day-account-item .day-a-avatar { width: 48px; height: 48px; border-radius: 50%; background-size: cover; }
+#dayAppPanel .day-account-item .day-a-info { flex: 1; }
+#dayAppPanel .day-account-item .day-a-name { font-size: 16px; font-weight: 800; color: var(--day-text-main); margin-bottom: 2px; }
+#dayAppPanel .day-account-item .day-a-desc { font-size: 12px; font-weight: 600; color: var(--day-text-sub); }
+#dayAppPanel .day-account-item .day-a-check { width: 24px; height: 24px; border-radius: 50%; background: var(--day-text-main); color: #fff; display: none; justify-content: center; align-items: center; font-size: 12px; font-weight: bold; }
+#dayAppPanel .day-account-item.active .day-a-check { display: flex; }
+#dayAppPanel .day-account-item.active { border: 2px solid var(--day-text-main); background: #fff; }
+
