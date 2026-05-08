@@ -6964,19 +6964,19 @@ body.ios-standalone .status-bar {
     text-overflow: ellipsis;
 }
 .cw-carousel-card.center {
-    transform: translateX(0) scale(1.15) translateZ(0);
+    transform: translateX(0) scale(1.15);
     z-index: 5;
-    box-shadow: 0 15px 30px rgba(0,0,0,0.12);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+    pointer-events: auto;
 }
-.cw-carousel-card.center .cw-carousel-card-info { opacity: 1; }
-.cw-carousel-card.left-1 { transform: translateX(-85px) scale(0.9) translateZ(-50px); z-index: 4; opacity: 0.9; }
-.cw-carousel-card.right-1 { transform: translateX(85px) scale(0.9) translateZ(-50px); z-index: 4; opacity: 0.9; }
-.cw-carousel-card.left-2 { transform: translateX(-150px) scale(0.75) translateZ(-100px); z-index: 3; opacity: 0.6; }
-.cw-carousel-card.right-2 { transform: translateX(150px) scale(0.75) translateZ(-100px); z-index: 3; opacity: 0.6; }
-.cw-carousel-card.hidden { transform: translateX(0) scale(0.5) translateZ(-200px); z-index: 1; opacity: 0; pointer-events: none; }
+.cw-carousel-card.left-1 { transform: translateX(-100px) scale(0.9); z-index: 4; opacity: 0.9; pointer-events: auto; }
+.cw-carousel-card.right-1 { transform: translateX(100px) scale(0.9); z-index: 4; opacity: 0.9; pointer-events: auto; }
+.cw-carousel-card.left-2 { transform: translateX(-165px) scale(0.75); z-index: 3; opacity: 0.6; pointer-events: auto; }
+.cw-carousel-card.right-2 { transform: translateX(165px) scale(0.75); z-index: 3; opacity: 0.6; pointer-events: auto; }
+.cw-carousel-card.hidden { transform: translateX(0) scale(0.5); z-index: 1; opacity: 0; pointer-events: none; }
 .cw-carousel-lyrics {
     text-align: center;
-    margin-top: 15px;
+    margin-top: 0px; /* 将 15px 改为 5px，让歌词整体往上移 */
     display: flex;
     flex-direction: column;
     gap: 8px;
