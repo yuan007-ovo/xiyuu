@@ -3133,7 +3133,16 @@ let isPetDiaryMode = false;
 function openPetSettingsModal() {
     const dataStr = ChatDB.getItem(`phone_pet_settings_${currentChatRoomCharId}`) || '{}';
     const data = JSON.parse(dataStr);
-    document.getElementById('petImgUrlInput').value = data.petImg || '';
+    
+    // 兼容旧版单图和新版多图
+    let imgs = [];
+    if (Array.isArray(data.petImgs)) {
+        imgs = data.petImgs;
+    } else if (data.petImg) {
+        imgs = [data.petImg];
+    }
+    
+    document.getElementById('petImgUrlInput').value = imgs.join('\n');
     document.getElementById('petBgUrlInput').value = data.petBg || '';
     document.getElementById('petSettingsModalOverlay').classList.add('show');
 }
@@ -3143,11 +3152,23 @@ function closePetSettingsModal() {
 }
 
 function handlePetLocalImg(event) {
-    const file = event.target.files[0];
-    if (file) {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    
+    const textarea = document.getElementById('petImgUrlInput');
+    let currentUrls = textarea.value.split('\n').map(s => s.trim()).filter(s => s);
+    
+    let loadedCount = 0;
+    for (let i = 0; i < files.length; i++) {
         const reader = new FileReader();
-        reader.onload = e => { document.getElementById('petImgUrlInput').value = e.target.result; };
-        reader.readAsDataURL(file);
+        reader.onload = e => {
+            currentUrls.push(e.target.result);
+            loadedCount++;
+            if (loadedCount === files.length) {
+                textarea.value = currentUrls.join('\n');
+            }
+        };
+        reader.readAsDataURL(files[i]);
     }
     event.target.value = '';
 }
@@ -3163,10 +3184,11 @@ function handlePetLocalBg(event) {
 }
 
 function savePetSettings() {
-    const petImg = document.getElementById('petImgUrlInput').value;
+    const petImgsRaw = document.getElementById('petImgUrlInput').value;
+    const petImgs = petImgsRaw.split('\n').map(s => s.trim()).filter(s => s);
     const petBg = document.getElementById('petBgUrlInput').value;
     
-    ChatDB.setItem(`phone_pet_settings_${currentChatRoomCharId}`, JSON.stringify({ petImg, petBg }));
+    ChatDB.setItem(`phone_pet_settings_${currentChatRoomCharId}`, JSON.stringify({ petImgs, petBg }));
     
     applyPetSettings();
     closePetSettingsModal();
@@ -3176,10 +3198,17 @@ function applyPetSettings() {
     const dataStr = ChatDB.getItem(`phone_pet_settings_${currentChatRoomCharId}`) || '{}';
     const data = JSON.parse(dataStr);
     
-    const petImgSrc = data.petImg ? data.petImg : 'https://i.postimg.cc/LspkSSWj/retouch-2026050906172575.png';
+    let imgs = [];
+    if (Array.isArray(data.petImgs) && data.petImgs.length > 0) {
+        imgs = data.petImgs;
+    } else if (data.petImg) {
+        imgs = [data.petImg];
+    }
+
+    const petImgSrc = imgs.length > 0 ? imgs[0] : 'https://i.postimg.cc/LspkSSWj/retouch-2026050906172575.png';
     document.getElementById('petImg').src = petImgSrc;
     
-    // 新增：同步更新 AVG 对话框的小宠头像
+    // 同步更新 AVG 对话框的小宠头像
     const avgAvatar = document.getElementById('petAvgAvatar');
     if (avgAvatar) {
         avgAvatar.style.backgroundImage = `url(${petImgSrc})`;
@@ -3265,16 +3294,19 @@ function spawnPetHeart() {
     setTimeout(() => heart.remove(), 1000);
 }
 
-function petJumpAnim() {
-    const pet = document.getElementById('petImg');
-    pet.style.animation = 'none';
-    pet.style.transform = 'translateY(-15px) scale(1.05)';
-    setTimeout(() => {
-        pet.style.transform = 'translateY(0) scale(1)';
-        setTimeout(() => {
-            pet.style.animation = 'petBreathe 2.5s ease-in-out infinite';
-        }, 100);
-    }, 150);
+function actionPetDiary() {
+    const viewPet = document.getElementById('pet-view-main');
+    const viewDiary = document.getElementById('pet-view-diary');
+    
+    isPetDiaryMode = !isPetDiaryMode;
+    
+    if (isPetDiaryMode) {
+        viewPet.style.display = 'none';
+        viewDiary.classList.add('active');
+    } else {
+        viewPet.style.display = 'flex';
+        viewDiary.classList.remove('active');
+    }
 }
 
 // ==========================================
@@ -3289,10 +3321,31 @@ function closePetAvg() {
     document.getElementById('petAvgOverlay').classList.remove('show');
 }
 
+// 随机切换小宠动作图片
+function changePetImageRandomly() {
+    const dataStr = ChatDB.getItem(`phone_pet_settings_${currentChatRoomCharId}`) || '{}';
+    const data = JSON.parse(dataStr);
+    let imgs = [];
+    if (Array.isArray(data.petImgs) && data.petImgs.length > 0) {
+        imgs = data.petImgs;
+    } else if (data.petImg) {
+        imgs = [data.petImg];
+    }
+    
+    if (imgs.length > 0) {
+        const randomImg = imgs[Math.floor(Math.random() * imgs.length)];
+        document.getElementById('petImg').src = randomImg;
+        const avgAvatar = document.getElementById('petAvgAvatar');
+        if (avgAvatar) {
+            avgAvatar.style.backgroundImage = `url(${randomImg})`;
+        }
+    }
+}
+
 function actionPetFeed() {
     if (isPetDiaryMode) return;
-    petJumpAnim();
     spawnPetHeart();
+    changePetImageRandomly(); // 随机切换动作图片
     
     let dialogues = [
         "吧唧吧唧... 勉强算你合格吧。",
@@ -3319,8 +3372,8 @@ function actionPetFeed() {
 
 function actionPetTouch() {
     if (isPetDiaryMode) return;
-    petJumpAnim();
     spawnPetHeart();
+    changePetImageRandomly(); // 随机切换动作图片
     
     let dialogues = [
         "呼噜呼噜... 再摸一下，就一下。",

@@ -5436,10 +5436,10 @@
             <div class="preset-modal-title">小宠设置</div>
             <div style="width: 100%; padding: 15px 20px; display: flex; flex-direction: column; gap: 15px;">
                 <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <span style="font-size: 12px; font-weight: bold; color: #333;">更换小宠图片 (URL)</span>
-                    <input type="text" id="petImgUrlInput" class="preset-modal-input" placeholder="输入图片 URL" style="width: 100%; margin: 0;">
-                    <div onclick="document.getElementById('petLocalImgInput').click()" style="background: #f0f0f0; color: #333; padding: 8px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer; text-align: center;">本地相册上传</div>
-                    <input type="file" id="petLocalImgInput" accept="image/*" style="display: none;" onchange="handlePetLocalImg(event)">
+                    <span style="font-size: 12px; font-weight: bold; color: #333;">更换小宠图片 (支持多张动作图)</span>
+                    <textarea id="petImgUrlInput" class="preset-modal-input" placeholder="输入图片 URL，每行一个。互动时会随机切换动作。" style="width: 100%; height: 80px; margin: 0; resize: none; text-align: left; white-space: pre;"></textarea>
+                    <div onclick="document.getElementById('petLocalImgInput').click()" style="background: #f0f0f0; color: #333; padding: 8px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer; text-align: center;">本地相册上传 (可多选)</div>
+                    <input type="file" id="petLocalImgInput" accept="image/*" multiple style="display: none;" onchange="handlePetLocalImg(event)">
                 </div>
                 <div style="height: 1px; background: #eee; width: 100%;"></div>
                 <div style="display: flex; flex-direction: column; gap: 8px;">
