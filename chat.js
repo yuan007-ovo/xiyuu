@@ -2623,12 +2623,21 @@ async function handleCharImportFile(event) {
         } else if (fileName.endsWith('.txt')) {
             const text = await file.text();
             charData = { char: { name: file.name.replace('.txt',''), description: text }, worldbook: [] };
+        } else if (fileName.endsWith('.docx')) {
+            if (typeof mammoth === 'undefined') {
+                alert('缺少 docx 解析库，请检查网络连接！');
+                return;
+            }
+            const arrayBuffer = await file.arrayBuffer();
+            const result = await mammoth.extractRawText({arrayBuffer: arrayBuffer});
+            const text = result.value;
+            charData = { char: { name: file.name.replace('.docx',''), description: text }, worldbook: [] };
         }
 
         if (charData && charData.char) {
             saveImportedChar(charData, file);
         } else {
-            alert('无法解析该文件，请确保是标准的酒馆角色卡！');
+            alert('无法解析该文件，请确保是标准的酒馆角色卡或支持的文本格式！');
         }
     } catch (e) {
         console.error("解析失败:", e);
@@ -2641,11 +2650,23 @@ async function handleCharImportFile(event) {
 function parseTavernData(json) {
     const data = json.data || json; // 兼容 V2 的 data 包裹层
     
+    // 处理酒馆卡中把真实开场白写在 alternate_greetings 的情况
+    let firstMes = data.first_mes || '';
+    if (data.alternate_greetings && Array.isArray(data.alternate_greetings) && data.alternate_greetings.length > 0) {
+        // 如果 first_mes 是占位符或为空，优先使用第一个备用开场白
+        if (!firstMes || firstMes.includes('开场白替换') || firstMes.trim() === '') {
+            firstMes = data.alternate_greetings[0];
+        }
+    }
+    if (!firstMes) {
+        firstMes = data.mes_example || '';
+    }
+
     // 1. 提取角色基础信息
     const charInfo = {
         name: data.name || '未命名',
         description: data.description || data.persona || '',
-        firstMessage: data.first_mes || data.mes_example || '',
+        firstMessage: firstMes,
         scenario: data.scenario || '',
         sex: data.creator_notes || '未知',
         systemPrompt: data.system_prompt || '',
@@ -3450,6 +3471,15 @@ function renderChatHistory(charId, keepScroll = false) {
         if (isSystemMsg) {
             const sysContainer = document.createElement('div');
             sysContainer.style.cssText = 'display: flex; flex-direction: column; align-items: center; width: 100%; margin: 10px 0;';
+            
+            // 新增：给系统消息绑定长按事件，允许呼出菜单进行删除
+            sysContainer.oncontextmenu = () => false;
+            sysContainer.ontouchstart = (e) => handleBubbleTouchStart(e, index);
+            sysContainer.ontouchend = () => handleBubbleTouchEnd();
+            sysContainer.ontouchmove = () => handleBubbleTouchEnd();
+            sysContainer.onmousedown = (e) => handleBubbleTouchStart(e, index);
+            sysContainer.onmouseup = () => handleBubbleTouchEnd();
+            sysContainer.onmouseleave = () => handleBubbleTouchEnd();
 
             const sysEl = document.createElement('div');
             sysEl.style.cssText = 'text-align: center; font-size: 11px; color: #aaa; background: rgba(0,0,0,0.05); padding: 4px 10px; border-radius: 10px; max-width: 80%;';
@@ -7209,16 +7239,36 @@ function showChatBubbleMenu(x, y) {
     const overlay = document.getElementById('chatBubbleMenuOverlay');
     const menu = document.getElementById('chatBubbleMenu');
     
-    // 控制撤回按钮只对用户自己的消息显示
     const currentLoginId = ChatDB.getItem('current_login_account');
     let history = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${currentChatRoomCharId}`) || '[]');
     const msg = history[currentActionMsgIndex];
-    const recallBtn = document.getElementById('menuRecallBtn');
-    if (recallBtn) {
-        if (msg && msg.role === 'user') {
-            recallBtn.style.display = 'flex';
-        } else {
-            recallBtn.style.display = 'none';
+    
+    // 获取所有菜单项
+    const items = menu.querySelectorAll('.chat-bubble-menu-item');
+    
+    if (msg && msg.type === 'system') {
+        // 如果是系统消息（如撤回提示），只保留“删除”按钮
+        items.forEach(item => {
+            if (item.innerText === '删除') {
+                item.style.display = 'flex';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    } else {
+        // 普通消息，恢复显示所有按钮
+        items.forEach(item => {
+            item.style.display = 'flex';
+        });
+        
+        // 控制撤回按钮只对用户自己的消息显示
+        const recallBtn = document.getElementById('menuRecallBtn');
+        if (recallBtn) {
+            if (msg && msg.role === 'user') {
+                recallBtn.style.display = 'flex';
+            } else {
+                recallBtn.style.display = 'none';
+            }
         }
     }
 
@@ -8894,9 +8944,9 @@ window.addEventListener('ChatDBReady', () => {
 });
 
 // ==========================================
-// 主动发消息后台检测逻辑
+// 主动发消息后台检测逻辑 (Web Worker 防休眠版)
 // ==========================================
-setInterval(() => {
+function checkActiveMessages() {
     const currentLoginId = ChatDB.getItem('current_login_account');
     if (!currentLoginId) return;
 
@@ -8926,7 +8976,25 @@ setInterval(() => {
             }
         }
     });
-}, 60000); // 每分钟检查一次
+}
+
+// 初始化 Web Worker
+if (window.Worker) {
+    const keepAliveWorker = new Worker('worker.js');
+    
+    // 接收 Worker 发来的心跳信号
+    keepAliveWorker.addEventListener('message', (e) => {
+        if (e.data === 'tick') {
+            checkActiveMessages();
+        }
+    });
+
+    // 启动 Worker，每 60 秒触发一次
+    keepAliveWorker.postMessage({ command: 'start', interval: 60000 });
+} else {
+    // 兜底方案：如果浏览器不支持 Worker，退回使用 setInterval
+    setInterval(checkActiveMessages, 60000);
+}
 
 // ==========================================
 // 应用内消息通知弹窗逻辑
@@ -8999,30 +9067,36 @@ function showMsgNotification(charId, content) {
     const finalBody = `[${timeStr}] ${cleanContent}`;
 
     if (shouldSend && "Notification" in window && Notification.permission === "granted") {
-        navigator.serviceWorker.ready.then(function(registration) {
-            registration.showNotification(displayName, {
-                body: finalBody,
-                icon: char.avatarUrl || 'https://i.postimg.cc/1RGRdT9k/IMG-20260427-175620.png',
-                badge: char.avatarUrl || 'https://i.postimg.cc/1RGRdT9k/IMG-20260427-175620.png',
-                image: char.avatarUrl || '',
-                timestamp: Date.now(),
-                vibrate: [200, 100, 200],
-                tag: 'msg-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-                renotify: true
+        // 既然有了 sw.js，我们优先使用 Service Worker 发送高权限的系统通知
+        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.ready.then(function(registration) {
+                registration.showNotification(displayName, {
+                    body: finalBody,
+                    icon: char.avatarUrl || 'https://i.postimg.cc/1RGRdT9k/IMG-20260427-175620.png',
+                    badge: char.avatarUrl || 'https://i.postimg.cc/1RGRdT9k/IMG-20260427-175620.png',
+                    timestamp: Date.now(),
+                    vibrate: [200, 100, 200],
+                    tag: 'msg-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+                    renotify: true
+                });
             });
-        }).catch(err => {
-            // 降级处理：如果 serviceWorker 不可用，使用普通 Notification
-            const sysNotif = new Notification(displayName, {
-                body: finalBody,
-                icon: char.avatarUrl || 'https://i.postimg.cc/1RGRdT9k/IMG-20260427-175620.png',
-                timestamp: Date.now()
-            });
-            sysNotif.onclick = function() {
-                window.focus();
-                handleNotificationClick();
-                sysNotif.close();
-            };
-        });
+        } else {
+            // 兜底方案
+            try {
+                const sysNotif = new Notification(displayName, {
+                    body: finalBody,
+                    icon: char.avatarUrl || 'https://i.postimg.cc/1RGRdT9k/IMG-20260427-175620.png',
+                    timestamp: Date.now()
+                });
+                sysNotif.onclick = function() {
+                    window.focus();
+                    handleNotificationClick();
+                    sysNotif.close();
+                };
+            } catch (e) {
+                console.error("原生通知发送失败:", e);
+            }
+        }
     }
 }
 
