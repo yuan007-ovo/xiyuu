@@ -2422,8 +2422,8 @@ async function generateAllPhoneDataAPI(selectedApps) {
     }
 
     if (selectedApps.includes('pet')) {
-        prompt += `9. 专属小宠 (电子宠物):\n在这个APP里，你把自己当成了一只被 ${userRealName} 饲养的电子宠物。\n日记的内容必须是你作为“宠物”视角的碎碎念，表达你对 ${userRealName} (主人) 的依恋、吐槽、吃醋或渴望被关注的心情。\n请生成 3-4 条日记。\n为了突出情感，请将日记中直接提到 ${userRealName} 或者表达强烈情绪的句子，用 <span> 标签包裹起来（例如：<span>明明一直在等消息的……</span>）。\n\n`;
-        structureParts.push(`  "pet": {\n    "diaries": [\n      {\n        "time": "时间(如: 昨天 23:15)",\n        "content": "日记内容，包含 <span> 标签高亮重点句子"\n      }\n    ]\n  }`);
+        prompt += `9. 专属小宠 (电子宠物):\n在这个APP里，你把自己当成了一只被 ${userRealName} 饲养的电子宠物。\n你需要生成两部分内容：\n1. 饲养日志 (diaries)：必须是你作为“宠物”视角的碎碎念，表达你对 ${userRealName} (主人) 的依恋、吐槽、吃醋或渴望被关注的心情。请生成 3-4 条日记。为了突出情感，请将日记中直接提到 ${userRealName} 或者表达强烈情绪的句子，用 <span> 标签包裹起来（例如：<span>明明一直在等消息的……</span>）。\n2. 互动对话：当 ${userRealName} 对你进行“投喂”或“抚摸”时，你作为宠物会说的话。语气要符合你的人设，每种动作生成 3-5 句不同的反应。\n\n`;
+        structureParts.push(`  "pet": {\n    "diaries": [\n      {\n        "time": "时间(如: 昨天 23:15)",\n        "content": "日记内容，包含 <span> 标签高亮重点句子"\n      }\n    ],\n    "feedDialogues": ["投喂反应1", "投喂反应2"],\n    "touchDialogues": ["抚摸反应1", "抚摸反应2"]\n  }`);
     }
 
     jsonStructure += structureParts.join(",\n") + "\n}";
@@ -3280,20 +3280,6 @@ function petJumpAnim() {
 // ==========================================
 // 专属小宠 AVG 对话逻辑
 // ==========================================
-const petFeedDialogues = [
-    "吧唧吧唧... 勉强算你合格吧。",
-    "哼，别以为一点零食就能收买我！",
-    "（开心地摇尾巴）谢谢主人~",
-    "看在你这么有诚意的份上，我就吃一口吧。"
-];
-
-const petTouchDialogues = [
-    "呼噜呼噜... 再摸一下，就一下。",
-    "别乱摸！... 算了，随你便吧。",
-    "（蹭蹭你的手心）好温暖...",
-    "你今天怎么这么粘人？"
-];
-
 function showPetAvg(text) {
     document.getElementById('petAvgText').innerText = text;
     document.getElementById('petAvgOverlay').classList.add('show');
@@ -3307,7 +3293,27 @@ function actionPetFeed() {
     if (isPetDiaryMode) return;
     petJumpAnim();
     spawnPetHeart();
-    const text = petFeedDialogues[Math.floor(Math.random() * petFeedDialogues.length)];
+    
+    let dialogues = [
+        "吧唧吧唧... 勉强算你合格吧。",
+        "哼，别以为一点零食就能收买我！",
+        "（开心地摇尾巴）谢谢主人~",
+        "看在你这么有诚意的份上，我就吃一口吧。"
+    ];
+    
+    if (currentChatRoomCharId) {
+        const dataStr = ChatDB.getItem(`phone_pet_${currentChatRoomCharId}`);
+        if (dataStr) {
+            try {
+                const data = JSON.parse(dataStr);
+                if (data.feedDialogues && data.feedDialogues.length > 0) {
+                    dialogues = data.feedDialogues;
+                }
+            } catch(e){}
+        }
+    }
+    
+    const text = dialogues[Math.floor(Math.random() * dialogues.length)];
     showPetAvg(text);
 }
 
@@ -3315,10 +3321,29 @@ function actionPetTouch() {
     if (isPetDiaryMode) return;
     petJumpAnim();
     spawnPetHeart();
-    const text = petTouchDialogues[Math.floor(Math.random() * petTouchDialogues.length)];
+    
+    let dialogues = [
+        "呼噜呼噜... 再摸一下，就一下。",
+        "别乱摸！... 算了，随你便吧。",
+        "（蹭蹭你的手心）好温暖...",
+        "你今天怎么这么粘人？"
+    ];
+    
+    if (currentChatRoomCharId) {
+        const dataStr = ChatDB.getItem(`phone_pet_${currentChatRoomCharId}`);
+        if (dataStr) {
+            try {
+                const data = JSON.parse(dataStr);
+                if (data.touchDialogues && data.touchDialogues.length > 0) {
+                    dialogues = data.touchDialogues;
+                }
+            } catch(e){}
+        }
+    }
+    
+    const text = dialogues[Math.floor(Math.random() * dialogues.length)];
     showPetAvg(text);
 }
-
 
 function closePhonePet() {
     document.getElementById('phonePetApp').classList.remove('show');
@@ -3430,11 +3455,12 @@ async function generatePhonePetAPI() {
     if (activeWbs.length > 0) prompt += `【世界书背景】：\n${activeWbs.join('\n')}\n`;
     if (recentHistory) prompt += `【最近的聊天记录参考】：\n${recentHistory}\n`;
 
-    prompt += `\n请基于你的人设、当前生活状态，以及我们最近的聊天上下文，生成你在“专属小宠”APP里的观察日记。
+    prompt += `\n请基于你的人设、当前生活状态，以及我们最近的聊天上下文，生成你在“专属小宠”APP里的数据。
 在这个APP里，你把自己当成了一只被 ${userRealName} 饲养的电子宠物。
-日记的内容必须是你作为“宠物”视角的碎碎念，表达你对 ${userRealName} (主人) 的依恋、吐槽、吃醋或渴望被关注的心情。
-请生成 3-4 条日记。
-为了突出情感，请将日记中直接提到 ${userRealName} 或者表达强烈情绪的句子，用 <span> 标签包裹起来（例如：<span>明明一直在等消息的……</span>）。
+
+你需要生成两部分内容：
+1. 饲养日志 (diaries)：必须是你作为“宠物”视角的碎碎念，表达你对 ${userRealName} (主人) 的依恋、吐槽、吃醋或渴望被关注的心情。请生成 3-4 条日记。为了突出情感，请将日记中直接提到 ${userRealName} 或者表达强烈情绪的句子，用 <span> 标签包裹起来（例如：<span>明明一直在等消息的……</span>）。
+2. 互动对话：当 ${userRealName} 对你进行“投喂”或“抚摸”时，你作为宠物会说的话。语气要符合你的人设（傲娇、粘人、高冷等），每种动作生成 3-5 句不同的反应。
 
 必须返回合法的 JSON 对象，结构如下：
 {
@@ -3443,6 +3469,14 @@ async function generatePhonePetAPI() {
       "time": "时间(如: 昨天 23:15)",
       "content": "日记内容，包含 <span> 标签高亮重点句子"
     }
+  ],
+  "feedDialogues": [
+    "投喂时的反应1",
+    "投喂时的反应2"
+  ],
+  "touchDialogues": [
+    "抚摸时的反应1",
+    "抚摸时的反应2"
   ]
 }`;
 
