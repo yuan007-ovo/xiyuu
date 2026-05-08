@@ -1,6 +1,7 @@
 // ==========================================
 // Chat 模块专属逻辑 (chat.js)
 // ==========================================
+let toastTimeout = null;
 
 // 获取所有实体 (包含角色、用户账号和NPC)
 function getAllEntities() {
@@ -1788,6 +1789,9 @@ function renderChatList() {
         listEl.innerHTML = '<div style="text-align: center; color: #aaa; font-size: 13px; margin-top: 40px;">未找到匹配的会话</div>';
     }
 }
+
+let isLinkedAccManaging = false;
+let currentSelectedLinkedAccId = 'all'; // 记录当前选中的关联账号ID
 
 function renderLinkedAccounts() {
     const topListEl = document.getElementById('linkedAccTopList');
@@ -6133,6 +6137,86 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
         systemPrompt += `\n`;
     }
 
+    // --- 新增：注入 DayAPP 生活状态感知 ---
+    const todayObj = new Date();
+    const todayDateStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
+    const todayMonthDayStr = `${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
+    
+    let dayContextStr = "";
+    
+    // 1. 纪念日与节假日感知
+    let userAnnivs = JSON.parse(ChatDB.getItem(`day_annivs_user_${currentLoginId}`) || '[]');
+    let todayAnnivs = userAnnivs.filter(a => a.date && a.date.endsWith(todayMonthDayStr));
+    
+    let specialDays = todayAnnivs.map(a => a.name);
+    
+    // 如果开启了时间感知，加入公共节假日判断
+    if (timeAware) {
+        const holidays = {
+            "01-01": "元旦", "02-14": "情人节", "03-08": "妇女节", "04-01": "愚人节",
+            "05-01": "劳动节", "06-01": "儿童节", "10-01": "国庆节", "12-24": "平安夜", "12-25": "圣诞节",
+            "12-31": "跨年夜"
+        };
+        if (holidays[todayMonthDayStr]) {
+            specialDays.push(holidays[todayMonthDayStr]);
+        }
+    }
+
+    if (specialDays.length > 0) {
+        dayContextStr += `- 特殊日子：今天是【${specialDays.join('、')}】！请务必在聊天中自然地提及并庆祝。\n`;
+    }
+
+    // 2. 经期感知 (双向支持：User被照顾 或 Char求安慰)
+    let userPeriods = JSON.parse(ChatDB.getItem(`day_periods_user_${currentLoginId}`) || '[]');
+    let charPeriods = JSON.parse(ChatDB.getItem(`day_periods_char_${targetCharId}`) || '[]');
+    
+    if (userPeriods.includes(todayDateStr)) {
+        // User 在生理期，Char 照顾 User
+        dayContextStr += `- 生理状态：${userName} 今天处于【生理期/经期】。请在对话中表现出符合你人设的反应。\n`;
+    }
+    
+    if (charPeriods.includes(todayDateStr)) {
+        // Char 在生理期，视角反转！Char 表现出不适，向 User 撒娇/求安慰
+        dayContextStr += `- 你的生理状态：你今天正处于【生理期/大姨妈】期间。请在对话中向 ${userName} 作出符合你人设的反应。\n`;
+    }
+
+    // 3. 今日日程感知
+    let userSchedules = JSON.parse(ChatDB.getItem(`day_schedule_user_${currentLoginId}`) || '[]').filter(s => s.date === todayDateStr);
+    let charSchedules = JSON.parse(ChatDB.getItem(`day_schedule_char_${targetCharId}`) || '[]').filter(s => s.date === todayDateStr);
+    if (userSchedules.length > 0) {
+        dayContextStr += `- ${userName} 今天的日程：${userSchedules.map(s => `${s.timeStart}~${s.timeEnd} ${s.title}(${s.desc||'无'})`).join('；')}。\n`;
+    }
+    if (charSchedules.length > 0) {
+        dayContextStr += `- 你今天的日程：${charSchedules.map(s => `${s.timeStart}~${s.timeEnd} ${s.title}(${s.desc||'无'})`).join('；')}。\n`;
+    }
+
+    // 4. 今日食谱感知 (包含互相批改)
+    let userRecipes = JSON.parse(ChatDB.getItem(`day_recipe_user_${currentLoginId}`) || '[]').filter(r => r.date === todayDateStr);
+    let charRecipes = JSON.parse(ChatDB.getItem(`day_recipe_char_${targetCharId}`) || '[]').filter(r => r.date === todayDateStr);
+    
+    if (userRecipes.length > 0) {
+        let userDietStr = userRecipes.map(r => {
+            let str = `${r.type}吃了${r.name}(${r.cal}kcal)`;
+            if (r.review) str += `，你对此的评价是：“${r.review}”`;
+            return str;
+        }).join('；');
+        dayContextStr += `- ${userName} 今天的饮食：${userDietStr}。你可以根据人设做出符合人设的反应回应Ta。\n`;
+    }
+    
+    if (charRecipes.length > 0) {
+        let charDietStr = charRecipes.map(r => {
+            let str = `${r.type}吃了${r.name}(${r.cal}kcal)`;
+            if (r.review) str += `，${userName} 对此的批改/评价是：“${r.review}”`;
+            return str;
+        }).join('；');
+        dayContextStr += `- 你今天的饮食：${charDietStr}。如果 ${userName} 批改了你的食谱，请务必在聊天中做出符合你人设的反应。\n`;
+    }
+
+    if (dayContextStr) {
+        systemPrompt += `【系统机密情报：生活状态感知】\n今天是 ${todayDateStr}。\n${dayContextStr}(你可以根据这些生活细节，自然地在聊天中开启话题、关心对方或分享自己的生活。)\n\n`;
+    }
+    // ---------------------------------------
+
     if (activeWbs.top.length > 0) systemPrompt += `[背景设定]\n${activeWbs.top.join('\n')}\n\n`;
     
     const currentPersonaId = persona ? persona.id : currentLoginId;
@@ -9433,7 +9517,6 @@ ${customPrompt}
 // ==========================================
 // 全局 UI 辅助函数 (Toast & Error Modal)
 // ==========================================
-let toastTimeout;
 
 function showToast(message, type = 'loading', duration = 0) {
     const toast = document.getElementById('globalToast');
@@ -10361,9 +10444,6 @@ function initLinkedAccountToggle() {
         if (typeof renderChatList === 'function') renderChatList();
     });
 }
-
-let isLinkedAccManaging = false;
-let currentSelectedLinkedAccId = 'all'; // 新增：记录当前选中的关联账号ID
 
 function toggleLinkedAccManageMode() {
     isLinkedAccManaging = !isLinkedAccManaging;
