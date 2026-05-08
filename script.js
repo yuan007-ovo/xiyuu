@@ -2952,8 +2952,8 @@ let importedWidgets = JSON.parse(localStorage.getItem('imported_widgets') || '[]
 
 function renderImportedWidgets() {
     const content = document.getElementById('widgetModalContent');
-    // 【关键修复】：保留前3个内置组件（默认组件、拍立得组件、手账拼贴组件），清除后面动态导入的
-    while (content.children.length > 3) {
+    // 【关键修复】：保留前4个内置组件（默认、拍立得、手账拼贴、3D轮播），清除后面动态导入的
+    while (content.children.length > 4) {
         content.removeChild(content.lastChild);
     }
     
@@ -3299,6 +3299,54 @@ function addWidgetToDesktop(type) {
         closeWidgetModal();
         bindDesktopLongPress();
         if (typeof triggerAutoSave === 'function') triggerAutoSave(); // 强制保存，防止刷新丢失
+    } else if (type === 'carouselMusic') {
+        if (document.getElementById('carousel-music-widget-container')) {
+            alert('3D轮播音乐小组件已经在桌面上了！');
+            return;
+        }
+
+        const carouselWidgetHTML = `
+        <div class="widget-container custom-desktop-widget is-transparent-widget" id="carousel-music-widget-container" style="background: transparent; padding: 0;">
+            <div class="widget-delete-btn" onclick="deleteDesktopWidget(this)" style="z-index: 20;">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#ff3b30"></circle><line x1="8" y1="12" x2="16" y2="12" stroke="#fff" stroke-width="2"></line></svg>
+            </div>
+            <div class="cw-carousel-container">
+                <div class="cw-carousel-area" id="cwCarouselArea">
+                    <!-- 卡片由 JS 动态生成 -->
+                </div>
+                <div class="cw-carousel-lyrics">
+                    <div class="cw-carousel-lyric-line" id="cwDesktopLyric1"></div>
+                    <div class="cw-carousel-lyric-line active" id="cwDesktopLyric2">Music App</div>
+                    <div class="cw-carousel-lyric-line" id="cwDesktopLyric3"></div>
+                </div>
+                <div class="cw-carousel-control-bar">
+                    <svg class="cw-carousel-ctrl-icon" onclick="if(typeof playPrevMusicSong === 'function') playPrevMusicSong()" viewBox="0 0 24 24"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5" stroke="#444" stroke-width="2"></line></svg>
+                    <div onclick="if(typeof toggleMusicPlay === 'function') toggleMusicPlay()" style="display: flex; justify-content: center; align-items: center; cursor: pointer;">
+                        <svg class="cw-carousel-ctrl-icon cw-play-icon" viewBox="0 0 24 24" style="display: block;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                        <svg class="cw-carousel-ctrl-icon cw-pause-icon" viewBox="0 0 24 24" style="display: none;"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                    </div>
+                    <svg class="cw-carousel-ctrl-icon" onclick="if(typeof playNextMusicSong === 'function') playNextMusicSong()" viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19" stroke="#444" stroke-width="2"></line></svg>
+                    <div class="cw-carousel-progress-bar"><div class="cw-carousel-progress-fill" style="width: 0%;"></div></div>
+                    <svg class="cw-carousel-ctrl-icon" onclick="openCarouselImageModal()" viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 15px; height: 15px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                    <svg class="cw-carousel-ctrl-icon" viewBox="0 0 24 24" style="width: 14px; height: 14px;"><line x1="8" y1="6" x2="21" y2="6" stroke="#444" stroke-width="2"></line><line x1="8" y1="12" x2="21" y2="12" stroke="#444" stroke-width="2"></line><line x1="8" y1="18" x2="21" y2="18" stroke="#444" stroke-width="2"></line><line x1="3" y1="6" x2="3.01" y2="6" stroke="#444" stroke-width="2"></line><line x1="3" y1="12" x2="3.01" y2="12" stroke="#444" stroke-width="2"></line><line x1="3" y1="18" x2="3.01" y2="18" stroke="#444" stroke-width="2"></line></svg>
+                </div>
+            </div>
+        </div>`;
+
+        const wrapper = document.getElementById('homeScreenWrapper');
+        const isPage2 = wrapper && wrapper.scrollLeft > wrapper.clientWidth / 2;
+        const targetBgId = isPage2 ? 'desktopGridBg2' : 'desktopGridBg';
+        
+        document.getElementById(targetBgId).insertAdjacentHTML('afterend', carouselWidgetHTML);
+        
+        fillDesktopPlaceholders();
+        closeWidgetModal();
+        bindDesktopLongPress();
+        
+        // 初始化轮播逻辑
+        initCarouselWidgetLogic();
+        
+        if (typeof triggerAutoSave === 'function') triggerAutoSave();
     }
 }
 
@@ -3311,7 +3359,215 @@ function getMcpConfig() {
     };
 }
 
+// ==========================================
+// 3D 轮播音乐小组件逻辑
+// ==========================================
+let carouselSongsData = [
+    { img: 'https://img.heliar.top/file/1778253461620_Image_1778253436398_764.jpg', title: 'Midnight City', artist: 'M83' },
+    { img: 'https://img.heliar.top/file/1778253461539_Image_1778253436395_139.jpg', title: 'Starboy', artist: 'The Weeknd' },
+    { img: 'https://img.heliar.top/file/1778253461161_Image_1778253436354_670.jpg', title: 'I Can\'t Wait', artist: 'd0tc0mmie/GUMI' },
+    { img: 'https://img.heliar.top/file/1778253459119_Image_1778253436111_889.jpg', title: 'Blinding Lights', artist: 'The Weeknd' },
+    { img: 'https://img.heliar.top/file/1778253460441_Image_1778253436081_118.jpg', title: 'Save Your Tears', artist: 'The Weeknd' }
+];
+
+let carouselCurrentIndex = 2;
+let carouselCards = [];
+
+function initCarouselWidgetLogic() {
+    const area = document.getElementById('cwCarouselArea');
+    if (!area) return;
+    
+    area.innerHTML = '';
+    carouselCards = [];
+    
+    // 尝试从本地存储读取用户自定义的图片 (优先使用 ChatDB 防止 Base64 爆内存)
+    const savedImagesStr = ChatDB.getItem('carousel_custom_images') || localStorage.getItem('carousel_custom_images');
+    const savedImages = JSON.parse(savedImagesStr || '[]');
+    if (savedImages.length > 0) {
+        savedImages.forEach((img, i) => {
+            if (i < carouselSongsData.length) carouselSongsData[i].img = img;
+        });
+    }
+    
+    carouselSongsData.forEach((song, index) => {
+        const card = document.createElement('div');
+        card.className = 'cw-carousel-card';
+        card.innerHTML = `
+            <svg class="cw-card-star s1" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+            <svg class="cw-card-star s2" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+            <svg class="cw-card-star s3" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+            <img class="cw-carousel-card-img" src="${song.img}" draggable="false">
+            <div class="cw-carousel-card-text-area">
+                <div class="cw-carousel-card-title">${song.title || 'Music App'}</div>
+                <div class="cw-carousel-card-artist">${song.artist || 'Not Playing'}</div>
+            </div>
+        `;
+        card.addEventListener('click', (e) => {
+            if (carouselCurrentIndex === index) {
+                // 如果点击的是当前居中的卡片，则打开换图弹窗
+                openCarouselImageModal();
+            } else {
+                // 如果点击的是两侧的卡片，则切换轮播位置
+                carouselCurrentIndex = index;
+                updateCarouselWidget();
+            }
+        });
+        carouselCards.push(card);
+        area.appendChild(card);
+    });
+    
+    updateCarouselWidget();
+    bindCarouselSwipe();
+}
+
+function updateCarouselWidget() {
+    carouselCards.forEach((card, index) => {
+        card.classList.remove('center', 'left-1', 'right-1', 'left-2', 'right-2', 'hidden');
+        const diff = index - carouselCurrentIndex;
+
+        if (diff === 0) card.classList.add('center');
+        else if (diff === -1) card.classList.add('left-1');
+        else if (diff === 1) card.classList.add('right-1');
+        else if (diff === -2) card.classList.add('left-2');
+        else if (diff === 2) card.classList.add('right-2');
+        else card.classList.add('hidden');
+    });
+}
+
+function bindCarouselSwipe() {
+    const container = document.getElementById('carousel-music-widget-container');
+    if (!container) return;
+    
+    let startX = 0;
+    let isDragging = false;
+
+    container.addEventListener('touchstart', (e) => { 
+        // 如果在编辑模式下，不触发轮播滑动
+        if (document.getElementById('homeScreenWrapper').classList.contains('is-desktop-editing')) return;
+        startX = e.touches[0].clientX; 
+        isDragging = true; 
+    }, {passive: true});
+    
+    container.addEventListener('touchend', (e) => {
+        if (!isDragging) return;
+        handleCarouselSwipe(startX, e.changedTouches[0].clientX);
+        isDragging = false;
+    });
+
+    container.addEventListener('mousedown', (e) => { 
+        if (document.getElementById('homeScreenWrapper').classList.contains('is-desktop-editing')) return;
+        startX = e.clientX; 
+        isDragging = true; 
+    });
+    
+    container.addEventListener('mouseup', (e) => {
+        if (!isDragging) return;
+        handleCarouselSwipe(startX, e.clientX);
+        isDragging = false;
+    });
+    
+    container.addEventListener('mouseleave', () => { isDragging = false; });
+}
+
+function handleCarouselSwipe(start, end) {
+    const threshold = 40;
+    if (start - end > threshold && carouselCurrentIndex < carouselSongsData.length - 1) {
+        carouselCurrentIndex++;
+        updateCarouselWidget();
+    } else if (end - start > threshold && carouselCurrentIndex > 0) {
+        carouselCurrentIndex--;
+        updateCarouselWidget();
+    }
+}
+
+// 换图弹窗逻辑
+function openCarouselImageModal() {
+    document.getElementById('carouselImageModalOverlay').classList.add('show');
+    const currentUrls = carouselSongsData.map(s => s.img).join('\n');
+    document.getElementById('carouselUrlInput').value = currentUrls;
+}
+
+function closeCarouselImageModal() {
+    document.getElementById('carouselImageModalOverlay').classList.remove('show');
+}
+
+function updateCarouselImagesInDOM() {
+    const cardImgs = document.querySelectorAll('.cw-carousel-card-img');
+    const customImagesToSave = [];
+    carouselSongsData.forEach((song, index) => {
+        if (cardImgs[index]) {
+            cardImgs[index].src = song.img;
+        }
+        customImagesToSave.push(song.img);
+    });
+    // 保存用户自定义的图片到本地 (使用 ChatDB 防止 Base64 超出 5MB 限制)
+    ChatDB.setItem('carousel_custom_images', JSON.stringify(customImagesToSave));
+    if (typeof triggerAutoSave === 'function') triggerAutoSave();
+}
+
+function applyCarouselUrls() {
+    const text = document.getElementById('carouselUrlInput').value;
+    const urls = text.split('\n').map(u => u.trim()).filter(u => u);
+    
+    if (urls.length === 0) {
+        // 优化：如果用户清空了输入框点击应用，直接关闭弹窗，不再报错干扰
+        closeCarouselImageModal();
+        return;
+    }
+    
+    urls.forEach((url, index) => {
+        if (index < carouselSongsData.length) {
+            carouselSongsData[index].img = url;
+        }
+    });
+    
+    updateCarouselImagesInDOM();
+    closeCarouselImageModal();
+    alert('URL 图片替换成功！');
+}
+
+function handleCarouselLocalImages(event) {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    let processedCount = 0;
+    const totalFiles = Math.min(files.length, carouselSongsData.length);
+
+    // 将本地图片转换为 Base64 格式，确保持久化保存不失效
+    Array.from(files).slice(0, totalFiles).forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            // 核心优化：如果只上传了 1 张图片，优先替换当前正在居中展示的那张卡片
+            let targetIndex = (totalFiles === 1) ? carouselCurrentIndex : index;
+            carouselSongsData[targetIndex].img = e.target.result;
+            processedCount++;
+            
+            // 等所有图片都转换完成后再更新 DOM 和保存
+            if (processedCount === totalFiles) {
+                updateCarouselImagesInDOM();
+                closeCarouselImageModal();
+                // 优化：明确提示用户本地上传已成功，无需再点击应用URL
+                setTimeout(() => alert('本地图片上传并替换成功！'), 100);
+            }
+        };
+        reader.readAsDataURL(file);
+    });
+    
+    event.target.value = '';
+}
+
 // 页面加载时初始化渲染
 window.addEventListener('DOMContentLoaded', () => {
     renderImportedWidgets();
+    // 如果页面加载时已经存在该组件，则初始化它
+    if (document.getElementById('carousel-music-widget-container')) {
+        initCarouselWidgetLogic();
+    }
+});
+
+// 确保数据库就绪后再初始化一次，防止 Base64 图片读取失败
+window.addEventListener('ChatDBReady', () => {
+    if (document.getElementById('carousel-music-widget-container')) {
+        initCarouselWidgetLogic();
+    }
 });

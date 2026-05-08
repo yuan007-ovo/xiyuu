@@ -495,6 +495,12 @@ async function musicPlaySong(id, title, artist, cover) {
         
         currentPlayingSong = { id, title, artist, cover };
 
+        // 同步到桌面 3D 轮播小组件
+        const desktopTitle = document.querySelector('#carousel-music-widget-container .cw-carousel-card.center .cw-carousel-card-title');
+        if (desktopTitle) desktopTitle.innerText = title;
+        const desktopArtist = document.querySelector('#carousel-music-widget-container .cw-carousel-card.center .cw-carousel-card-artist');
+        if (desktopArtist) desktopArtist.innerText = artist;
+
         // 新增：写入系统消息，让 Char 感知到用户点播了什么歌
         if (window.currentListenTogetherCharId) {
             addMusicSystemMessage(`我 点播了歌曲: ${title} - ${artist}`);
@@ -1432,6 +1438,30 @@ audioPlayer.addEventListener('timeupdate', () => {
         if(miniFill) miniFill.style.width = `${progressPercent}%`;
         if(miniCur) miniCur.innerText = formatTime(currentTime);
         if(miniDur) miniDur.innerText = formatTime(duration);
+
+        // 同步到桌面 3D 轮播小组件进度条
+        const desktopFill = document.querySelector('#carousel-music-widget-container .cw-carousel-progress-fill');
+        if (desktopFill) desktopFill.style.width = `${progressPercent}%`;
+    }
+
+    // 同步到桌面 3D 轮播小组件歌词
+    if (window.parsedLyrics && window.parsedLyrics.length > 0) {
+        let activeIdx = 0;
+        for (let i = 0; i < window.parsedLyrics.length; i++) {
+            if (audioPlayer.currentTime >= window.parsedLyrics[i].time) {
+                activeIdx = i;
+            } else {
+                break;
+            }
+        }
+        const dLyric1 = document.getElementById('cwDesktopLyric1');
+        const dLyric2 = document.getElementById('cwDesktopLyric2');
+        const dLyric3 = document.getElementById('cwDesktopLyric3');
+        if (dLyric1 && dLyric2 && dLyric3) {
+            dLyric1.innerText = activeIdx > 0 ? window.parsedLyrics[activeIdx - 1].text : '';
+            dLyric2.innerText = window.parsedLyrics[activeIdx].text;
+            dLyric3.innerText = activeIdx < window.parsedLyrics.length - 1 ? window.parsedLyrics[activeIdx + 1].text : '';
+        }
     }
 });
 
@@ -1447,6 +1477,12 @@ audioPlayer.addEventListener('play', () => {
     const miniPauseBtn2 = document.getElementById('miniPauseBtn2');
     if (miniPlayBtn2) miniPlayBtn2.style.display = 'none';
     if (miniPauseBtn2) miniPauseBtn2.style.display = 'block';
+
+    // 桌面小组件按钮
+    const desktopPlayIcon = document.querySelector('#carousel-music-widget-container .cw-play-icon');
+    const desktopPauseIcon = document.querySelector('#carousel-music-widget-container .cw-pause-icon');
+    if (desktopPlayIcon) desktopPlayIcon.style.display = 'none';
+    if (desktopPauseIcon) desktopPauseIcon.style.display = 'block';
 
     const disc = document.querySelector('.mp-disc-outer');
     if (disc) disc.style.animationPlayState = 'running';
@@ -1464,6 +1500,12 @@ audioPlayer.addEventListener('pause', () => {
     const miniPauseBtn2 = document.getElementById('miniPauseBtn2');
     if (miniPlayBtn2) miniPlayBtn2.style.display = 'block';
     if (miniPauseBtn2) miniPauseBtn2.style.display = 'none';
+
+    // 桌面小组件按钮
+    const desktopPlayIcon = document.querySelector('#carousel-music-widget-container .cw-play-icon');
+    const desktopPauseIcon = document.querySelector('#carousel-music-widget-container .cw-pause-icon');
+    if (desktopPlayIcon) desktopPlayIcon.style.display = 'block';
+    if (desktopPauseIcon) desktopPauseIcon.style.display = 'none';
 
     const disc = document.querySelector('.mp-disc-outer');
     if (disc) disc.style.animationPlayState = 'paused';

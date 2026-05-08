@@ -6851,6 +6851,183 @@ body.ios-standalone .status-bar {
   }
 
 /* =========================================
+   新增：3D 轮播音乐小组件专属样式
+   ========================================= */
+.cw-carousel-container {
+    width: 100%;
+    height: 100%;
+    background-color: transparent;
+    border-radius: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    user-select: none;
+}
+.cw-carousel-area {
+    width: 100%;
+    height: 220px;
+    position: relative;
+    margin-top: 25px;
+    perspective: 1000px; 
+    transform-style: preserve-3d;
+}
+.cw-carousel-card {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    margin-left: -66px; 
+    width: 132px;
+    height: 175px; /* 增加高度，为底部文字留出空间 */
+    background: #fff;
+    border-radius: 6px;
+    padding: 6px; /* 统一内边距，底部空间由 flex 自动分配 */
+    box-sizing: border-box;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.cw-carousel-card-img {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 2px;
+    background-color: #ddd;
+    transition: all 0.4s;
+    flex-shrink: 0;
+}
+
+/* =========================================
+   新增：拍立得底部文字区域样式
+   ========================================= */
+.cw-carousel-card-text-area {
+    width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    padding-top: 4px;
+}
+.cw-carousel-card-title {
+    font-size: 12px;
+    font-weight: 800;
+    color: #222;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    text-align: center;
+    margin-bottom: 2px;
+}
+.cw-carousel-card-artist {
+    font-size: 10px;
+    color: #777;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    text-align: center;
+}
+
+/* =========================================
+   新增：3D轮播卡片装饰星星 (黑白灰风格)
+   ========================================= */
+.cw-card-star {
+    position: absolute;
+    z-index: 6;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+    pointer-events: none; /* 防止遮挡点击事件 */
+}
+.cw-card-star.s1 { top: -6px; left: -6px; width: 16px; height: 16px; fill: #222; transform: rotate(-15deg); }
+.cw-card-star.s2 { bottom: 18px; right: -6px; width: 14px; height: 14px; fill: #888; transform: rotate(25deg); }
+.cw-card-star.s3 { top: 12px; right: -8px; width: 12px; height: 12px; fill: #ccc; transform: rotate(40deg); }
+.cw-carousel-card-title {
+    font-size: 12px;
+    font-weight: 800;
+    color: #222;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+}
+.cw-carousel-card-artist {
+    font-size: 10px;
+    color: #777;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.cw-carousel-card.center {
+    transform: translateX(0) scale(1.15) translateZ(0);
+    z-index: 5;
+    box-shadow: 0 15px 30px rgba(0,0,0,0.12);
+}
+.cw-carousel-card.center .cw-carousel-card-info { opacity: 1; }
+.cw-carousel-card.left-1 { transform: translateX(-85px) scale(0.9) translateZ(-50px); z-index: 4; opacity: 0.9; }
+.cw-carousel-card.right-1 { transform: translateX(85px) scale(0.9) translateZ(-50px); z-index: 4; opacity: 0.9; }
+.cw-carousel-card.left-2 { transform: translateX(-150px) scale(0.75) translateZ(-100px); z-index: 3; opacity: 0.6; }
+.cw-carousel-card.right-2 { transform: translateX(150px) scale(0.75) translateZ(-100px); z-index: 3; opacity: 0.6; }
+.cw-carousel-card.hidden { transform: translateX(0) scale(0.5) translateZ(-200px); z-index: 1; opacity: 0; pointer-events: none; }
+.cw-carousel-lyrics {
+    text-align: center;
+    margin-top: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+.cw-carousel-lyric-line { font-size: 12px; color: #999; transition: all 0.3s; }
+.cw-carousel-lyric-line.active { font-size: 14px; font-weight: 900; color: #222; }
+.cw-carousel-control-bar {
+    position: absolute;
+    bottom: 15px;
+    width: 90%;
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border-radius: 30px;
+    padding: 8px 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-sizing: border-box;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+    border: 1px solid rgba(255,255,255,0.8);
+}
+.cw-carousel-ctrl-icon {
+    width: 16px;
+    height: 16px;
+    fill: #444;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+.cw-carousel-ctrl-icon:active { transform: scale(0.8); }
+.cw-carousel-play-btn { width: 20px; height: 20px; fill: #222; }
+.cw-carousel-progress-bar {
+    width: 60px;
+    height: 4px;
+    background: #d5d5d5;
+    border-radius: 2px;
+    position: relative;
+    margin: 0 10px;
+}
+.cw-carousel-progress-fill {
+    position: absolute; left: 0; top: 0; height: 100%; width: 30%;
+    background: #888; border-radius: 2px;
+}
+.cw-carousel-progress-fill::after {
+    content: ''; position: absolute; right: -3px; top: -2px;
+    width: 8px; height: 8px; background: #fff; border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+/* =========================================
    查手机 - 豆包 APP 专属样式
    ========================================= */
 .phone-doubao-app {
