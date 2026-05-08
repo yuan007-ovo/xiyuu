@@ -3316,7 +3316,7 @@ function addWidgetToDesktop(type) {
                 </div>
                 <div class="cw-carousel-lyrics">
                     <div class="cw-carousel-lyric-line" id="cwDesktopLyric1"></div>
-                    <div class="cw-carousel-lyric-line active" id="cwDesktopLyric2">Music App</div>
+                    <div class="cw-carousel-lyric-line active" id="cwDesktopLyric2">ㅇㅂㅇ</div>
                     <div class="cw-carousel-lyric-line" id="cwDesktopLyric3"></div>
                 </div>
                 <div class="cw-carousel-control-bar">
