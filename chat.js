@@ -6401,11 +6401,11 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
     
     if (char.isGroup) {
         systemPrompt += `注意：群聊中发送以下特殊消息时，也必须带上 "senderId" 字段！\n`;
-        systemPrompt += `图片消息格式: {"senderId": "成员ID", "type":"image", "content":"图片画面的详细文字描述"}\n`; 
+        systemPrompt += `图片消息格式: {"senderId": "成员ID", "type":"image", "content":"图片画面的详细文字描述(必须是真实的场景图片，绝对不能是表情包！)"}\n`; 
         systemPrompt += `语音消息格式: {"senderId": "成员ID", "type":"voice", "content":"语音对应的文字内容"}\n`; 
         systemPrompt += `撤回消息格式: {"senderId": "成员ID", "type":"recall", "content":"撤回后想补发的话(可选)"}\n`; 
     } else {
-        systemPrompt += `图片消息格式: {"type":"image", "content":"图片画面的详细文字描述"}\n`; 
+        systemPrompt += `图片消息格式: {"type":"image", "content":"图片画面的详细文字描述(必须是真实的场景图片，绝对不能是表情包！)"}\n`; 
         systemPrompt += `语音消息格式: {"type":"voice", "content":"语音对应的文字内容"}\n`; 
         systemPrompt += `撤回你自己的上一条消息: {"type":"recall", "content":"撤回后你想补发的话(可选)"}\n`; 
     }
@@ -6510,6 +6510,8 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
     if (charEmojis.length > 0) {
         systemPrompt += `表情包格式: {"type":"sticker", "content":"表情包描述名称"}\n`;
         systemPrompt += `可用的表情包描述有：${charEmojis.map(e => e.desc).join(', ')}。请自然地穿插在对话中，不要滥用。\n`;
+    } else {
+        systemPrompt += `注意：你当前没有可用的表情包，绝对不要发送任何表情包！\n`;
     }
     systemPrompt += `- 必须使用双引号 " 包裹键名和字符串值。\n`;
     systemPrompt += `- 严禁输出损坏的 JSON，严禁在 JSON 外部输出任何多余的字符（如 markdown 标记 \`\`\`json 等）。\n`;
@@ -7155,18 +7157,6 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
                 const musicChatPanel = document.getElementById('musicChatPanel');
                 if (musicChatPanel && window.getComputedStyle(musicChatPanel).display !== 'none' && targetCharId === window.currentListenTogetherCharId) {
                     if (typeof renderMusicChatHistory === 'function') renderMusicChatHistory();
-                }
-
-                if (i < messagesArray.length - 1) {
-                    if (targetCharId === currentChatRoomCharId && isChatRoomVisible) {
-                        renderChatHistory(currentChatRoomCharId);
-                    } else {
-                        let unreadCount = parseInt(ChatDB.getItem(`unread_${currentLoginId}_${targetCharId}`) || '0');
-                        ChatDB.setItem(`unread_${currentLoginId}_${targetCharId}`, (unreadCount + 1).toString());
-                        
-                        showMsgNotification(targetCharId, newMsg.content);
-                        if (typeof renderChatList === 'function') renderChatList();
-                    }
                 }
 
                 if (i < messagesArray.length - 1) {
