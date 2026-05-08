@@ -8826,24 +8826,69 @@
                 </div>
             </div>
 
-            <!-- 日程列表 (动态渲染) -->
-            <div>
-                <div class="day-section-title" id="dayScheduleTitle">今日日程</div>
-                <div class="day-schedule-list" id="dayScheduleList"></div>
-            </div>
-
-            <!-- 每日食谱 (动态渲染) -->
-            <div>
-                <div class="day-section-title" id="dayRecipeTitle">每日食谱</div>
-                <div class="day-recipe-list" id="dayRecipeList"></div>
-            </div>
-
-            <!-- 纪念日与节假日 (动态渲染) -->
+            <!-- 纪念日与节假日 (置顶显示) -->
             <div>
                 <div class="day-section-title" id="dayAnnivTitle" style="display: none;">纪念日 & 节假日</div>
                 <div class="day-anniv-list" id="dayAnnivList" style="position: relative; margin-top: 10px;"></div>
             </div>
+
+            <!-- 双轨时间线控制区 -->
+            <div class="day-timeline-controls" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div class="day-section-title" style="margin-bottom: 0;">同步轨迹</div>
+                <div class="day-ai-gen-btn" onclick="generateCharDayAPI()" style="display: flex; align-items: center; gap: 6px; background: #111; color: #fff; padding: 6px 12px; border-radius: 16px; font-size: 12px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                    AI 补全 Ta 的今天
+                </div>
+            </div>
+
+            <!-- 双轨时间线容器 -->
+            <div class="day-timeline-wrapper" style="position: relative; padding: 10px 0;">
+                <!-- 中间的时间轴线 -->
+                <div class="day-timeline-center-line" style="position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: #EAEAEA; transform: translateX(-50%); z-index: 1;"></div>
+                
+                <!-- 动态渲染的时间线节点 -->
+                <div id="dayTimelineList" style="display: flex; flex-direction: column; gap: 20px; position: relative; z-index: 2;">
+                    <!-- 节点将由 JS 动态生成 -->
+                </div>
+            </div>
+
+            <!-- 打印今日小票按钮 (微圆角方形) -->
+            <div class="day-receipt-btn-wrapper" style="display: flex; justify-content: center; margin-top: 30px;">
+                <div class="day-receipt-btn" onclick="printDayReceipt()">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    打印今日记忆小票
+                </div>
+            </div>
         </div>
+    <!-- DayAPP 专属记忆小票弹窗 (高级版带五角星) -->
+    <div class="preset-modal-overlay" id="dayReceiptModalOverlay" style="z-index: 9999;" onclick="closeDayReceiptModal()">
+        
+        <!-- 环绕的高级灰五角星 (实心与空心交错) -->
+        <svg class="receipt-star rs-1" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+        <svg class="receipt-star rs-2" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        <svg class="receipt-star rs-3" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+        <svg class="receipt-star rs-4" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        <svg class="receipt-star rs-5" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+
+        <div class="day-receipt-paper" onclick="event.stopPropagation()">
+            <div class="day-receipt-close" onclick="closeDayReceiptModal()">
+                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </div>
+            <div class="day-receipt-header">
+                <div class="day-receipt-logo">MEMORY RECEIPT</div>
+                <div class="day-receipt-sub">记录你的每一天</div>
+            </div>
+            <div class="day-receipt-divider"></div>
+            <div id="dayReceiptContent" class="day-receipt-body">
+                <!-- 动态内容将由 JS 渲染 -->
+            </div>
+            <div class="day-receipt-divider"></div>
+            <div class="day-receipt-footer">
+                <div class="day-receipt-barcode"></div>
+                <div class="day-receipt-thanks">* 感谢你们度过这美好的一天 *</div>
+            </div>
+        </div>
+    </div>
 
         <!-- 悬浮胶囊底栏 -->
         <div class="day-nav-capsule">
@@ -8968,7 +9013,7 @@
     <!-- 3D轮播音乐小组件换图弹窗 -->
     <div class="preset-modal-overlay" id="carouselImageModalOverlay" style="z-index: 10000;">
         <div class="preset-modal" style="width: 300px;">
-            <div class="preset-modal-title">更换轮播图片</div>
+            <div class="preset-modal-title">不建议本地相册上传（os因为会卡）</div>
             <div style="width: 100%; padding: 15px 20px; display: flex; flex-direction: column; gap: 10px;">
                 <textarea id="carouselUrlInput" style="width: 100%; height: 120px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; resize: none; outline: none; font-size: 12px; background: #f9f9f9; color: #333; white-space: pre;" placeholder="请输入图片URL，每行一个&#10;第1行对应第1张图&#10;第2行对应第2张图..."></textarea>
                 <div style="display: flex; gap: 10px; align-items: center; justify-content: center; margin-top: 5px;">
