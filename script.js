@@ -30,6 +30,24 @@ window.ChatDB = {
     }
 };
 
+// 申请持久化存储权限，防止浏览器自动清空数据
+async function requestPersistentStorage() {
+    if (navigator.storage && navigator.storage.persist) {
+        const isPersisted = await navigator.storage.persisted();
+        if (!isPersisted) {
+            const granted = await navigator.storage.persist();
+            if (granted) {
+                console.log("✅ 存储已持久化，浏览器不会自动清空数据");
+            } else {
+                console.log("⚠️ 持久化存储申请被拒绝");
+            }
+        } else {
+            console.log("✅ 存储已经是持久化状态");
+        }
+    }
+}
+requestPersistentStorage();
+
 // 立即初始化并自动迁移老数据
 (function initChatDB() {
     const request = indexedDB.open(CHAT_DB_NAME, 1);
