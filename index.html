@@ -2882,6 +2882,16 @@
                 <div class="cs-journal-sec-content">
                     <div class="cs-journal-list-item">
                         <span class="cs-dot">·</span>
+                        <span class="cs-label">API 日志与额度</span>
+                        <div onclick="openApiLogModal()" id="csApiLogBtn" class="cs-value-btn">显示API剩余额度</div>
+                    </div>
+                    <div class="cs-journal-list-item">
+                        <span class="cs-dot">·</span>
+                        <span class="cs-label">Token 占用计算</span>
+                        <div onclick="openTokenCalcModal()" id="csTokenCalcBtn" class="cs-value-btn">显示token总计算值</div>
+                    </div>
+                    <div class="cs-journal-list-item">
+                        <span class="cs-dot">·</span>
                         <span class="cs-label">专属表情包</span>
                         <div onclick="openEmojiSelectModal()" id="csEmojiSelectBtn" class="cs-value-btn">点击选择...</div>
                     </div>
@@ -6868,6 +6878,43 @@
                     <!-- 动态渲染角色微博 -->
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- API 日志弹窗 -->
+    <div class="preset-modal-overlay" id="apiLogModalOverlay" style="z-index: 10000;">
+        <div class="preset-modal" style="width: 320px; max-height: 80vh; display: flex; flex-direction: column; border-radius: 20px; background: #fff; padding: 20px 15px;">
+            <div style="font-size: 16px; font-weight: bold; color: #111; text-align: center; margin-bottom: 15px;">API 消费日志</div>
+            <div style="display: flex; justify-content: space-around; width: 100%; margin-bottom: 15px; background: #f9f9f9; padding: 10px; border-radius: 12px;">
+                <div style="display: flex; flex-direction: column; align-items: center;">
+                    <span style="font-size: 12px; color: #888;">今日调用</span>
+                    <span id="apiLogTodayCount" style="font-size: 16px; font-weight: bold; color: #111;">0 次</span>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center;">
+                    <span style="font-size: 12px; color: #888;">今日消耗 (Tokens)</span>
+                    <span id="apiLogTodayQuota" style="font-size: 16px; font-weight: bold; color: #ff5000;">0</span>
+                </div>
+            </div>
+            <div style="font-size: 12px; font-weight: bold; color: #555; margin-bottom: 8px; width: 100%;">消费明细</div>
+            <div id="apiLogList" style="flex: 1; overflow-y: auto; width: 100%; display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+                <!-- 动态渲染 -->
+            </div>
+            <div style="width: 100%; background: #111; color: #fff; text-align: center; padding: 12px 0; border-radius: 12px; font-size: 15px; font-weight: bold; cursor: pointer;" onclick="document.getElementById('apiLogModalOverlay').classList.remove('show')">关闭</div>
+        </div>
+    </div>
+
+    <!-- Token 计算弹窗 -->
+    <div class="preset-modal-overlay" id="tokenCalcModalOverlay" style="z-index: 10000;">
+        <div class="preset-modal" style="width: 300px; max-height: 80vh; display: flex; flex-direction: column; border-radius: 20px; background: #fff; padding: 20px 15px;">
+            <div style="font-size: 16px; font-weight: bold; color: #111; text-align: center; margin-bottom: 15px;">Token 占用分析</div>
+            <div id="tokenCalcList" style="flex: 1; overflow-y: auto; width: 100%; display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px;">
+                <!-- 动态渲染 -->
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 10px 0; border-top: 1px solid #eee; margin-bottom: 15px;">
+                <span style="font-size: 14px; font-weight: bold; color: #111;">总计预估</span>
+                <span id="tokenCalcTotal" style="font-size: 16px; font-weight: bold; color: #ff5000;">0 Tokens</span>
+            </div>
+            <div style="width: 100%; background: #111; color: #fff; text-align: center; padding: 12px 0; border-radius: 12px; font-size: 15px; font-weight: bold; cursor: pointer;" onclick="document.getElementById('tokenCalcModalOverlay').classList.remove('show')">关闭</div>
         </div>
     </div>
 
