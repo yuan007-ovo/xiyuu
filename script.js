@@ -2618,7 +2618,8 @@ function fillDesktopPlaceholders() {
         items.forEach(item => {
             if (item.closest('.dock-container')) return;
             if (item.classList.contains('widget-container')) {
-                usedSlots += 16; // 小组件占 16 格
+                // 核心修复：区分 2x2 和 4x4 小组件的占位数量
+                usedSlots += item.classList.contains('widget-2x2') ? 4 : 16;
             } else {
                 usedSlots += 1; // APP 和 占位符 都占 1 格
             }
@@ -3396,12 +3397,30 @@ function addWidgetToDesktop(type) {
 
         const wrapper = document.getElementById('homeScreenWrapper');
         const isPage2 = wrapper && wrapper.scrollLeft > wrapper.clientWidth / 2;
-        const targetBgId = isPage2 ? 'desktopGridBg2' : 'desktopGridBg';
+        const targetPageId = isPage2 ? 'homeScreen2' : 'homeScreen';
+        const targetPage = document.getElementById(targetPageId);
         
-        document.getElementById(targetBgId).insertAdjacentHTML('afterend', polaroidMusicWidgetHTML);
+        // 寻找当前页面的空位(占位符)
+        const placeholders = Array.from(targetPage.querySelectorAll('.app-placeholder'));
+        
+        // 将 HTML 字符串转为 DOM 节点
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = polaroidMusicWidgetHTML.trim();
+        const widgetNode = tempDiv.firstChild;
+
+        // 核心修复：如果有足够的空位(2x2需要4格)，则替换掉空位，不挤压其他APP
+        if (placeholders.length >= 4) {
+            targetPage.insertBefore(widgetNode, placeholders[0]);
+            for(let i = 0; i < 4; i++) {
+                placeholders[i].remove();
+            }
+        } else {
+            // 如果当前页空间不足，直接追加到末尾
+            targetPage.appendChild(widgetNode);
+        }
         
         // 绑定图片上传事件
-        document.querySelectorAll('#polaroid-music-widget-container .uploadable-img').forEach(el => {
+        widgetNode.querySelectorAll('.uploadable-img').forEach(el => {
             handleImageUpload(el, (imgUrl, targetEl) => {
                 targetEl.style.backgroundImage = `url(${imgUrl})`;
                 targetEl.classList.add('has-image');
