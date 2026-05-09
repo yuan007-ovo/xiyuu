@@ -3062,6 +3062,12 @@ async function generateAccountInfoAPI(charId) {
 
         if (response.ok) {
             const data = await response.json();
+            
+            try {
+                let usage = data.usage || {};
+                recordApiLog('生成账号私密数据', apiConfig.model, usage.total_tokens || 0, false);
+            } catch (e) {}
+
             let content = data.choices[0].message.content.trim();
             content = content.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
             
@@ -6666,7 +6672,9 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
     systemPrompt += `- 模拟真人打字聊天习惯/线上聊天的碎片化习惯，保持对话口语化、碎片化，保持回复气泡的随机性和多样性！\n`;
 
     if (minReply > 0 || maxReply > 0) {
-        systemPrompt += `- 你的回复必须拆分为 ${minReply || 1} 到 ${maxReply || 10} 个独立的气泡（即 messages 数组中的对象数量）。保持数量随机。\n`;
+        systemPrompt += `\n【！！！强制气泡数量限制！！！】\n`;
+        systemPrompt += `你的回复必须严格拆分为 ${minReply || 1} 到 ${maxReply || 10} 个独立的气泡（即 messages 数组中的对象数量）！\n`;
+        systemPrompt += `You can break a long piece of text into short, semantically complete sentences, and don't squeeze all the dialogue into a reply bubble!!!\n`;
     }
 
     let messages = [{ role: 'system', content: systemPrompt }];
@@ -6682,7 +6690,7 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
         if (msg.isSms) {
             source = '[短信] ';
         } else if (msg.isAlipay) {
-            source = '[支付宝] ';
+            source = '[支付宝] '
         } else if (typeof currentCallTranscript !== 'undefined' && currentCallTranscript.some(t => t.timestamp === msg.timestamp)) {
             source = '[语音通话中] ';
         }
@@ -6791,17 +6799,7 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
             try {
                 let usage = data.usage || {};
                 let totalTokens = usage.total_tokens || 0;
-                let logs = JSON.parse(ChatDB.getItem('api_logs') || '[]');
-                logs.push({
-                    id: Date.now().toString(),
-                    timestamp: Date.now(),
-                    model: apiConfig.model,
-                    tokens: totalTokens,
-                    type: 'chat'
-                });
-                // 限制日志数量，保留最近 500 条防止爆内存
-                if (logs.length > 500) logs = logs.slice(-500);
-                ChatDB.setItem('api_logs', JSON.stringify(logs));
+                recordApiLog('聊天回复', apiConfig.model, totalTokens, false);
             } catch (logErr) {
                 console.error("记录 API 日志失败:", logErr);
             }
@@ -9575,6 +9573,12 @@ ${customPrompt}
 
         if (response.ok) {
             const data = await response.json();
+            
+            try {
+                let usage = data.usage || {};
+                recordApiLog('生成记忆总结', apiConfig.model, usage.total_tokens || 0, false);
+            } catch (e) {}
+
             const newSummaryText = data.choices[0].message.content.trim();
             
             // 计算当前聊天层数（轮数）并拼接到总结内容开头
@@ -10295,6 +10299,12 @@ ${recentHistory || '暂无聊天记录'}
 
         if (response.ok) {
             const data = await response.json();
+            
+            try {
+                let usage = data.usage || {};
+                recordApiLog('生成社交聊天记录', apiConfig.model, usage.total_tokens || 0, false);
+            } catch (e) {}
+
             let replyRaw = data.choices[0].message.content.trim();
             replyRaw = replyRaw.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
             
@@ -10721,6 +10731,12 @@ async function generateCharSocialChatAPI() {
 
         if (response.ok) {
             const data = await response.json();
+            
+            try {
+                let usage = data.usage || {};
+                recordApiLog('生成朋友圈', apiConfig.model, usage.total_tokens || 0, false);
+            } catch (e) {}
+
             let replyRaw = data.choices[0].message.content.trim();
             replyRaw = replyRaw.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
             
@@ -10910,6 +10926,12 @@ ${customPrompt}
 
         if (response.ok) {
             const data = await response.json();
+            
+            try {
+                let usage = data.usage || {};
+                recordApiLog('后台自动总结', apiConfig.model, usage.total_tokens || 0, false);
+            } catch (e) {}
+
             let replyRaw = data.choices[0].message.content.trim();
             replyRaw = replyRaw.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
             

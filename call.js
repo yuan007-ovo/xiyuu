@@ -608,6 +608,44 @@ function showIncomingCall(charId) {
     const currentLoginId = ChatDB.getItem('current_login_account');
     if (!currentLoginId) return;
 
+    let balance = parseFloat(ChatDB.getItem(`call_balance_${currentLoginId}`) || '0');
+    if (balance <= 0) {
+        // 记录未接
+        let history = JSON.parse(ChatDB.getItem(`call_history_${currentLoginId}`) || '[]');
+        history.push({
+            id: Date.now().toString(),
+            targetId: charId,
+            type: 'missed',
+            timestamp: Date.now(),
+            duration: 0,
+            content: '未接听 (已停机)'
+        });
+        ChatDB.setItem(`call_history_${currentLoginId}`, JSON.stringify(history));
+        if (typeof renderCallRecents === 'function') renderCallRecents();
+
+        // 告诉 Char
+        let chatHistory = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${charId}`) || '[]');
+        chatHistory.push({
+            role: 'user',
+            type: 'hidden_system',
+            content: `[系统提示：你拨打的电话已停机。User因为手机欠费停机，无法接听你的语音通话。]`,
+            timestamp: Date.now()
+        });
+        ChatDB.setItem(`chat_history_${currentLoginId}_${charId}`, JSON.stringify(chatHistory));
+        
+        let targetHistory = JSON.parse(ChatDB.getItem(`chat_history_${charId}_${currentLoginId}`) || '[]');
+        targetHistory.push({
+            role: 'char',
+            type: 'hidden_system',
+            content: `[系统提示：你拨打的电话已停机。对方因为手机欠费停机，无法接听你的语音通话。]`,
+            timestamp: Date.now()
+        });
+        ChatDB.setItem(`chat_history_${charId}_${currentLoginId}`, JSON.stringify(targetHistory));
+
+        if (typeof showToast === 'function') showToast('手机已停机，拦截来电', 'error', 2000);
+        return;
+    }
+
     let allEntities = getAllEntities();
     const char = allEntities.find(e => e.id === charId);
     if (!char) return;
@@ -624,7 +662,12 @@ function showIncomingCall(charId) {
     }
 
     currentCallTargetId = charId;
-    document.getElementById('callIncomingScreen').classList.add('show');
+    
+    // 核心修改：将接听页面移动到最外层容器，保证全局可见
+    const incomingScreen = document.getElementById('callIncomingScreen');
+    document.getElementById('iphone-container').appendChild(incomingScreen);
+    incomingScreen.style.zIndex = '9999';
+    incomingScreen.classList.add('show');
     
     // 播放来电铃声 (如果有配置)
     const soundUrl = ChatDB.getItem('sys_notif_sound');
@@ -641,6 +684,9 @@ function acceptIncomingCall() {
         window.incomingCallAudio = null;
     }
     document.getElementById('callIncomingScreen').classList.remove('show');
+    
+    // 确保 Call APP 面板被打开，否则全屏通话界面可能不可见
+    document.getElementById('callAppPanel').style.display = 'flex';
     
     // 直接进入接通状态
     const charId = currentCallTargetId;

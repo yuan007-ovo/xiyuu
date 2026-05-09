@@ -6921,40 +6921,67 @@
         </div>
     </div>
 
-    <!-- API 日志弹窗 -->
-    <div class="preset-modal-overlay" id="apiLogModalOverlay" style="z-index: 10000;">
-        <div class="preset-modal" style="width: 320px; max-height: 80vh; display: flex; flex-direction: column; border-radius: 20px; background: #fff; padding: 20px 15px;">
-            <div style="font-size: 16px; font-weight: bold; color: #111; text-align: center; margin-bottom: 15px;">API 消费日志</div>
-            <div style="display: flex; justify-content: space-around; width: 100%; margin-bottom: 15px; background: #f9f9f9; padding: 10px; border-radius: 12px;">
-                <div style="display: flex; flex-direction: column; align-items: center;">
-                    <span style="font-size: 12px; color: #888;">今日调用</span>
-                    <span id="apiLogTodayCount" style="font-size: 16px; font-weight: bold; color: #111;">0 次</span>
+    <!-- API 日志弹窗 (手账风) -->
+    <div class="preset-modal-overlay" id="apiLogModalOverlay" style="z-index: 10000;" onclick="this.classList.remove('show')">
+        <div class="journal-modal" onclick="event.stopPropagation()">
+            <div class="journal-header">
+                <div class="journal-title">API 消费日志</div>
+                <div class="journal-close" onclick="document.getElementById('apiLogModalOverlay').classList.remove('show')">BACK</div>
+            </div>
+            <div class="journal-content">
+                <div class="journal-stat-box">
+                    <div class="journal-stat-item">
+                        <span class="journal-stat-label">今日调用</span>
+                        <span class="journal-stat-val" id="apiLogTodayCount">0 <span style="font-size:12px; color:#888;">次</span></span>
+                    </div>
+                    <div class="journal-stat-divider"></div>
+                    <div class="journal-stat-item">
+                        <span class="journal-stat-label">今日消耗</span>
+                        <span class="journal-stat-val" id="apiLogTodayQuota">¥0.00</span>
+                    </div>
                 </div>
-                <div style="display: flex; flex-direction: column; align-items: center;">
-                    <span style="font-size: 12px; color: #888;">今日消耗 (Tokens)</span>
-                    <span id="apiLogTodayQuota" style="font-size: 16px; font-weight: bold; color: #ff5000;">0</span>
+                <div class="journal-sec-title">
+                    <div class="journal-sec-title-left">
+                        <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                        消费明细
+                    </div>
+                    <span class="journal-sec-sub">「Logs」////</span>
+                </div>
+                <div class="journal-list" id="apiLogList">
+                    <!-- 动态渲染 -->
                 </div>
             </div>
-            <div style="font-size: 12px; font-weight: bold; color: #555; margin-bottom: 8px; width: 100%;">消费明细</div>
-            <div id="apiLogList" style="flex: 1; overflow-y: auto; width: 100%; display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
-                <!-- 动态渲染 -->
-            </div>
-            <div style="width: 100%; background: #111; color: #fff; text-align: center; padding: 12px 0; border-radius: 12px; font-size: 15px; font-weight: bold; cursor: pointer;" onclick="document.getElementById('apiLogModalOverlay').classList.remove('show')">关闭</div>
         </div>
     </div>
 
-    <!-- Token 计算弹窗 -->
-    <div class="preset-modal-overlay" id="tokenCalcModalOverlay" style="z-index: 10000;">
-        <div class="preset-modal" style="width: 300px; max-height: 80vh; display: flex; flex-direction: column; border-radius: 20px; background: #fff; padding: 20px 15px;">
-            <div style="font-size: 16px; font-weight: bold; color: #111; text-align: center; margin-bottom: 15px;">Token 占用分析</div>
-            <div id="tokenCalcList" style="flex: 1; overflow-y: auto; width: 100%; display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px;">
-                <!-- 动态渲染 -->
+    <!-- Token 计算弹窗 (手账风) -->
+    <div class="preset-modal-overlay" id="tokenCalcModalOverlay" style="z-index: 10000;" onclick="this.classList.remove('show')">
+        <div class="journal-modal" onclick="event.stopPropagation()">
+            <div class="journal-header">
+                <div class="journal-title">Token 占用分析</div>
+                <div class="journal-close" onclick="document.getElementById('tokenCalcModalOverlay').classList.remove('show')">BACK</div>
             </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 10px 0; border-top: 1px solid #eee; margin-bottom: 15px;">
-                <span style="font-size: 14px; font-weight: bold; color: #111;">总计预估</span>
-                <span id="tokenCalcTotal" style="font-size: 16px; font-weight: bold; color: #ff5000;">0 Tokens</span>
+            <div class="journal-content">
+                <div class="journal-stat-box dark">
+                    <div class="journal-stat-item">
+                        <span class="journal-stat-label">当前上下文总计</span>
+                        <span class="journal-stat-val" id="tokenCalcTotal">0 <span style="font-size:14px; color:#aaa;">t</span></span>
+                    </div>
+                </div>
+                <div class="journal-sec-title">
+                    <div class="journal-sec-title-left">
+                        <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                        占用明细
+                    </div>
+                    <span class="journal-sec-sub">「Tokens」////</span>
+                </div>
+                <div style="display: flex; flex-direction: column; padding: 0 5px;" id="tokenCalcList">
+                    <!-- 动态渲染 -->
+                </div>
+                <div style="font-size: 11px; color: #aaa; text-align: center; margin-top: 10px; font-family: -apple-system, sans-serif;">
+                    * 聊天记录占用会随对话轮数动态变化<br>可在设置中调整上下文限制
+                </div>
             </div>
-            <div style="width: 100%; background: #111; color: #fff; text-align: center; padding: 12px 0; border-radius: 12px; font-size: 15px; font-weight: bold; cursor: pointer;" onclick="document.getElementById('tokenCalcModalOverlay').classList.remove('show')">关闭</div>
         </div>
     </div>
 
