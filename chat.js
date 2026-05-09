@@ -5064,6 +5064,70 @@ function openChatSettingsPanel() {
         document.getElementById('csUserAvatar').style.backgroundImage = "url('" + (me ? me.avatarUrl : '') + "')";
         document.getElementById('csUserNameLabel').innerText = me ? me.netName : '我';
 
+        // --- 新增：修复 persona 报错，获取当前用户人设 ---
+        let accounts = JSON.parse(ChatDB.getItem('chat_accounts') || '[]');
+        const account = accounts.find(a => a.id === currentLoginId);
+        let personas = JSON.parse(ChatDB.getItem('chat_personas') || '[]');
+        const persona = personas.find(p => p.id === (account ? account.personaId : null));
+
+        // --- 新增：动态计算并显示 API 消耗和 Token 占用 ---
+        // 1. 异步获取 API 真实剩余额度
+        const apiLogBtn = document.getElementById('csApiLogBtn');
+        if (apiLogBtn) apiLogBtn.innerText = `查询中...`;
+        const apiConfig = JSON.parse(ChatDB.getItem('current_api_config') || '{}');
+        if (apiConfig.url && apiConfig.key) {
+            const baseUrl = apiConfig.url.replace(/\/v1\/?$/, '').replace(/\/$/, '');
+            fetch(`${baseUrl}/dashboard/billing/subscription`, {
+                headers: { 'Authorization': `Bearer ${apiConfig.key}` }
+            }).then(res => res.json()).then(data => {
+                let remainText = "获取失败";
+                if (data.hard_limit_usd !== undefined) {
+                    let remain = data.hard_limit_usd - (data.total_usage || 0);
+                    if (remain > 10000) remain = remain / 500000; // 兼容 OneAPI 的 50万比例
+                    remainText = `$${remain.toFixed(4)}`;
+                } else if (data.total_available !== undefined) {
+                    let remain = data.total_available;
+                    if (remain > 10000) remain = remain / 500000; // 兼容 OneAPI 的 50万比例
+                    remainText = `$${remain.toFixed(4)}`;
+                } else if (data.data && data.data.quota !== undefined) {
+                    let remain = data.data.quota;
+                    if (remain > 10000) remain = remain / 500000; // 兼容 OneAPI 的 50万比例
+                    remainText = `$${remain.toFixed(4)}`;
+                }
+                if (apiLogBtn) apiLogBtn.innerText = `剩余: ${remainText}`;
+            }).catch(() => {
+                if (apiLogBtn) apiLogBtn.innerText = `获取失败`;
+            });
+        } else {
+            if (apiLogBtn) apiLogBtn.innerText = `未配置 API`;
+        }
+
+        // 2. 计算 Token 占用
+        let totalTokens = 0;
+        let userPersonaText = persona ? (persona.persona || '') : '';
+        totalTokens += userPersonaText.length;
+        let charText = (char ? char.description || '' : '') + (char ? char.firstMessage || '' : '') + (char ? char.scenario || '' : '');
+        totalTokens += charText.length;
+        if (char && char.wbEntries && char.wbEntries.length > 0) {
+            let wbData = JSON.parse(ChatDB.getItem('worldbook_data')) || { entries: [] };
+            let entries = wbData.entries.filter(e => char.wbEntries.includes(e.id));
+            entries.forEach(e => { totalTokens += (e.content || '').length; });
+        }
+        const currentPersonaId = persona ? persona.id : currentLoginId;
+        let memory = JSON.parse(ChatDB.getItem(`char_memory_${currentPersonaId}_${currentChatRoomCharId}`) || '{}');
+        if (memory.core) memory.core.forEach(m => totalTokens += (m.content || '').length);
+        if (memory.summary) memory.summary.forEach(m => totalTokens += (m.content || '').length);
+        if (memory.note) memory.note.forEach(m => totalTokens += (m.content || '').length);
+        const boundEmojiGroups = JSON.parse(ChatDB.getItem(`chat_char_emoji_groups_${currentChatRoomCharId}`) || '[]');
+        if (boundEmojiGroups.length > 0) {
+            let allEmojis = JSON.parse(ChatDB.getItem('chat_emojis') || '[]');
+            let charEmojis = allEmojis.filter(e => boundEmojiGroups.includes(e.group));
+            charEmojis.forEach(e => { totalTokens += (e.desc || '').length; });
+        }
+        const tokenCalcBtn = document.getElementById('csTokenCalcBtn');
+        if (tokenCalcBtn) tokenCalcBtn.innerText = `${totalTokens} Tokens`;
+        // --------------------------------------------------
+
         // 渲染头像间的互动标识
         const badgeContainer = document.getElementById('csInteractionBadge');
         const wornHtml = getWornBadgeHtml(currentChatRoomCharId);
@@ -6722,6 +6786,27 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
 
         if (response.ok) {
             const data = await response.json();
+            
+            // --- 新增：记录 API 真实 Token 消耗日志 ---
+            try {
+                let usage = data.usage || {};
+                let totalTokens = usage.total_tokens || 0;
+                let logs = JSON.parse(ChatDB.getItem('api_logs') || '[]');
+                logs.push({
+                    id: Date.now().toString(),
+                    timestamp: Date.now(),
+                    model: apiConfig.model,
+                    tokens: totalTokens,
+                    type: 'chat'
+                });
+                // 限制日志数量，保留最近 500 条防止爆内存
+                if (logs.length > 500) logs = logs.slice(-500);
+                ChatDB.setItem('api_logs', JSON.stringify(logs));
+            } catch (logErr) {
+                console.error("记录 API 日志失败:", logErr);
+            }
+            // ------------------------------------------
+
             let replyRaw = data.choices[0].message.content.trim();
             replyRaw = replyRaw.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
 
@@ -10690,6 +10775,18 @@ async function generateCharSocialChatAPI() {
                             
                             let memberNpc = npcs.find(n => n.name === memberName);
                             if (!memberNpc) {
+                                const npcAvatars = [
+                                    'https://i.postimg.cc/8cVtnWVq/IMG-20260509-054541.jpg',
+                                    'https://i.postimg.cc/qB8m6m8F/IMG-20260509-054512.jpg',
+                                    'https://i.postimg.cc/8khyfyh0/IMG-20260509-054523.jpg',
+                                    'https://i.postimg.cc/44z8H8zL/IMG-20260509-054532.jpg',
+                                    'https://i.postimg.cc/FFjPkPjD/IMG-20260509-054551.jpg',
+                                    'https://i.postimg.cc/DfqC4Cqx/IMG-20260509-054600.jpg',
+                                    'https://i.postimg.cc/2j4HLH47/IMG-20260509-054609.jpg',
+                                    'https://i.postimg.cc/gcvMLMvK/IMG-20260509-054628.jpg',
+                                    'https://i.postimg.cc/66dH4HdL/IMG-20260509-054640.jpg',
+                                    'https://i.postimg.cc/44z8H8zv/IMG-20260509-054649.jpg'
+                                ];
                                 memberNpc = {
                                     id: 'npc_' + Date.now() + Math.random().toString(36).substr(2, 5),
                                     name: memberName,
@@ -10699,7 +10796,7 @@ async function generateCharSocialChatAPI() {
                                     group: 'NPC',
                                     isNPC: true,
                                     isGroup: false,
-                                    avatarUrl: typeof window.getRandomNpcAvatar === 'function' ? window.getRandomNpcAvatar() : ''
+                                    avatarUrl: npcAvatars[Math.floor(Math.random() * npcAvatars.length)]
                                 };
                                 npcs.push(memberNpc);
                             }
@@ -10842,5 +10939,133 @@ ${customPrompt}
     } catch (e) {
         console.error("[记忆系统] 自动总结请求失败:", e);
     }
+}
+
+// ==========================================
+// API 日志与 Token 计算逻辑
+// ==========================================
+function openApiLogModal() {
+    const listEl = document.getElementById('apiLogList');
+    listEl.innerHTML = '';
+    
+    let logs = JSON.parse(ChatDB.getItem('api_logs') || '[]');
+    
+    // 过滤今天的日志
+    const today = new Date().toDateString();
+    let todayLogs = logs.filter(log => new Date(log.timestamp).toDateString() === today);
+    
+    let todayCount = todayLogs.length;
+    // 累加真实的 Token 消耗
+    let todayTokens = todayLogs.reduce((sum, log) => sum + (parseInt(log.tokens) || 0), 0);
+    
+    document.getElementById('apiLogTodayCount').innerText = `${todayCount} 次`;
+    document.getElementById('apiLogTodayQuota').innerText = `${todayTokens}`;
+    
+    if (todayLogs.length === 0) {
+        listEl.innerHTML = '<div style="text-align: center; color: #aaa; font-size: 12px; padding: 20px 0;">今日暂无调用记录</div>';
+    } else {
+        todayLogs.slice().reverse().forEach(log => {
+            const date = new Date(log.timestamp);
+            const timeStr = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
+            
+            const item = document.createElement('div');
+            item.style.cssText = 'background: #f9f9f9; border-radius: 8px; padding: 10px; border: 1px solid #eee; display: flex; flex-direction: column; gap: 4px;';
+            
+            // 动态判断计费模式：如果有 token 返回就是按量，否则就是按次
+            const isTokenBilling = log.tokens > 0;
+            const billingMode = isTokenBilling ? '按量 (Tokens)' : '按次';
+            const costDisplay = isTokenBilling ? `${log.tokens} t` : '1 次';
+
+            item.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 12px; font-weight: bold; color: #333;">${log.model || 'API 调用'}</span>
+                    <span style="font-size: 11px; color: #888;">${timeStr}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                    <span style="font-size: 12px; color: #666;">计费模式: <span style="color: #ff5000; font-weight: bold;">${billingMode}</span></span>
+                    <span style="font-size: 12px; color: #666;">消耗: ${costDisplay}</span>
+                </div>
+            `;
+            listEl.appendChild(item);
+        });
+    }
+    
+    document.getElementById('apiLogModalOverlay').classList.add('show');
+}
+
+function openTokenCalcModal() {
+    const currentLoginId = ChatDB.getItem('current_login_account');
+    if (!currentLoginId || !currentChatRoomCharId) return alert('请先进入聊天室！');
+
+    let allEntities = getAllEntities();
+    const char = allEntities.find(c => c.id === currentChatRoomCharId);
+    if (!char) return;
+
+    let accounts = JSON.parse(ChatDB.getItem('chat_accounts') || '[]');
+    const account = accounts.find(a => a.id === currentLoginId);
+    let personas = JSON.parse(ChatDB.getItem('chat_personas') || '[]');
+    const persona = personas.find(p => p.id === (account ? account.personaId : null));
+
+    let tokenDetails = [];
+    let totalTokens = 0;
+
+    // 1. 用户人设
+    let userPersonaText = persona ? (persona.persona || '') : '';
+    let userTokens = userPersonaText.length;
+    tokenDetails.push({ name: '用户人设 (Persona)', tokens: userTokens });
+    totalTokens += userTokens;
+
+    // 2. 角色设定
+    let charText = (char.description || '') + (char.firstMessage || '') + (char.scenario || '');
+    let charTokens = charText.length;
+    tokenDetails.push({ name: '角色设定 (Character)', tokens: charTokens });
+    totalTokens += charTokens;
+
+    // 3. 世界书
+    let wbTokens = 0;
+    if (char.wbEntries && char.wbEntries.length > 0) {
+        let wbData = JSON.parse(ChatDB.getItem('worldbook_data')) || { entries: [] };
+        let entries = wbData.entries.filter(e => char.wbEntries.includes(e.id));
+        entries.forEach(e => { wbTokens += (e.content || '').length; });
+    }
+    tokenDetails.push({ name: '世界书 (Worldbook)', tokens: wbTokens });
+    totalTokens += wbTokens;
+
+    // 4. 记忆库
+    let memTokens = 0;
+    const currentPersonaId = persona ? persona.id : currentLoginId;
+    let memory = JSON.parse(ChatDB.getItem(`char_memory_${currentPersonaId}_${currentChatRoomCharId}`) || '{}');
+    if (memory.core) memory.core.forEach(m => memTokens += (m.content || '').length);
+    if (memory.summary) memory.summary.forEach(m => memTokens += (m.content || '').length);
+    if (memory.note) memory.note.forEach(m => memTokens += (m.content || '').length);
+    tokenDetails.push({ name: '记忆库 (Memory)', tokens: memTokens });
+    totalTokens += memTokens;
+
+    // 5. 表情包
+    let emojiTokens = 0;
+    const boundEmojiGroups = JSON.parse(ChatDB.getItem(`chat_char_emoji_groups_${currentChatRoomCharId}`) || '[]');
+    if (boundEmojiGroups.length > 0) {
+        let allEmojis = JSON.parse(ChatDB.getItem('chat_emojis') || '[]');
+        let charEmojis = allEmojis.filter(e => boundEmojiGroups.includes(e.group));
+        charEmojis.forEach(e => { emojiTokens += (e.desc || '').length; });
+    }
+    tokenDetails.push({ name: '表情包描述 (Emojis)', tokens: emojiTokens });
+    totalTokens += emojiTokens;
+
+    // 渲染列表
+    const listEl = document.getElementById('tokenCalcList');
+    listEl.innerHTML = '';
+    tokenDetails.forEach(item => {
+        const div = document.createElement('div');
+        div.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f9f9f9; border-radius: 8px; border: 1px solid #eee;';
+        div.innerHTML = `
+            <span style="font-size: 13px; color: #333; font-weight: bold;">${item.name}</span>
+            <span style="font-size: 13px; color: #666;">${item.tokens} t</span>
+        `;
+        listEl.appendChild(div);
+    });
+
+    document.getElementById('tokenCalcTotal').innerText = `${totalTokens} Tokens`;
+    document.getElementById('tokenCalcModalOverlay').classList.add('show');
 }
 

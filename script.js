@@ -2175,7 +2175,7 @@ function captureFullState() {
         apps: {},
         texts: Array.from(document.querySelectorAll('[contenteditable="true"]')).map(el => el.innerText)
     };
-    const appIds = ['app1', 'app2', 'app3', 'app4', 'app-dock1', 'app-dock-music', 'app-mall', 'app-dock-call', 'app-dock-sms', 'app-weibo', 'app-alipay'];
+    const appIds = ['app1', 'app2', 'app3', 'app4', 'app-dock1', 'app-dock-music', 'app-mall', 'app-dock-call', 'app-dock-sms', 'app-weibo', 'app-alipay', 'app-day'];
     appIds.forEach(appId => {
         const iconEl = document.getElementById(`icon-${appId}`);
         const nameEl = document.getElementById(`name-${appId}`);
@@ -2247,7 +2247,7 @@ function applyFullState(state) {
         });
     }
     
-    const appIds = ['app1', 'app2', 'app3', 'app4', 'app-dock1', 'app-dock-music', 'app-mall', 'app-dock-call', 'app-dock-sms', 'app-weibo', 'app-alipay'];
+    const appIds = ['app1', 'app2', 'app3', 'app4', 'app-dock1', 'app-dock-music', 'app-mall', 'app-dock-call', 'app-dock-sms', 'app-weibo', 'app-alipay', 'app-day'];
     appIds.forEach(appId => {
         const appData = state.apps[appId];
         if (appData) {
@@ -2362,7 +2362,8 @@ async function confirmResetDefault() {
             { id: 'app-dock-call', name: 'Call' },
             { id: 'app-dock-sms', name: 'message' },
             { id: 'app-weibo', name: 'Weibo' },
-            { id: 'app-alipay', name: 'Alipay' }
+            { id: 'app-alipay', name: 'Alipay' },
+            { id: 'app-day', name: 'Day' }
         ];
 
         defaultApps.forEach(app => {
