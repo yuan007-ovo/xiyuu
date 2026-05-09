@@ -191,6 +191,10 @@ function renderDayData(view) {
     let userRecipes = JSON.parse(ChatDB.getItem(`day_recipe_user_${userId}`) || '[]').filter(r => r.date === dateStr);
     let charSchedules = JSON.parse(ChatDB.getItem(`day_schedule_char_${charId}`) || '[]').filter(s => s.date === dateStr);
     let charRecipes = JSON.parse(ChatDB.getItem(`day_recipe_char_${charId}`) || '[]').filter(r => r.date === dateStr);
+    
+    // 获取双方的日记
+    let userDiaries = JSON.parse(ChatDB.getItem(`day_diary_user_${userId}`) || '[]').filter(d => d.date === dateStr);
+    let charDiaries = JSON.parse(ChatDB.getItem(`day_diary_char_${charId}`) || '[]').filter(d => d.date === dateStr);
 
     let timelineEvents = [];
 
@@ -198,20 +202,39 @@ function renderDayData(view) {
     const svgSchedule = `<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>`;
     const svgRecipe = `<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>`;
     const svgChat = `<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>`;
+    const svgDiary = `<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>`;
 
     // 组装 User 事件 (左侧)
     userSchedules.forEach(s => timelineEvents.push({ time: s.timeStart, type: 'schedule', side: 'left', data: s, icon: svgSchedule }));
     userRecipes.forEach(r => {
         let time = r.type === '早餐' ? '08:00' : (r.type === '午餐' ? '12:00' : (r.type === '晚餐' ? '19:00' : '15:00'));
-        timelineEvents.push({ time: time, type: 'recipe', side: 'left', data: r, icon: svgRecipe });
+        let iconHtml = svgRecipe;
+        if (r.emoji) {
+            if (r.emoji.startsWith('data:image') || r.emoji.startsWith('http')) {
+                iconHtml = `<div style="width: 100%; height: 100%; border-radius: 50%; background-image: url('${r.emoji}'); background-size: cover; background-position: center;"></div>`;
+            } else {
+                iconHtml = `<div style="font-size: 14px;">${r.emoji}</div>`;
+            }
+        }
+        timelineEvents.push({ time: time, type: 'recipe', side: 'left', data: r, icon: iconHtml });
     });
+    userDiaries.forEach(d => timelineEvents.push({ time: '22:00', type: 'diary', side: 'left', data: { title: '手账日记', desc: '点击查看详情' }, icon: svgDiary }));
 
     // 组装 Char 事件 (右侧)
     charSchedules.forEach(s => timelineEvents.push({ time: s.timeStart, type: 'schedule', side: 'right', data: s, icon: svgSchedule }));
     charRecipes.forEach(r => {
         let time = r.type === '早餐' ? '08:00' : (r.type === '午餐' ? '12:00' : (r.type === '晚餐' ? '19:00' : '15:00'));
-        timelineEvents.push({ time: time, type: 'recipe', side: 'right', data: r, icon: svgRecipe });
+        let iconHtml = svgRecipe;
+        if (r.emoji) {
+            if (r.emoji.startsWith('data:image') || r.emoji.startsWith('http')) {
+                iconHtml = `<div style="width: 100%; height: 100%; border-radius: 50%; background-image: url('${r.emoji}'); background-size: cover; background-position: center;"></div>`;
+            } else {
+                iconHtml = `<div style="font-size: 14px;">${r.emoji}</div>`;
+            }
+        }
+        timelineEvents.push({ time: time, type: 'recipe', side: 'right', data: r, icon: iconHtml });
     });
+    charDiaries.forEach(d => timelineEvents.push({ time: '22:00', type: 'diary', side: 'right', data: { title: '手账日记', desc: '点击查看详情' }, icon: svgDiary }));
 
     // 聚合聊天记录 (中间节点) - 仅当选中的是今天时统计
     const todayStr = getDayDateStr(new Date());
@@ -243,12 +266,26 @@ function renderDayData(view) {
             let clickAction = '';
             if (ev.type === 'schedule') clickAction = `onclick="openDayScheduleModal('${ev.data.id}')"`;
             if (ev.type === 'recipe') clickAction = `onclick="openDayRecipeModal('${ev.data.id}')"`;
+            if (ev.type === 'diary') clickAction = `onclick="openDayDiaryModal()"`;
 
             let reviewHtml = '';
             let actionBtnHtml = '';
             
             if (ev.type === 'recipe') {
-                if (ev.data.review) {
+                let allEntities = getAllEntities(); // 获取所有实体用于匹配名字
+                
+                if (ev.data.reviews && ev.data.reviews.length > 0) {
+                    reviewHtml = ev.data.reviews.map(rev => {
+                        const reviewerEntity = allEntities.find(e => e.id === rev.reviewer);
+                        const reviewerName = reviewerEntity ? (reviewerEntity.netName || reviewerEntity.name) : 'Ta';
+                        return `
+                        <div class="day-recipe-review-box" style="margin-top: 8px; padding: 8px; background: #f9f9f9; border-radius: 8px; border-left: 2px solid #111; font-size: 11px; color: #555;">
+                            <div style="font-weight: bold; color: #111; margin-bottom: 2px;">${reviewerName} 的批改：</div>
+                            <div>${rev.text}</div>
+                        </div>
+                        `;
+                    }).join('');
+                } else if (ev.data.review) {
                     const reviewerName = ev.side === 'left' ? dayAppData.char.title : dayAppData.user.title;
                     reviewHtml = `
                         <div class="day-recipe-review-box" style="margin-top: 8px; padding: 8px; background: #f9f9f9; border-radius: 8px; border-left: 2px solid #111; font-size: 11px; color: #555;">
@@ -258,9 +295,8 @@ function renderDayData(view) {
                     `;
                 }
                 
-                if ((currentDayView === 'user' && ev.side === 'right') || (currentDayView === 'char' && ev.side === 'left')) {
-                    actionBtnHtml = `<div class="day-recipe-action-btn" onclick="event.stopPropagation(); reviewDayRecipe('${ev.data.id}', '${ev.side}')" style="display: inline-block; margin-top: 8px; font-size: 10px; color: #007aff; background: #e5f0ff; padding: 4px 8px; border-radius: 8px;">${ev.data.review ? '修改批改' : '批改 Ta'}</div>`;
-                }
+                // 允许双方随时追加批改
+                actionBtnHtml = `<div class="day-recipe-action-btn" onclick="event.stopPropagation(); reviewDayRecipe('${ev.data.id}', '${ev.side}')" style="display: inline-block; margin-top: 8px; font-size: 10px; color: #007aff; background: #e5f0ff; padding: 4px 8px; border-radius: 8px;">追加批改</div>`;
             }
 
             return `
@@ -477,6 +513,11 @@ function toggleDayScheduleDone(id) {
 function openDayRecipeModal(id = null) {
     closeDayModal('dayCenterModal');
     const delBtn = document.getElementById('dayRecDelBtn');
+    const visualBox = document.getElementById('dayRecVisualBox');
+    const emojiInput = document.getElementById('dayRecEmoji');
+    const reviewsSection = document.getElementById('dayRecReviewsSection');
+    const reviewList = document.getElementById('dayRecReviewList');
+    
     if (id) {
         const targetId = getDayTargetId();
         let recipes = JSON.parse(ChatDB.getItem(`day_recipe_${currentDayView}_${targetId}`) || '[]');
@@ -486,7 +527,52 @@ function openDayRecipeModal(id = null) {
             document.getElementById('dayRecType').value = item.type;
             document.getElementById('dayRecName').value = item.name;
             document.getElementById('dayRecCal').value = item.cal;
-            document.getElementById('dayRecEmoji').value = item.emoji;
+            emojiInput.value = item.emoji || '';
+            
+            // 渲染视觉区
+            if (item.emoji) {
+                if (item.emoji.startsWith('data:image') || item.emoji.startsWith('http')) {
+                    visualBox.innerHTML = `<img src="${item.emoji}">`;
+                } else {
+                    visualBox.innerHTML = `<div class="emoji-text">${item.emoji}</div>`;
+                }
+                visualBox.style.borderStyle = 'solid';
+                visualBox.style.borderColor = '#eee';
+            } else {
+                visualBox.innerHTML = `<div class="placeholder" id="dayRecVisualPlaceholder">点击添加<br>图片 / Emoji</div>`;
+                visualBox.style.borderStyle = 'dashed';
+                visualBox.style.borderColor = '#d0d0d0';
+            }
+
+            // 渲染批注区
+            let allEntities = getAllEntities();
+            if (item.reviews && item.reviews.length > 0) {
+                reviewsSection.style.display = 'block';
+                reviewList.innerHTML = item.reviews.map(rev => {
+                    const reviewerEntity = allEntities.find(e => e.id === rev.reviewer);
+                    const reviewerName = reviewerEntity ? (reviewerEntity.netName || reviewerEntity.name) : 'Ta';
+                    const isUser = reviewerEntity && reviewerEntity.isAccount;
+                    return `
+                        <div class="review-item ${isUser ? 'user' : ''}">
+                            <div class="reviewer-name">${reviewerName} 的批注：</div>
+                            <div class="review-text">${rev.text}</div>
+                        </div>
+                    `;
+                }).join('');
+            } else if (item.review) {
+                // 兼容旧版单条批注
+                reviewsSection.style.display = 'block';
+                reviewList.innerHTML = `
+                    <div class="review-item">
+                        <div class="reviewer-name">批注：</div>
+                        <div class="review-text">${item.review}</div>
+                    </div>
+                `;
+            } else {
+                reviewsSection.style.display = 'none';
+                reviewList.innerHTML = '';
+            }
+
             if (delBtn) delBtn.style.display = 'flex';
         }
     } else {
@@ -494,10 +580,23 @@ function openDayRecipeModal(id = null) {
         document.getElementById('dayRecType').value = '早餐';
         document.getElementById('dayRecName').value = '';
         document.getElementById('dayRecCal').value = '';
-        document.getElementById('dayRecEmoji').value = '';
+        emojiInput.value = '';
+        
+        visualBox.innerHTML = `<div class="placeholder" id="dayRecVisualPlaceholder">点击添加<br>图片 / Emoji</div>`;
+        visualBox.style.borderStyle = 'dashed';
+        visualBox.style.borderColor = '#d0d0d0';
+        
+        reviewsSection.style.display = 'none';
+        reviewList.innerHTML = '';
+
         if (delBtn) delBtn.style.display = 'none';
     }
-    document.getElementById('dayRecipeModal').classList.add('show');
+    
+    // 触发悬挂动画
+    const modal = document.getElementById('dayRecipeModal');
+    modal.classList.remove('show');
+    void modal.offsetWidth; // 触发重绘
+    modal.classList.add('show');
 }
 
 function saveDayRecipe() {
@@ -519,7 +618,7 @@ function saveDayRecipe() {
             recipes[idx].type = type;
             recipes[idx].name = name;
             recipes[idx].cal = cal || 0;
-            recipes[idx].emoji = emoji || '🍽️';
+            recipes[idx].emoji = emoji;
         }
     } else {
         recipes.push({
@@ -528,7 +627,7 @@ function saveDayRecipe() {
             type: type,
             name: name,
             cal: cal || 0,
-            emoji: emoji || '🍽️'
+            emoji: emoji
         });
     }
 
@@ -622,40 +721,519 @@ function saveDayPeriod() {
     alert('经期记录成功！');
 }
 
-// --- 食谱批改逻辑 ---
-function reviewDayRecipe(recipeId, side) {
-    const isReviewingUser = side === 'left';
-    const targetType = isReviewingUser ? 'user' : 'char';
+// --- 手账日记逻辑 ---
+let dayDiaryCurrentMode = 'pen';
+let dayDiaryCurrentColor = '#2c2c2e';
+let dayDiaryIsReplying = false;
+
+// --- 字体设置逻辑 ---
+function openDayDiaryFontModal() {
+    document.getElementById('dayDiaryUserFontInput').value = ChatDB.getItem('day_diary_user_font') || '';
+    document.getElementById('dayDiaryCharFontInput').value = ChatDB.getItem('day_diary_char_font') || '';
+    document.getElementById('dayDiaryFontModalOverlay').classList.add('show');
+}
+
+function saveDayDiaryFont() {
+    const userFont = document.getElementById('dayDiaryUserFontInput').value.trim();
+    const charFont = document.getElementById('dayDiaryCharFontInput').value.trim();
+    ChatDB.setItem('day_diary_user_font', userFont);
+    ChatDB.setItem('day_diary_char_font', charFont);
+    applyDayDiaryFonts();
+    closeDayModal('dayDiaryFontModalOverlay');
+    showToast('字体设置已保存', 'success', 1500);
+}
+
+function applyDayDiaryFonts() {
+    const userFont = ChatDB.getItem('day_diary_user_font');
+    const charFont = ChatDB.getItem('day_diary_char_font');
+    const editor = document.getElementById('dayDiaryEditor');
+    
+    if (userFont) {
+        // 动态加载字体
+        const fontName = 'CustomUserFont_' + Date.now();
+        const newStyle = document.createElement('style');
+        newStyle.appendChild(document.createTextNode(`
+            @font-face { font-family: '${fontName}'; src: url('${userFont}'); }
+            #dayDiaryEditor { font-family: '${fontName}', sans-serif !important; }
+        `));
+        document.head.appendChild(newStyle);
+    } else {
+        editor.style.fontFamily = ''; // 恢复默认
+    }
+
+    if (charFont) {
+        const fontName = 'CustomCharFont_' + Date.now();
+        const newStyle = document.createElement('style');
+        newStyle.appendChild(document.createTextNode(`
+            @font-face { font-family: '${fontName}'; src: url('${charFont}'); }
+            .day-diary-char-text, .day-diary-sticky-text { font-family: '${fontName}', cursive, sans-serif !important; }
+        `));
+        document.head.appendChild(newStyle);
+    }
+}
+
+function openDayDiaryModal() {
+    closeDayModal('dayCenterModal');
+    const targetId = getDayTargetId();
+    const dateStr = getDayDateStr(daySelectedDate);
+    
+    // 动态修改魔法棒按钮的提示
+    const magicBtn = document.querySelector('.day-diary-icon-btn.magic-btn');
+    if (magicBtn) {
+        if (currentDayView === 'user') {
+            magicBtn.title = "让 Ta 批改回复";
+        } else {
+            magicBtn.title = "AI 生成 Ta 的日记";
+        }
+    }
+
+    // 读取当天的日记内容
+    let diaries = JSON.parse(ChatDB.getItem(`day_diary_${currentDayView}_${targetId}`) || '[]');
+    let todayDiary = diaries.find(d => d.date === dateStr);
+    
+    const editor = document.getElementById('dayDiaryEditor');
+    editor.innerHTML = todayDiary ? todayDiary.content : '';
+    
+    applyDayDiaryFonts(); // 应用自定义字体
+    document.getElementById('dayDiaryPage').classList.add('show');
+}
+
+function closeDayDiaryModal() {
+    saveDayDiary(); // 关闭时自动保存
+    document.getElementById('dayDiaryPage').classList.remove('show');
+}
+
+function saveDayDiary() {
+    const targetId = getDayTargetId();
+    const dateStr = getDayDateStr(daySelectedDate);
+    const editor = document.getElementById('dayDiaryEditor');
+    const content = editor.innerHTML;
+
+    let diaries = JSON.parse(ChatDB.getItem(`day_diary_${currentDayView}_${targetId}`) || '[]');
+    const idx = diaries.findIndex(d => d.date === dateStr);
+    
+    // 如果内容为空且之前有记录，则删除；否则保存
+    if (!content.trim() || content === '<br>') {
+        if (idx !== -1) diaries.splice(idx, 1);
+    } else {
+        if (idx !== -1) {
+            diaries[idx].content = content;
+        } else {
+            diaries.push({ id: Date.now().toString(), date: dateStr, content: content });
+        }
+    }
+
+    ChatDB.setItem(`day_diary_${currentDayView}_${targetId}`, JSON.stringify(diaries));
+    renderDayData(currentDayView); // 刷新时间线
+    showToast('日记已保存', 'success', 1500);
+}
+
+function selectDayDiaryTool(element, mode) {
+    document.querySelectorAll('.day-diary-tool-item').forEach(p => p.classList.remove('active'));
+    element.classList.add('active');
+    dayDiaryCurrentMode = mode;
+
+    const editor = document.getElementById('dayDiaryEditor');
+    editor.focus();
+
+    if (mode === 'eraser') {
+        document.execCommand('removeFormat', false, null);
+        document.execCommand('foreColor', false, '#2c2c2e');
+        document.execCommand('hiliteColor', false, 'transparent');
+    } else if (mode === 'highlight') {
+        document.execCommand('styleWithCSS', false, true);
+        document.execCommand('hiliteColor', false, dayDiaryCurrentColor);
+    } else {
+        document.execCommand('styleWithCSS', false, true);
+        document.execCommand('foreColor', false, dayDiaryCurrentColor);
+    }
+}
+
+function changeDayDiaryColor(element, colorHex) {
+    document.querySelectorAll('.day-diary-color-dot').forEach(c => c.classList.remove('active'));
+    element.classList.add('active');
+    dayDiaryCurrentColor = colorHex;
+
+    const editor = document.getElementById('dayDiaryEditor');
+    editor.focus();
+
+    if (dayDiaryCurrentMode === 'pen') {
+        document.execCommand('styleWithCSS', false, true);
+        document.execCommand('foreColor', false, colorHex);
+        editor.style.caretColor = colorHex;
+    } else if (dayDiaryCurrentMode === 'highlight') {
+        document.execCommand('styleWithCSS', false, true);
+        document.execCommand('hiliteColor', false, colorHex);
+    }
+}
+
+// 获取所有文本节点用于随机批注
+function getDiaryTextNodes(node) {
+    let all = [];
+    for (let child = node.firstChild; child; child = child.nextSibling) {
+        if (child.nodeType === 3 && child.nodeValue.trim() !== '') {
+            all.push(child);
+        } else if (child.nodeType === 1 && child.className !== 'day-diary-char-reply-block' && child.className !== 'day-diary-sticky-note') {
+            all = all.concat(getDiaryTextNodes(child));
+        }
+    }
+    return all;
+}
+
+// --- 注入 API 生成逻辑 (双向分流) ---
+async function triggerDayDiaryCharReply() {
+    if (dayDiaryIsReplying) return;
+    dayDiaryIsReplying = true;
+
+    const editor = document.getElementById('dayDiaryEditor');
+    const indicator = document.getElementById('dayDiaryTypingIndicator');
+    
+    editor.scrollTop = editor.scrollHeight;
+    indicator.style.display = 'block';
+
+    const currentLoginId = ChatDB.getItem('current_login_account');
+    const targetCharId = ChatDB.getItem('day_last_char_id') || (typeof currentChatRoomCharId !== 'undefined' && currentChatRoomCharId ? currentChatRoomCharId : 'default');
+    
+    const apiConfig = JSON.parse(ChatDB.getItem('current_api_config') || '{}');
+    if (!apiConfig.url || !apiConfig.key || !apiConfig.model) {
+        indicator.style.display = 'none';
+        dayDiaryIsReplying = false;
+        return alert('请先在设置中配置 API 信息！');
+    }
+
+    let allEntities = getAllEntities();
+    const char = allEntities.find(c => c.id === targetCharId);
+    const diaryContent = editor.innerText || editor.textContent;
+
+    if (currentDayView === 'user') {
+        // ==========================================
+        // 模式 1：User 视角 -> Char 来批改回复
+        // ==========================================
+        indicator.innerText = 'Ta 正在写字... ✏️';
+        
+        const prompt = `你现在扮演角色：${char ? char.name : 'Char'}。
+【你的设定】：${char ? char.description : '无'}
+【User的日记内容】：
+${diaryContent}
+
+请阅读User的日记，并给出一个手账风格的互动回复。
+必须返回严格的 JSON 格式：
+{
+  "text": "你的手写回复内容（简短，有感情）",
+  "sticker": "一个Emoji作为贴纸（如🐶、❤️）",
+  "note": "一张便利贴上的简短留言（如：记得按时吃饭！）",
+  "action": "highlight 或 strike 或 none（代表高亮或涂改User的某句话）",
+  "targetText": "你要高亮或涂改的User日记中的原话（必须是日记中存在的原话，如果action为none则留空）"
+}`;
+
+        try {
+            const response = await fetch(`${apiConfig.url.replace(/\/$/, '')}/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.key}` },
+                body: JSON.stringify({
+                    model: apiConfig.model,
+                    messages: [{ role: 'user', content: prompt }],
+                    temperature: 0.7
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                let replyRaw = data.choices[0].message.content.trim();
+                replyRaw = replyRaw.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
+                const replyData = JSON.parse(replyRaw);
+
+                indicator.style.display = 'none';
+
+                // 1. 高光或涂改
+                if (replyData.action && replyData.action !== 'none' && replyData.targetText) {
+                    const textNodes = getDiaryTextNodes(editor);
+                    for (let node of textNodes) {
+                        if (node.nodeValue.includes(replyData.targetText)) {
+                            const span = document.createElement('span');
+                            if (replyData.action === 'highlight') {
+                                span.style.backgroundColor = '#ffeb3b88';
+                            } else if (replyData.action === 'strike') {
+                                span.style.textDecoration = 'line-through';
+                                span.style.color = '#ff3b30';
+                            }
+                            span.textContent = replyData.targetText;
+                            
+                            const parts = node.nodeValue.split(replyData.targetText);
+                            if (parts.length === 2) {
+                                const parent = node.parentNode;
+                                parent.insertBefore(document.createTextNode(parts[0]), node);
+                                parent.insertBefore(span, node);
+                                parent.insertBefore(document.createTextNode(parts[1]), node);
+                                parent.removeChild(node);
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                // 2. 便利贴
+                if (replyData.note) {
+                    const stickyNote = document.createElement('div');
+                    stickyNote.className = 'day-diary-sticky-note';
+                    stickyNote.contentEditable = "false";
+                    stickyNote.innerHTML = `<div class="day-diary-sticky-text">${replyData.note}</div>`;
+                    editor.appendChild(stickyNote);
+                }
+
+                // 3. 底部手写回复
+                if (replyData.text) {
+                    const replyBlock = document.createElement('div');
+                    replyBlock.className = 'day-diary-char-reply-block';
+                    replyBlock.contentEditable = "false"; 
+                    
+                    const textSpan = document.createElement('span');
+                    textSpan.className = 'day-diary-char-text';
+                    replyBlock.appendChild(textSpan);
+
+                    editor.appendChild(replyBlock);
+                    editor.scrollTop = editor.scrollHeight;
+
+                    let i = 0;
+                    function typeWriter() {
+                        if (i < replyData.text.length) {
+                            textSpan.innerHTML += replyData.text.charAt(i);
+                            i++;
+                            editor.scrollTop = editor.scrollHeight;
+                            setTimeout(typeWriter, 50 + Math.random() * 50);
+                        } else {
+                            if (replyData.sticker) {
+                                const sticker = document.createElement('div');
+                                sticker.className = 'day-diary-sticker';
+                                sticker.innerText = replyData.sticker;
+                                replyBlock.appendChild(sticker);
+                            }
+                            
+                            const newLine = document.createElement('div');
+                            newLine.innerHTML = '<br>';
+                            editor.appendChild(newLine);
+                            
+                            document.execCommand('foreColor', false, '#2c2c2e');
+                            const blackDot = document.querySelector('.day-diary-color-dot.c-black');
+                            if(blackDot) blackDot.click();
+                            const penTool = document.querySelector('.day-diary-tool-item');
+                            if(penTool) penTool.click(); 
+                            
+                            dayDiaryIsReplying = false;
+                            saveDayDiary(); 
+                        }
+                    }
+                    typeWriter();
+                } else {
+                    dayDiaryIsReplying = false;
+                    saveDayDiary();
+                }
+
+            } else {
+                throw new Error('API 请求失败');
+            }
+        } catch (e) {
+            indicator.style.display = 'none';
+            dayDiaryIsReplying = false;
+            alert('生成失败: ' + e.message);
+        }
+
+    } else {
+        // ==========================================
+        // 模式 2：Char 视角 -> AI 自动生成 Char 的日记
+        // ==========================================
+        indicator.innerText = 'Ta 正在构思日记... ✏️';
+        
+        const dateStr = getDayDateStr(daySelectedDate);
+        let charSchedules = JSON.parse(ChatDB.getItem(`day_schedule_char_${targetCharId}`) || '[]').filter(s => s.date === dateStr);
+        let charRecipes = JSON.parse(ChatDB.getItem(`day_recipe_char_${targetCharId}`) || '[]').filter(r => r.date === dateStr);
+        
+        let contextStr = "";
+        if (charSchedules.length > 0) contextStr += `今日日程：${charSchedules.map(s => s.title).join('、')}。\n`;
+        if (charRecipes.length > 0) contextStr += `今日饮食：${charRecipes.map(r => r.name).join('、')}。\n`;
+
+        const prompt = `你现在扮演角色：${char ? char.name : 'Char'}。
+【你的设定】：${char ? char.description : '无'}
+【今日经历】：${contextStr || '今天没什么特别的安排，度过了平凡的一天。'}
+
+请以手账日记的风格，写下你今天的日记。
+要求：
+1. 语气必须完全符合你的人设，使用第一人称。
+2. 结合今日经历，写一些感悟或吐槽。
+3. 必须返回严格的 JSON 格式，将日记内容用 HTML 标签包裹（如 <h1>标题</h1> <ul><li>条目</li></ul> <p>段落</p>）：
+{
+  "html": "<h1>...</h1><ul><li>...</li></ul>"
+}`;
+
+        try {
+            const response = await fetch(`${apiConfig.url.replace(/\/$/, '')}/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.key}` },
+                body: JSON.stringify({
+                    model: apiConfig.model,
+                    messages: [{ role: 'user', content: prompt }],
+                    temperature: 0.8
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                let replyRaw = data.choices[0].message.content.trim();
+                replyRaw = replyRaw.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
+                const replyData = JSON.parse(replyRaw);
+
+                indicator.style.display = 'none';
+
+                if (replyData.html) {
+                    // 如果编辑器原本有内容，追加在后面；如果为空，直接替换
+                    if (diaryContent.trim() === '') {
+                        editor.innerHTML = '';
+                    } else {
+                        editor.innerHTML += '<br><hr style="border:0; border-top:1px dashed #ccc; margin: 20px 0;"><br>';
+                    }
+                    
+                    // 瞬间写入 HTML，因为打字机效果会破坏 HTML 标签结构
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = replyData.html;
+                    
+                    // 给 Char 生成的文字加上专属手写字体样式
+                    tempDiv.className = 'day-diary-char-text';
+                    tempDiv.style.display = 'block';
+                    tempDiv.style.transform = 'none'; // 取消倾斜，方便 User 批改
+                    
+                    editor.appendChild(tempDiv);
+                    
+                    // 恢复光标和画笔
+                    const newLine = document.createElement('div');
+                    newLine.innerHTML = '<br>';
+                    editor.appendChild(newLine);
+                    
+                    document.execCommand('foreColor', false, '#2c2c2e');
+                    const blackDot = document.querySelector('.day-diary-color-dot.c-black');
+                    if(blackDot) blackDot.click();
+                    const penTool = document.querySelector('.day-diary-tool-item');
+                    if(penTool) penTool.click(); 
+                    
+                    dayDiaryIsReplying = false;
+                    saveDayDiary();
+                    showToast('日记生成成功，你可以用画笔批改了！', 'success', 2000);
+                } else {
+                    dayDiaryIsReplying = false;
+                    saveDayDiary();
+                }
+            } else {
+                throw new Error('API 请求失败');
+            }
+        } catch (e) {
+            indicator.style.display = 'none';
+            dayDiaryIsReplying = false;
+            alert('生成失败: ' + e.message);
+        }
+    }
+}
+
+// --- 食谱本地图片与视觉区逻辑 ---
+function triggerDayRecVisualChange() {
+    // 打开自定义的视觉选择弹窗
+    document.getElementById('dayRecEmojiInputModal').value = '';
+    document.getElementById('dayRecVisualSelectModalOverlay').classList.add('show');
+}
+
+function closeDayRecVisualSelectModal() {
+    document.getElementById('dayRecVisualSelectModalOverlay').classList.remove('show');
+}
+
+function saveDayRecVisualSelect() {
+    const emojiVal = document.getElementById('dayRecEmojiInputModal').value.trim();
+    const visualBox = document.getElementById('dayRecVisualBox');
+    
+    if (emojiVal) {
+        visualBox.innerHTML = `<div class="emoji-text">${emojiVal}</div>`;
+        visualBox.style.borderStyle = 'solid';
+        visualBox.style.borderColor = '#eee';
+        document.getElementById('dayRecEmoji').value = emojiVal;
+    }
+    closeDayRecVisualSelectModal();
+}
+
+function handleDayRecImgUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const imgUrl = e.target.result;
+        const visualBox = document.getElementById('dayRecVisualBox');
+        visualBox.innerHTML = `<img src="${imgUrl}">`;
+        visualBox.style.borderStyle = 'solid';
+        visualBox.style.borderColor = '#eee';
+        document.getElementById('dayRecEmoji').value = imgUrl;
+        
+        // 上传成功后自动关闭选择弹窗
+        closeDayRecVisualSelectModal();
+    }
+    reader.readAsDataURL(file);
+    event.target.value = '';
+}
+
+// --- 食谱批改逻辑 (支持追加批改) ---
+function reviewDayRecipe(recipeId, ownerSide) {
+    const isOwnerUser = ownerSide === 'left';
+    const ownerType = isOwnerUser ? 'user' : 'char';
     
     const userId = ChatDB.getItem('day_last_user_id') || ChatDB.getItem('current_login_account') || 'default';
     const charId = ChatDB.getItem('day_last_char_id') || (typeof currentChatRoomCharId !== 'undefined' && currentChatRoomCharId ? currentChatRoomCharId : 'default');
-    const targetId = isReviewingUser ? userId : charId;
+    const ownerId = isOwnerUser ? userId : charId;
 
-    let recipes = JSON.parse(ChatDB.getItem(`day_recipe_${targetType}_${targetId}`) || '[]');
+    let recipes = JSON.parse(ChatDB.getItem(`day_recipe_${ownerType}_${ownerId}`) || '[]');
     const recipeIndex = recipes.findIndex(r => r.id === recipeId);
     
     if (recipeIndex !== -1) {
         const recipe = recipes[recipeIndex];
-        openGlobalPrompt(
-            '批改 Ta 的食谱', 
-            `Ta 吃了：${recipe.name} (${recipe.cal}kcal)\n你想对 Ta 说点什么？`, 
-            '例如：太油腻了，没收零食！', 
-            (reviewText) => {
-                if (reviewText && reviewText.trim() !== '') {
-                    recipes[recipeIndex].review = reviewText.trim();
-                    ChatDB.setItem(`day_recipe_${targetType}_${targetId}`, JSON.stringify(recipes));
-                    renderDayData(currentDayView);
-                    
-                    // 触发 Char 感知，让 Ta 在微信里回应你的批改
-                    if (typeof injectCharPerception === 'function' && targetType === 'char') {
-                        injectCharPerception('review_recipe', `批改了我的食谱[${recipe.name}]，评价是：“${reviewText.trim()}”`, targetId);
-                    }
-                    showToast('批改成功！', 'success', 1500);
-                }
-            },
-            recipe.review || ''
-        );
+        document.getElementById('dayRecipeReviewId').value = recipeId;
+        document.getElementById('dayRecipeReviewOwnerType').value = ownerType;
+        document.getElementById('dayRecipeReviewOwnerId').value = ownerId;
+        document.getElementById('dayRecipeReviewDesc').innerText = `Ta 吃了：${recipe.name} (${recipe.cal}kcal)`;
+        document.getElementById('dayRecipeReviewInput').value = ''; // 清空输入框，准备追加
+        
+        document.getElementById('dayRecipeReviewModalOverlay').classList.add('show');
     }
+}
+
+function confirmDayRecipeReview() {
+    const recipeId = document.getElementById('dayRecipeReviewId').value;
+    const ownerType = document.getElementById('dayRecipeReviewOwnerType').value;
+    const ownerId = document.getElementById('dayRecipeReviewOwnerId').value;
+    const reviewText = document.getElementById('dayRecipeReviewInput').value.trim();
+    
+    if (!reviewText) return alert('请输入批改内容！');
+
+    const currentLoginId = ChatDB.getItem('current_login_account'); // 当前批改人
+
+    let recipes = JSON.parse(ChatDB.getItem(`day_recipe_${ownerType}_${ownerId}`) || '[]');
+    const recipeIndex = recipes.findIndex(r => r.id === recipeId);
+    
+    if (recipeIndex !== -1) {
+        // 兼容旧版单条 review，转换为 reviews 数组
+        if (!recipes[recipeIndex].reviews) {
+            recipes[recipeIndex].reviews = [];
+            if (recipes[recipeIndex].review) {
+                const oldReviewer = ownerType === 'user' ? (ChatDB.getItem('day_last_char_id') || 'default') : (ChatDB.getItem('day_last_user_id') || 'default');
+                recipes[recipeIndex].reviews.push({ reviewer: oldReviewer, text: recipes[recipeIndex].review });
+            }
+        }
+        
+        // 追加新批改
+        recipes[recipeIndex].reviews.push({ reviewer: currentLoginId, text: reviewText });
+        
+        ChatDB.setItem(`day_recipe_${ownerType}_${ownerId}`, JSON.stringify(recipes));
+        renderDayData(currentDayView);
+        
+        if (typeof injectCharPerception === 'function' && ownerType === 'char') {
+            injectCharPerception('review_recipe', `追加批改了我的食谱[${recipes[recipeIndex].name}]，评价是：“${reviewText}”`, ownerId);
+        }
+        showToast('批改成功！', 'success', 1500);
+    }
+    closeDayModal('dayRecipeReviewModalOverlay');
 }
 
 // ==========================================
@@ -761,7 +1339,10 @@ async function generateCharDayAPI() {
     
     let userContext = `【User 今天的安排】\n`;
     userSchedules.forEach(s => userContext += `- ${s.timeStart}~${s.timeEnd}: ${s.title} (${s.desc})\n`);
-    userRecipes.forEach(r => userContext += `- ${r.type}: ${r.name} (${r.cal}kcal)\n`);
+    userRecipes.forEach(r => {
+        let imgDesc = (r.emoji && r.emoji.startsWith('data:image')) ? '[包含真实食物图片]' : r.emoji;
+        userContext += `- ${r.type}: ${r.name} (${r.cal}kcal) ${imgDesc}\n`;
+    });
     if (userSchedules.length === 0 && userRecipes.length === 0) userContext += "User 今天还没有记录任何安排。\n";
 
     // 获取角色设定

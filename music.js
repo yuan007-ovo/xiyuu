@@ -495,10 +495,10 @@ async function musicPlaySong(id, title, artist, cover) {
         
         currentPlayingSong = { id, title, artist, cover };
 
-        // 同步到桌面 3D 轮播小组件
-        const desktopTitle = document.querySelector('#carousel-music-widget-container .cw-carousel-card.center .cw-carousel-card-title');
+        // 同步到桌面韩系 Ins 风小组件 (更新居中卡片的文字)
+        const desktopTitle = document.querySelector('#carousel-music-widget-container .cw-ins-photo-card.center .cw-ins-photo-title');
         if (desktopTitle) desktopTitle.innerText = title;
-        const desktopArtist = document.querySelector('#carousel-music-widget-container .cw-carousel-card.center .cw-carousel-card-artist');
+        const desktopArtist = document.querySelector('#carousel-music-widget-container .cw-ins-photo-card.center .cw-ins-photo-artist');
         if (desktopArtist) desktopArtist.innerText = artist;
 
         // 新增：写入系统消息，让 Char 感知到用户点播了什么歌
@@ -1439,12 +1439,16 @@ audioPlayer.addEventListener('timeupdate', () => {
         if(miniCur) miniCur.innerText = formatTime(currentTime);
         if(miniDur) miniDur.innerText = formatTime(duration);
 
-        // 同步到桌面 3D 轮播小组件进度条
-        const desktopFill = document.querySelector('#carousel-music-widget-container .cw-carousel-progress-fill');
+        // 同步到桌面韩系 Ins 风小组件进度条和时间
+        const desktopFill = document.getElementById('cwDesktopProgressFill');
         if (desktopFill) desktopFill.style.width = `${progressPercent}%`;
+        const desktopCur = document.getElementById('cwDesktopCurrentTime');
+        if (desktopCur) desktopCur.innerText = formatTime(currentTime);
+        const desktopDur = document.getElementById('cwDesktopDuration');
+        if (desktopDur) desktopDur.innerText = formatTime(duration);
     }
 
-    // 同步到桌面 3D 轮播小组件歌词
+    // 同步到桌面韩系 Ins 风小组件歌词
     if (window.parsedLyrics && window.parsedLyrics.length > 0) {
         let activeIdx = 0;
         for (let i = 0; i < window.parsedLyrics.length; i++) {
@@ -1479,8 +1483,8 @@ audioPlayer.addEventListener('play', () => {
     if (miniPauseBtn2) miniPauseBtn2.style.display = 'block';
 
     // 桌面小组件按钮
-    const desktopPlayIcon = document.querySelector('#carousel-music-widget-container .cw-play-icon');
-    const desktopPauseIcon = document.querySelector('#carousel-music-widget-container .cw-pause-icon');
+    const desktopPlayIcon = document.querySelector('#carousel-music-widget-container .cw-ins-icon-play');
+    const desktopPauseIcon = document.querySelector('#carousel-music-widget-container .cw-ins-icon-pause');
     if (desktopPlayIcon) desktopPlayIcon.style.display = 'none';
     if (desktopPauseIcon) desktopPauseIcon.style.display = 'block';
 
@@ -1502,8 +1506,8 @@ audioPlayer.addEventListener('pause', () => {
     if (miniPauseBtn2) miniPauseBtn2.style.display = 'none';
 
     // 桌面小组件按钮
-    const desktopPlayIcon = document.querySelector('#carousel-music-widget-container .cw-play-icon');
-    const desktopPauseIcon = document.querySelector('#carousel-music-widget-container .cw-pause-icon');
+    const desktopPlayIcon = document.querySelector('#carousel-music-widget-container .cw-ins-icon-play');
+    const desktopPauseIcon = document.querySelector('#carousel-music-widget-container .cw-ins-icon-pause');
     if (desktopPlayIcon) desktopPlayIcon.style.display = 'block';
     if (desktopPauseIcon) desktopPauseIcon.style.display = 'none';
 
