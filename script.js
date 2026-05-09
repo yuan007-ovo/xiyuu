@@ -2933,8 +2933,14 @@ function deleteDesktopWidget(btn) {
         const widget = btn.closest('.widget-container');
         const parent = widget.parentNode;
         
-        // 核心修复：删除小组件时，在原位置精准插入 16 个占位符，绝对不让后面的 APP 顺位补齐！
-        for (let i = 0; i < 16; i++) {
+        // 判断是 4x4 还是 2x2 小组件，决定插入多少个占位符
+        let slotsToFill = 16;
+        if (widget.classList.contains('widget-2x2')) {
+            slotsToFill = 4;
+        }
+        
+        // 核心修复：删除小组件时，在原位置精准插入占位符，绝对不让后面的 APP 顺位补齐！
+        for (let i = 0; i < slotsToFill; i++) {
             const placeholder = document.createElement('div');
             placeholder.className = 'app-placeholder';
             placeholder.style.minHeight = '80px';
@@ -2954,7 +2960,7 @@ let importedWidgets = JSON.parse(localStorage.getItem('imported_widgets') || '[]
 function renderImportedWidgets() {
     const content = document.getElementById('widgetModalContent');
     // 【关键修复】：保留前4个内置组件（默认、拍立得、手账拼贴、3D轮播），清除后面动态导入的
-    while (content.children.length > 4) {
+    while (content.children.length > 5) {
         content.removeChild(content.lastChild);
     }
     
@@ -3348,6 +3354,64 @@ function addWidgetToDesktop(type) {
         initCarouselWidgetLogic();
         
         if (typeof triggerAutoSave === 'function') triggerAutoSave();
+    } else if (type === 'polaroidMusic') {
+        if (document.getElementById('polaroid-music-widget-container')) {
+            alert('拍立得音乐小组件已经在桌面上了！');
+            return;
+        }
+
+        const polaroidMusicWidgetHTML = `
+        <div class="widget-container custom-desktop-widget is-transparent-widget widget-2x2" id="polaroid-music-widget-container" style="background: transparent; padding: 0; display: flex; justify-content: center; align-items: center;">
+            <div class="widget-delete-btn" onclick="deleteDesktopWidget(this)" style="z-index: 30;">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#ff3b30"></circle><line x1="8" y1="12" x2="16" y2="12" stroke="#fff" stroke-width="2"></line></svg>
+            </div>
+            <div class="pm-widget-container" style="transform: scale(0.68); transform-origin: center;">
+                <div class="pm-polaroid-stack pm-card-1"></div>
+                <div class="pm-polaroid-stack pm-card-2"></div>
+                <div class="pm-polaroid-stack pm-card-3"></div>
+                <div class="pm-polaroid-stack pm-main-card">
+                    <div class="pm-tape" onclick="rotatePolaroidCard(this)" style="cursor: pointer;" title="点击切换卡片">
+                        <span class="pm-tape-star">★</span>
+                        <span class="pm-tape-star" style="font-size: 6px; margin-top: 4px;">★</span>
+                        <span class="pm-tape-star">★</span>
+                        <span class="pm-tape-star" style="font-size: 8px; margin-bottom: 4px;">★</span>
+                        <span class="pm-tape-star">★</span>
+                    </div>
+                    <div class="pm-photo-area uploadable-img">
+                    </div>
+                    <div class="pm-text-area">
+                        <div class="pm-text-line" contenteditable="true" spellcheck="false">PLAY IT LOUD,</div>
+                        <div class="pm-text-line indent" contenteditable="true" spellcheck="false">FEEL IT DEEP.</div>
+                        <svg class="pm-hand-drawn-icon pm-icon-star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                        <div class="pm-underline"></div>
+                    </div>
+                </div>
+                <div class="pm-vinyl-record" onclick="promptPolaroidMusicUrl(this)" style="cursor: pointer;" title="点击上传URL图片">
+                    <div class="pm-vinyl-center">
+                        <div class="pm-vinyl-hole"></div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+
+        const wrapper = document.getElementById('homeScreenWrapper');
+        const isPage2 = wrapper && wrapper.scrollLeft > wrapper.clientWidth / 2;
+        const targetBgId = isPage2 ? 'desktopGridBg2' : 'desktopGridBg';
+        
+        document.getElementById(targetBgId).insertAdjacentHTML('afterend', polaroidMusicWidgetHTML);
+        
+        // 绑定图片上传事件
+        document.querySelectorAll('#polaroid-music-widget-container .uploadable-img').forEach(el => {
+            handleImageUpload(el, (imgUrl, targetEl) => {
+                targetEl.style.backgroundImage = `url(${imgUrl})`;
+                targetEl.classList.add('has-image');
+            });
+        });
+        
+        fillDesktopPlaceholders();
+        closeWidgetModal();
+        bindDesktopLongPress();
+        if (typeof triggerAutoSave === 'function') triggerAutoSave();
     }
 }
 
@@ -3572,3 +3636,94 @@ window.addEventListener('ChatDBReady', () => {
         initCarouselWidgetLogic();
     }
 });
+
+// ==========================================
+// 拍立得音乐小组件专属逻辑
+// ==========================================
+
+// 切换拍立得卡片逻辑
+window.rotatePolaroidCard = function(btn) {
+    const container = btn.closest('.pm-widget-container');
+    const mainCard = container.querySelector('.pm-main-card');
+    const card1 = container.querySelector('.pm-card-1'); // 最底层
+    const card2 = container.querySelector('.pm-card-2'); // 中间层
+    const card3 = container.querySelector('.pm-card-3'); // 最顶层底卡
+    
+    let cardsData = container.getAttribute('data-cards');
+    
+    // 如果没有数据，初始化 3 张卡片的数据 (包含背景色和文字颜色)
+    if (!cardsData) {
+        cardsData = [
+            { 
+                img: container.querySelector('.pm-photo-area').style.backgroundImage, 
+                t1: container.querySelectorAll('.pm-text-line')[0].innerText, 
+                t2: container.querySelectorAll('.pm-text-line')[1].innerText,
+                bgColor: '#ffffff', textColor: '#111111'
+            },
+            { 
+                img: '', t1: 'TRACK 02', t2: 'NEXT SONG', 
+                bgColor: '#111111', textColor: '#ffffff' // 第二张为黑色背景，白色文字
+            },
+            { 
+                img: '', t1: 'TRACK 03', t2: 'LAST SONG', 
+                bgColor: '#ffffff', textColor: '#111111' // 第三张恢复白色背景
+            }
+        ];
+    } else {
+        cardsData = JSON.parse(decodeURIComponent(cardsData));
+    }
+    
+    // 保存当前输入的内容到当前索引
+    cardsData[0].img = container.querySelector('.pm-photo-area').style.backgroundImage;
+    cardsData[0].t1 = container.querySelectorAll('.pm-text-line')[0].innerText;
+    cardsData[0].t2 = container.querySelectorAll('.pm-text-line')[1].innerText;
+    
+    // 轮换数组：把第一个移到最后
+    const first = cardsData.shift();
+    cardsData.push(first);
+    
+    // 应用新的第一张卡片数据到 DOM
+    const photoArea = container.querySelector('.pm-photo-area');
+    photoArea.style.backgroundImage = cardsData[0].img;
+    if (cardsData[0].img && cardsData[0].img !== 'none') {
+        photoArea.classList.add('has-image');
+    } else {
+        photoArea.classList.remove('has-image');
+    }
+    
+    // 更新文字内容
+    const textLines = container.querySelectorAll('.pm-text-line');
+    textLines[0].innerText = cardsData[0].t1;
+    textLines[1].innerText = cardsData[0].t2;
+    
+    // 核心修复：同步更新主卡片和底下三张卡片的背景色，实现真实轮换感
+    mainCard.style.backgroundColor = cardsData[0].bgColor;
+    textLines.forEach(el => el.style.color = cardsData[0].textColor);
+    
+    // 底卡3（最贴近主卡片）显示下一张的颜色
+    if(card3) card3.style.backgroundColor = cardsData[1].bgColor;
+    // 底卡2（中间）显示下下一张的颜色
+    if(card2) card2.style.backgroundColor = cardsData[2].bgColor;
+    // 底卡1（最底层）显示刚被抽走的那张（也就是现在的最后一张）
+    if(card1) card1.style.backgroundColor = cardsData[0].bgColor;
+    
+    // 保存回 DOM 属性，以便持久化
+    container.setAttribute('data-cards', encodeURIComponent(JSON.stringify(cardsData)));
+    
+    // 触发自动保存
+    if (typeof triggerAutoSave === 'function') triggerAutoSave();
+};
+
+// 唱片点击弹出 URL 输入框逻辑 (改用原生 prompt 避免报错)
+window.promptPolaroidMusicUrl = function(btn) {
+    const photoArea = btn.closest('.pm-widget-container').querySelector('.pm-photo-area');
+    
+    // 使用浏览器原生弹窗，简单稳定，绝不报错
+    const url = prompt('请输入图片 URL (留空点击确定则不修改):', '');
+    
+    if (url !== null && url.trim() !== '') {
+        photoArea.style.backgroundImage = `url(${url.trim()})`;
+        photoArea.classList.add('has-image');
+        if (typeof triggerAutoSave === 'function') triggerAutoSave();
+    }
+};
