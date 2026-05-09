@@ -264,8 +264,9 @@ function renderDayData(view) {
     } else {
         timelineList.innerHTML = timelineEvents.map(ev => {
             let clickAction = '';
-            if (ev.type === 'schedule') clickAction = `onclick="openDayScheduleModal('${ev.data.id}')"`;
-            if (ev.type === 'recipe') clickAction = `onclick="openDayRecipeModal('${ev.data.id}')"`;
+            // 核心修改：点击时传入 side 参数，以便弹窗知道去哪个数据库找数据
+            if (ev.type === 'schedule') clickAction = `onclick="openDayScheduleModal('${ev.data.id}', '${ev.side}')"`;
+            if (ev.type === 'recipe') clickAction = `onclick="openDayRecipeModal('${ev.data.id}', '${ev.side}')"`;
             if (ev.type === 'diary') clickAction = `onclick="openDayDiaryModal()"`;
 
             let reviewHtml = '';
@@ -421,12 +422,30 @@ function openDayCenterModal() { document.getElementById('dayCenterModal').classL
 function closeDayModal(id) { document.getElementById(id).classList.remove('show'); }
 
 // --- 日程 ---
-function openDayScheduleModal(id = null) {
+function openDayScheduleModal(id = null, side = null) {
     closeDayModal('dayCenterModal');
     const delBtn = document.getElementById('daySchDelBtn');
+    const card = document.getElementById('dayScheduleCard');
+    const statusToggle = document.getElementById('daySchStatusToggle');
+    const statusText = document.getElementById('daySchStatusText');
+
+    // 核心修改：根据 side 确定数据归属
+    let ownerType = currentDayView;
+    let ownerId = getDayTargetId();
+    if (side) {
+        const isUser = side === 'left';
+        ownerType = isUser ? 'user' : 'char';
+        ownerId = isUser ? (ChatDB.getItem('day_last_user_id') || ChatDB.getItem('current_login_account') || 'default') : (ChatDB.getItem('day_last_char_id') || (typeof currentChatRoomCharId !== 'undefined' && currentChatRoomCharId ? currentChatRoomCharId : 'default'));
+    }
+    
+    // 存入隐藏域，供保存时使用
+    document.getElementById('daySchOwnerType').value = ownerType;
+    document.getElementById('daySchOwnerId').value = ownerId;
+
     if (id) {
-        const targetId = getDayTargetId();
-        let schedules = JSON.parse(ChatDB.getItem(`day_schedule_${currentDayView}_${targetId}`) || '[]');
+        // 查看已有日程：进入 View 模式
+        card.classList.add('view-mode');
+        let schedules = JSON.parse(ChatDB.getItem(`day_schedule_${ownerType}_${ownerId}`) || '[]');
         const item = schedules.find(s => s.id === id);
         if (item) {
             document.getElementById('daySchId').value = id;
@@ -434,17 +453,71 @@ function openDayScheduleModal(id = null) {
             document.getElementById('daySchStart').value = item.timeStart;
             document.getElementById('daySchEnd').value = item.timeEnd;
             document.getElementById('daySchDesc').value = item.desc;
+            
+            // 同步打卡状态
+            if (item.done) {
+                statusToggle.classList.add('done');
+                statusText.innerText = '已完成';
+            } else {
+                statusToggle.classList.remove('done');
+                statusText.innerText = '待办';
+            }
+
             if (delBtn) delBtn.style.display = 'flex';
         }
     } else {
+        // 新建日程：进入 Edit 模式
+        card.classList.remove('view-mode');
         document.getElementById('daySchId').value = '';
         document.getElementById('daySchTitle').value = '';
         document.getElementById('daySchStart').value = '09:00';
         document.getElementById('daySchEnd').value = '10:00';
         document.getElementById('daySchDesc').value = '';
+        
+        statusToggle.classList.remove('done');
+        statusText.innerText = '待办';
+
         if (delBtn) delBtn.style.display = 'none';
     }
-    document.getElementById('dayScheduleModal').classList.add('show');
+    
+    // 触发悬挂动画
+    const modal = document.getElementById('dayScheduleModal');
+    modal.classList.remove('show');
+    void modal.offsetWidth; // 触发重绘
+    modal.classList.add('show');
+}
+
+// 切换到编辑模式
+function toggleDayScheduleEditMode() {
+    document.getElementById('dayScheduleCard').classList.remove('view-mode');
+    document.getElementById('daySchTitle').focus();
+}
+
+// 弹窗内的打卡切换
+function toggleDayScheduleStatus() {
+    const statusToggle = document.getElementById('daySchStatusToggle');
+    const statusText = document.getElementById('daySchStatusText');
+    
+    statusToggle.classList.toggle('done');
+    if (statusToggle.classList.contains('done')) {
+        statusText.innerText = '已完成';
+    } else {
+        statusText.innerText = '待办';
+    }
+    
+    // 如果是已有日程，直接静默保存状态
+    const id = document.getElementById('daySchId').value;
+    if (id) {
+        const ownerType = document.getElementById('daySchOwnerType').value;
+        const ownerId = document.getElementById('daySchOwnerId').value;
+        let schedules = JSON.parse(ChatDB.getItem(`day_schedule_${ownerType}_${ownerId}`) || '[]');
+        const idx = schedules.findIndex(s => s.id === id);
+        if (idx !== -1) {
+            schedules[idx].done = statusToggle.classList.contains('done');
+            ChatDB.setItem(`day_schedule_${ownerType}_${ownerId}`, JSON.stringify(schedules));
+            renderDayData(currentDayView); // 刷新底层时间线
+        }
+    }
 }
 
 function saveDaySchedule() {
@@ -453,12 +526,15 @@ function saveDaySchedule() {
     const start = document.getElementById('daySchStart').value;
     const end = document.getElementById('daySchEnd').value;
     const desc = document.getElementById('daySchDesc').value.trim();
+    const isDone = document.getElementById('daySchStatusToggle').classList.contains('done');
 
     if (!title || !start) return alert('请填写标题和开始时间！');
 
-    const targetId = getDayTargetId();
+    const ownerType = document.getElementById('daySchOwnerType').value || currentDayView;
+    const ownerId = document.getElementById('daySchOwnerId').value || getDayTargetId();
     const dateStr = getDayDateStr(daySelectedDate);
-    let schedules = JSON.parse(ChatDB.getItem(`day_schedule_${currentDayView}_${targetId}`) || '[]');
+    
+    let schedules = JSON.parse(ChatDB.getItem(`day_schedule_${ownerType}_${ownerId}`) || '[]');
     
     if (id) {
         const idx = schedules.findIndex(s => s.id === id);
@@ -467,6 +543,7 @@ function saveDaySchedule() {
             schedules[idx].timeStart = start;
             schedules[idx].timeEnd = end;
             schedules[idx].desc = desc;
+            schedules[idx].done = isDone;
         }
     } else {
         schedules.push({
@@ -476,28 +553,36 @@ function saveDaySchedule() {
             timeEnd: end,
             title: title,
             desc: desc,
-            done: false
+            done: isDone
         });
     }
 
-    ChatDB.setItem(`day_schedule_${currentDayView}_${targetId}`, JSON.stringify(schedules));
-    closeDayModal('dayScheduleModal');
+    ChatDB.setItem(`day_schedule_${ownerType}_${ownerId}`, JSON.stringify(schedules));
+    
+    // 保存后变成预览模式，不直接关闭弹窗
+    document.getElementById('dayScheduleCard').classList.add('view-mode');
+    document.getElementById('daySchId').value = id || schedules[schedules.length - 1].id; // 确保新建后有了ID
+    document.getElementById('daySchDelBtn').style.display = 'flex'; // 显示删除按钮
+    
     renderDayData(currentDayView);
+    showToast('日程已保存', 'success', 1500);
 }
 
 function deleteDaySchedule() {
     const id = document.getElementById('daySchId').value;
     if (!id) return;
     if (confirm('确定要删除这条日程吗？')) {
-        const targetId = getDayTargetId();
-        let schedules = JSON.parse(ChatDB.getItem(`day_schedule_${currentDayView}_${targetId}`) || '[]');
+        const ownerType = document.getElementById('daySchOwnerType').value;
+        const ownerId = document.getElementById('daySchOwnerId').value;
+        let schedules = JSON.parse(ChatDB.getItem(`day_schedule_${ownerType}_${ownerId}`) || '[]');
         schedules = schedules.filter(s => s.id !== id);
-        ChatDB.setItem(`day_schedule_${currentDayView}_${targetId}`, JSON.stringify(schedules));
+        ChatDB.setItem(`day_schedule_${ownerType}_${ownerId}`, JSON.stringify(schedules));
         closeDayModal('dayScheduleModal');
         renderDayData(currentDayView);
     }
 }
 
+// 外部时间线直接点击打卡 (暂不支持跨视角打卡，仅限当前视角)
 function toggleDayScheduleDone(id) {
     const targetId = getDayTargetId();
     let schedules = JSON.parse(ChatDB.getItem(`day_schedule_${currentDayView}_${targetId}`) || '[]');
@@ -510,17 +595,32 @@ function toggleDayScheduleDone(id) {
 }
 
 // --- 食谱 ---
-function openDayRecipeModal(id = null) {
+function openDayRecipeModal(id = null, side = null) {
     closeDayModal('dayCenterModal');
     const delBtn = document.getElementById('dayRecDelBtn');
+    const card = document.getElementById('dayRecipeCard');
     const visualBox = document.getElementById('dayRecVisualBox');
     const emojiInput = document.getElementById('dayRecEmoji');
     const reviewsSection = document.getElementById('dayRecReviewsSection');
     const reviewList = document.getElementById('dayRecReviewList');
     
+    // 核心修改：根据 side 确定数据归属
+    let ownerType = currentDayView;
+    let ownerId = getDayTargetId();
+    if (side) {
+        const isUser = side === 'left';
+        ownerType = isUser ? 'user' : 'char';
+        ownerId = isUser ? (ChatDB.getItem('day_last_user_id') || ChatDB.getItem('current_login_account') || 'default') : (ChatDB.getItem('day_last_char_id') || (typeof currentChatRoomCharId !== 'undefined' && currentChatRoomCharId ? currentChatRoomCharId : 'default'));
+    }
+    
+    // 存入隐藏域，供保存时使用
+    document.getElementById('dayRecOwnerType').value = ownerType;
+    document.getElementById('dayRecOwnerId').value = ownerId;
+
     if (id) {
-        const targetId = getDayTargetId();
-        let recipes = JSON.parse(ChatDB.getItem(`day_recipe_${currentDayView}_${targetId}`) || '[]');
+        // 查看已有食谱：进入 View 模式
+        card.classList.add('view-mode');
+        let recipes = JSON.parse(ChatDB.getItem(`day_recipe_${ownerType}_${ownerId}`) || '[]');
         const item = recipes.find(r => r.id === id);
         if (item) {
             document.getElementById('dayRecId').value = id;
@@ -576,6 +676,8 @@ function openDayRecipeModal(id = null) {
             if (delBtn) delBtn.style.display = 'flex';
         }
     } else {
+        // 新建食谱：进入 Edit 模式
+        card.classList.remove('view-mode');
         document.getElementById('dayRecId').value = '';
         document.getElementById('dayRecType').value = '早餐';
         document.getElementById('dayRecName').value = '';
@@ -599,6 +701,12 @@ function openDayRecipeModal(id = null) {
     modal.classList.add('show');
 }
 
+// 切换到编辑模式
+function toggleDayRecipeEditMode() {
+    document.getElementById('dayRecipeCard').classList.remove('view-mode');
+    document.getElementById('dayRecName').focus();
+}
+
 function saveDayRecipe() {
     const id = document.getElementById('dayRecId').value;
     const type = document.getElementById('dayRecType').value;
@@ -608,9 +716,11 @@ function saveDayRecipe() {
 
     if (!name) return alert('请填写食物名称！');
 
-    const targetId = getDayTargetId();
+    const ownerType = document.getElementById('dayRecOwnerType').value || currentDayView;
+    const ownerId = document.getElementById('dayRecOwnerId').value || getDayTargetId();
     const dateStr = getDayDateStr(daySelectedDate);
-    let recipes = JSON.parse(ChatDB.getItem(`day_recipe_${currentDayView}_${targetId}`) || '[]');
+    
+    let recipes = JSON.parse(ChatDB.getItem(`day_recipe_${ownerType}_${ownerId}`) || '[]');
     
     if (id) {
         const idx = recipes.findIndex(r => r.id === id);
@@ -631,19 +741,26 @@ function saveDayRecipe() {
         });
     }
 
-    ChatDB.setItem(`day_recipe_${currentDayView}_${targetId}`, JSON.stringify(recipes));
-    closeDayModal('dayRecipeModal');
+    ChatDB.setItem(`day_recipe_${ownerType}_${ownerId}`, JSON.stringify(recipes));
+    
+    // 保存后变成预览模式
+    document.getElementById('dayRecipeCard').classList.add('view-mode');
+    document.getElementById('dayRecId').value = id || recipes[recipes.length - 1].id;
+    document.getElementById('dayRecDelBtn').style.display = 'flex';
+    
     renderDayData(currentDayView);
+    showToast('食谱已保存', 'success', 1500);
 }
 
 function deleteDayRecipe() {
     const id = document.getElementById('dayRecId').value;
     if (!id) return;
     if (confirm('确定要删除这条食谱吗？')) {
-        const targetId = getDayTargetId();
-        let recipes = JSON.parse(ChatDB.getItem(`day_recipe_${currentDayView}_${targetId}`) || '[]');
+        const ownerType = document.getElementById('dayRecOwnerType').value;
+        const ownerId = document.getElementById('dayRecOwnerId').value;
+        let recipes = JSON.parse(ChatDB.getItem(`day_recipe_${ownerType}_${ownerId}`) || '[]');
         recipes = recipes.filter(r => r.id !== id);
-        ChatDB.setItem(`day_recipe_${currentDayView}_${targetId}`, JSON.stringify(recipes));
+        ChatDB.setItem(`day_recipe_${ownerType}_${ownerId}`, JSON.stringify(recipes));
         closeDayModal('dayRecipeModal');
         renderDayData(currentDayView);
     }
@@ -1320,7 +1437,12 @@ function selectDayChar(id) {
 // AI 补全与记忆小票逻辑
 // ==========================================
 
+// 核心修复：增加全局状态锁，防止重复点击
+let isGeneratingCharDay = false;
+
 async function generateCharDayAPI() {
+    if (isGeneratingCharDay) return; // 如果正在生成中，直接拦截点击
+    
     const userId = ChatDB.getItem('day_last_user_id') || ChatDB.getItem('current_login_account');
     const charId = ChatDB.getItem('day_last_char_id') || (typeof currentChatRoomCharId !== 'undefined' ? currentChatRoomCharId : null);
     
@@ -1330,6 +1452,8 @@ async function generateCharDayAPI() {
     if (!apiConfig.url || !apiConfig.key || !apiConfig.model) {
         return alert('请先在设置中配置 API 信息！');
     }
+
+    isGeneratingCharDay = true; // 上锁
 
     const dateStr = getDayDateStr(daySelectedDate);
     
@@ -1357,7 +1481,8 @@ ${userContext}
 要求：
 1. 日程要符合你的人设职业和性格。
 2. 如果 User 有安排，你可以生成一些与之呼应的安排（比如 User 加班，你安排去接 Ta）。
-3. 必须返回严格的 JSON 格式，不要输出任何其他废话。
+3. 核心限制：最多只生成 1 到 2 个最具代表性的日程，以及 1 到 2 个食谱！绝对不要生成太多！
+4. 必须返回严格的 JSON 格式，不要输出任何其他废话。
 
 JSON 格式要求：
 {
@@ -1431,6 +1556,8 @@ JSON 格式要求：
     } catch (e) {
         hideToast();
         alert('生成失败，请检查 API 配置或重试。\n' + e.message);
+    } finally {
+        isGeneratingCharDay = false; // 无论成功失败，最后都解锁
     }
 }
 

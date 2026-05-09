@@ -11454,25 +11454,25 @@ body.ios-standalone .status-bar {
 .hanging-overlay {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
-    z-index: 300; display: none; flex-direction: column; align-items: center;
+    z-index: 300; display: none; justify-content: center; align-items: center; /* 改为居中对齐 */
 }
-.hanging-overlay.show { display: flex; }
+.hanging-overlay.show { display: flex; animation: fadeIn 0.2s ease-out; }
 
 .hanging-container {
     display: flex; flex-direction: column; align-items: center;
-    transform-origin: top center;
-    animation: dropBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    position: relative;
+    animation: popCenter 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; /* 改为中心弹出动画 */
 }
 
-@keyframes dropBounce {
-    0% { transform: translateY(-100%); opacity: 0; }
-    100% { transform: translateY(0); opacity: 1; }
+@keyframes popCenter {
+    0% { transform: scale(0.8); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
 }
 
 .rope-pin {
     width: 12px; height: 12px; background: #d4af37; border-radius: 50%;
     box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset -2px -2px 4px rgba(0,0,0,0.2);
-    margin-top: 12vh; /* 核心修改：使用 vh 让图钉往下移，使卡片居中 */
+    margin-top: 0; /* 已经全局居中，不再需要 margin-top */
     z-index: 2; position: relative;
 }
 .rope {
@@ -11549,3 +11549,127 @@ select.slim-input { cursor: pointer; appearance: none; }
 .btn:active { transform: scale(0.95); }
 .btn-delete { background: #ffe5e5; color: #ff3b30; }
 .btn-save { background: #111; color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+/* =========================================
+   DayAPP 日程回形针悬挂卡片专属样式
+   ========================================= */
+/* 纯 CSS 绘制的 3D 回形针 */
+.paperclip-wrapper {
+    position: absolute; top: -35px; left: 50%; transform: translateX(-50%);
+    width: 26px; height: 70px; z-index: 10;
+}
+/* 回形针前部 (压在纸上) */
+.paperclip-front {
+    position: absolute; top: 0; left: 0; width: 100%; height: 50px;
+    border: 3.5px solid #b0b0b0; border-bottom: none; border-radius: 13px 13px 0 0;
+    box-shadow: inset 0 2px 2px rgba(255,255,255,0.6), 2px 2px 4px rgba(0,0,0,0.15);
+    z-index: 10; box-sizing: border-box;
+}
+/* 回形针后部 (藏在纸后) */
+.paperclip-back {
+    position: absolute; top: 12px; left: 6px; width: 14px; height: 58px;
+    border: 3.5px solid #999; border-top: none; border-radius: 0 0 7px 7px;
+    box-shadow: 1px 2px 3px rgba(0,0,0,0.1);
+    z-index: -1; box-sizing: border-box;
+}
+
+/* 状态打卡区 */
+.schedule-status {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 15px;
+    cursor: pointer; width: fit-content;
+}
+.checkbox {
+    width: 20px; height: 20px; border: 2px solid #ccc; border-radius: 6px;
+    display: flex; justify-content: center; align-items: center; transition: all 0.2s;
+}
+.checkbox svg { width: 14px; height: 14px; stroke: #fff; stroke-width: 3; fill: none; opacity: 0; transition: opacity 0.2s; }
+.schedule-status.done .checkbox { background: #111; border-color: #111; }
+.schedule-status.done .checkbox svg { opacity: 1; }
+.status-text { font-size: 12px; font-weight: bold; color: #888; }
+.schedule-status.done .status-text { color: #111; }
+
+/* 标题输入区 */
+.title-input-wrap { margin-bottom: 20px; }
+.title-input {
+    width: 100%; border: none; outline: none; background: transparent;
+    font-size: 22px; font-weight: 900; color: #111;
+    border-bottom: 2px dashed #e0e0e0; padding-bottom: 8px;
+    transition: border-color 0.2s;
+}
+.title-input:focus { border-bottom-color: #111; }
+.title-input::placeholder { color: #ccc; font-weight: bold; }
+.schedule-status.done + .title-input-wrap .title-input {
+    text-decoration: line-through; color: #aaa;
+}
+
+/* 细长输入框组 (时间、地点) */
+.info-group { display: flex; flex-direction: column; gap: 12px; margin-bottom: 25px; }
+.info-row {
+    display: flex; align-items: center; gap: 10px;
+    background: #f9f9f9; border-radius: 12px; padding: 8px 12px;
+    border: 1px solid #eee; transition: all 0.2s;
+}
+.info-row:focus-within { border-color: #ccc; background: #fff; }
+.info-icon {
+    width: 24px; height: 24px; background: #fff; border-radius: 6px;
+    display: flex; justify-content: center; align-items: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02); flex-shrink: 0; transition: all 0.2s;
+}
+.info-icon svg { width: 14px; height: 14px; stroke: #555; stroke-width: 2; fill: none; }
+
+/* 核心修复：增加 min-width: 0 防止 flex 子项撑破容器 */
+.time-inputs { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
+.time-inputs span { color: #aaa; font-size: 12px; font-weight: bold; flex-shrink: 0; }
+.slim-input {
+    flex: 1; border: none; background: transparent; outline: none;
+    font-size: 14px; color: #333; font-weight: 600; width: 100%; min-width: 0;
+}
+input[type="time"].slim-input { font-family: monospace; font-size: 14px; padding: 0; text-align: center; }
+
+.btn-edit { background: #f4f4f4; color: #111; border: 1px solid #eee; }
+
+/* =========================================
+   查看模式 (View Mode) 专属样式
+   ========================================= */
+.hanging-card.view-mode .title-input {
+    border-bottom-color: transparent;
+    pointer-events: none; /* 禁止输入 */
+}
+.hanging-card.view-mode .info-row {
+    background: transparent;
+    border-color: transparent;
+    padding-left: 0; /* 去除内边距，让文字靠左对齐 */
+}
+.hanging-card.view-mode .info-icon {
+    background: transparent;
+    box-shadow: none;
+}
+.hanging-card.view-mode .slim-input {
+    pointer-events: none; /* 禁止输入 */
+    color: #555;
+}
+/* 隐藏时间选择器的默认图标 */
+.hanging-card.view-mode input[type="time"]::-webkit-calendar-picker-indicator {
+    display: none;
+}
+
+/* 食谱卡片专属预览样式 */
+.hanging-card.view-mode .visual-box {
+    border-color: transparent;
+    pointer-events: none;
+    box-shadow: none;
+    background: transparent;
+}
+.hanging-card.view-mode .visual-box .placeholder {
+    display: none;
+}
+.hanging-card.view-mode select.slim-input {
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+/* 按钮显示控制 */
+.hanging-card.view-mode .btn-save { display: none; }
+.hanging-card.view-mode .btn-edit { display: flex; }
+
+.hanging-card:not(.view-mode) .btn-save { display: flex; }
+.hanging-card:not(.view-mode) .btn-edit { display: none; }

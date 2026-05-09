@@ -9165,23 +9165,68 @@
             </div>
         </div>
 
-        <!-- 日程弹窗 -->
-        <div class="day-center-modal-overlay" id="dayScheduleModal" onclick="closeDayModal('dayScheduleModal')">
-            <div class="day-center-modal-card" onclick="event.stopPropagation()">
-                <div class="day-cm-title">记录日程</div>
-                <input type="hidden" id="daySchId">
-                <div style="display: flex; flex-direction: column; gap: 10px;">
-                    <input type="text" id="daySchTitle" placeholder="准备做什么？" style="padding: 12px; border-radius: 12px; border: 1px solid #eee; outline: none; font-size: 14px; background: #f9f9f9;">
-                    <div style="display: flex; gap: 10px;">
-                        <input type="time" id="daySchStart" style="flex: 1; padding: 12px; border-radius: 12px; border: 1px solid #eee; outline: none; font-size: 14px; background: #f9f9f9;">
-                        <input type="time" id="daySchEnd" style="flex: 1; padding: 12px; border-radius: 12px; border: 1px solid #eee; outline: none; font-size: 14px; background: #f9f9f9;">
-                    </div>
-                    <input type="text" id="daySchDesc" placeholder="地点/备注 (选填)" style="padding: 12px; border-radius: 12px; border: 1px solid #eee; outline: none; font-size: 14px; background: #f9f9f9;">
+        <!-- 日程悬挂卡片弹窗 -->
+        <div class="hanging-overlay" id="dayScheduleModal" onclick="closeDayModal('dayScheduleModal')">
+            <div class="hanging-container" onclick="event.stopPropagation()">
+                <!-- 纯 CSS 3D 回形针 -->
+                <div class="paperclip-wrapper">
+                    <div class="paperclip-front"></div>
+                    <div class="paperclip-back"></div>
                 </div>
-                <div style="display: flex; gap: 10px; margin-top: 10px;">
-                    <div class="day-cm-btn" id="daySchDelBtn" style="display: none; flex: 1; justify-content: center; background: #ffe5e5; color: #ff3b30;" onclick="deleteDaySchedule()">删除</div>
-                    <div class="day-cm-btn" style="flex: 1; justify-content: center; background: #f4f4f4; color: #666;" onclick="closeDayModal('dayScheduleModal')">取消</div>
-                    <div class="day-cm-btn" style="flex: 1; justify-content: center; background: #111; color: #fff;" onclick="saveDaySchedule()">保存</div>
+                
+                <!-- 卡片主体 -->
+                <div class="hanging-card view-mode" id="dayScheduleCard">
+                    <!-- 右上角关闭 -->
+                    <div class="close-btn" onclick="closeDayModal('dayScheduleModal')">
+                        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </div>
+
+                    <input type="hidden" id="daySchId">
+                    <input type="hidden" id="daySchOwnerType"> <!-- 记录数据归属 -->
+                    <input type="hidden" id="daySchOwnerId">
+
+                    <!-- 状态打卡区 -->
+                    <div class="schedule-status" id="daySchStatusToggle" onclick="toggleDayScheduleStatus()">
+                        <div class="checkbox">
+                            <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </div>
+                        <span class="status-text" id="daySchStatusText">待办</span>
+                    </div>
+
+                    <!-- 标题输入区 -->
+                    <div class="title-input-wrap">
+                        <input type="text" class="title-input" id="daySchTitle" placeholder="准备做什么？">
+                    </div>
+
+                    <!-- 细长输入框组 -->
+                    <div class="info-group">
+                        <!-- 时间 -->
+                        <div class="info-row">
+                            <div class="info-icon">
+                                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                            </div>
+                            <div class="time-inputs">
+                                <input type="time" class="slim-input" id="daySchStart" value="09:00">
+                                <span>TO</span>
+                                <input type="time" class="slim-input" id="daySchEnd" value="10:00">
+                            </div>
+                        </div>
+                        
+                        <!-- 地点/备注 -->
+                        <div class="info-row">
+                            <div class="info-icon">
+                                <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                            </div>
+                            <input type="text" class="slim-input" id="daySchDesc" placeholder="地点 / 备注 (选填)">
+                        </div>
+                    </div>
+
+                    <!-- 底部操作按钮 -->
+                    <div class="action-buttons">
+                        <button class="btn btn-delete" id="daySchDelBtn" style="display: none;" onclick="deleteDaySchedule()">Delete</button>
+                        <button class="btn btn-edit" id="daySchEditBtn" onclick="toggleDayScheduleEditMode()">Edit</button>
+                        <button class="btn btn-save" id="daySchSaveBtn" onclick="saveDaySchedule()">Save</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -9193,15 +9238,17 @@
                 <div class="rope-pin"></div>
                 <div class="rope"></div>
                 
-                <!-- 卡片主体 -->
-                <div class="hanging-card">
+                <!-- 卡片主体 (增加 view-mode 类和 ID) -->
+                <div class="hanging-card view-mode" id="dayRecipeCard">
                     <!-- 右上角关闭 -->
                     <div class="close-btn" onclick="closeDayModal('dayRecipeModal')">
                         <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     </div>
 
                     <input type="hidden" id="dayRecId">
-                    <input type="hidden" id="dayRecEmoji"> <!-- 隐藏域保存图片URL或Emoji -->
+                    <input type="hidden" id="dayRecEmoji"> 
+                    <input type="hidden" id="dayRecOwnerType"> <!-- 记录数据归属 -->
+                    <input type="hidden" id="dayRecOwnerId">
 
                     <!-- 100x100 视觉区 -->
                     <div class="visual-box" id="dayRecVisualBox" onclick="triggerDayRecVisualChange()">
@@ -9241,7 +9288,8 @@
                     <!-- 底部操作按钮 -->
                     <div class="action-buttons">
                         <button class="btn btn-delete" id="dayRecDelBtn" style="display: none;" onclick="deleteDayRecipe()">Delete</button>
-                        <button class="btn btn-save" onclick="saveDayRecipe()">Save</button>
+                        <button class="btn btn-edit" id="dayRecEditBtn" onclick="toggleDayRecipeEditMode()">Edit</button>
+                        <button class="btn btn-save" id="dayRecSaveBtn" onclick="saveDayRecipe()">Save</button>
                     </div>
                 </div>
             </div>
