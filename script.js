@@ -3318,25 +3318,43 @@ function addWidgetToDesktop(type) {
             <div class="widget-delete-btn" onclick="deleteDesktopWidget(this)" style="z-index: 20;">
                 <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#ff3b30"></circle><line x1="8" y1="12" x2="16" y2="12" stroke="#fff" stroke-width="2"></line></svg>
             </div>
-            <div class="cw-carousel-container">
-                <div class="cw-carousel-area" id="cwCarouselArea">
-                    <!-- 卡片由 JS 动态生成 -->
-                </div>
-                <div class="cw-carousel-lyrics">
-                    <div class="cw-carousel-lyric-line" id="cwDesktopLyric1"></div>
-                    <div class="cw-carousel-lyric-line active" id="cwDesktopLyric2">ㅇㅂㅇ</div>
-                    <div class="cw-carousel-lyric-line" id="cwDesktopLyric3"></div>
-                </div>
-                <div class="cw-carousel-control-bar">
-                    <svg class="cw-carousel-ctrl-icon" onclick="if(typeof playPrevMusicSong === 'function') playPrevMusicSong()" viewBox="0 0 24 24"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5" stroke="#444" stroke-width="2"></line></svg>
-                    <div onclick="if(typeof toggleMusicPlay === 'function') toggleMusicPlay()" style="display: flex; justify-content: center; align-items: center; cursor: pointer;">
-                        <svg class="cw-carousel-ctrl-icon cw-play-icon" viewBox="0 0 24 24" style="display: block;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                        <svg class="cw-carousel-ctrl-icon cw-pause-icon" viewBox="0 0 24 24" style="display: none;"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+            <div class="cw-ins-container">
+                <div class="cw-ins-top">
+                    <div class="cw-ins-lyrics">
+                        <div class="cw-ins-lyric-line" id="cwDesktopLyric1"></div>
+                        <div class="cw-ins-lyric-line active" id="cwDesktopLyric2">◍˃ᵕ˂◍</div>
+                        <div class="cw-ins-lyric-line" id="cwDesktopLyric3"></div>
                     </div>
-                    <svg class="cw-carousel-ctrl-icon" onclick="if(typeof playNextMusicSong === 'function') playNextMusicSong()" viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19" stroke="#444" stroke-width="2"></line></svg>
-                    <div class="cw-carousel-progress-bar"><div class="cw-carousel-progress-fill" style="width: 0%;"></div></div>
-                    <svg class="cw-carousel-ctrl-icon" onclick="openCarouselImageModal()" viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 15px; height: 15px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                    <svg class="cw-carousel-ctrl-icon" viewBox="0 0 24 24" style="width: 14px; height: 14px;"><line x1="8" y1="6" x2="21" y2="6" stroke="#444" stroke-width="2"></line><line x1="8" y1="12" x2="21" y2="12" stroke="#444" stroke-width="2"></line><line x1="8" y1="18" x2="21" y2="18" stroke="#444" stroke-width="2"></line><line x1="3" y1="6" x2="3.01" y2="6" stroke="#444" stroke-width="2"></line><line x1="3" y1="12" x2="3.01" y2="12" stroke="#444" stroke-width="2"></line><line x1="3" y1="18" x2="3.01" y2="18" stroke="#444" stroke-width="2"></line></svg>
+                    <div class="cw-ins-polaroid-area" id="cwCarouselArea">
+                        <!-- 卡片由 JS 动态生成 -->
+                    </div>
+                </div>
+                <div class="cw-ins-player">
+                    <div class="cw-ins-progress-bar">
+                        <div class="cw-ins-progress-fill" id="cwDesktopProgressFill" style="width: 0%;"></div>
+                    </div>
+                    <div class="cw-ins-time-row">
+                        <span id="cwDesktopCurrentTime">00:00</span>
+                        <span id="cwDesktopDuration">00:00</span>
+                    </div>
+                    <div class="cw-ins-controls">
+                        <div class="cw-ins-icon" onclick="openCarouselImageModal()">
+                            <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                        </div>
+                        <div class="cw-ins-icon" onclick="if(typeof playPrevMusicSong === 'function') playPrevMusicSong()">
+                            <svg viewBox="0 0 24 24"><polygon points="11 19 2 12 11 5 11 19"></polygon><polygon points="22 19 13 12 22 5 22 19"></polygon></svg>
+                        </div>
+                        <div class="cw-ins-icon" onclick="if(typeof toggleMusicPlay === 'function') toggleMusicPlay()">
+                            <svg class="cw-ins-icon-play" viewBox="0 0 24 24" style="display: block;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                            <svg class="cw-ins-icon-pause" viewBox="0 0 24 24" style="display: none;"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                        </div>
+                        <div class="cw-ins-icon" onclick="if(typeof playNextMusicSong === 'function') playNextMusicSong()">
+                            <svg viewBox="0 0 24 24"><polygon points="13 19 22 12 13 5 13 19"></polygon><polygon points="2 19 11 12 2 5 2 19"></polygon></svg>
+                        </div>
+                        <div class="cw-ins-icon">
+                            <svg viewBox="0 0 24 24"><path d="M8 16a4 4 0 0 1 8 0"></path><path d="M5 16a7 7 0 0 1 14 0"></path><path d="M2 16a10 10 0 0 1 20 0"></path><polygon points="12 14 16 21 8 21 12 14"></polygon></svg>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>`;
@@ -3475,23 +3493,20 @@ function initCarouselWidgetLogic() {
     
     carouselSongsData.forEach((song, index) => {
         const card = document.createElement('div');
-        card.className = 'cw-carousel-card';
+        card.className = 'cw-ins-photo-card';
         card.innerHTML = `
-            <svg class="cw-card-star s1" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
-            <svg class="cw-card-star s2" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
-            <svg class="cw-card-star s3" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
-            <img class="cw-carousel-card-img" src="${song.img}" draggable="false">
-            <div class="cw-carousel-card-text-area">
-                <div class="cw-carousel-card-title">${song.title || 'Music App'}</div>
-                <div class="cw-carousel-card-artist">${song.artist || 'Not Playing'}</div>
+            <svg class="cw-card-star s1" viewBox="0 0 24 24" onclick="openCarouselImageModal(); event.stopPropagation();"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+            <svg class="cw-card-star s2" viewBox="0 0 24 24" onclick="openCarouselImageModal(); event.stopPropagation();"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+            <svg class="cw-card-star s3" viewBox="0 0 24 24" onclick="openCarouselImageModal(); event.stopPropagation();"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+            <img class="cw-ins-photo-img" src="${song.img}" draggable="false">
+            <div class="cw-ins-photo-text">
+                <div class="cw-ins-photo-title">${song.title || 'Music App'}</div>
+                <div class="cw-ins-photo-artist">${song.artist || 'Not Playing'}</div>
             </div>
         `;
         card.addEventListener('click', (e) => {
-            if (carouselCurrentIndex === index) {
-                // 如果点击的是当前居中的卡片，则打开换图弹窗
-                openCarouselImageModal();
-            } else {
-                // 如果点击的是两侧的卡片，则切换轮播位置
+            // 点击卡片任何位置（除了五角星），只进行轮播切换
+            if (carouselCurrentIndex !== index) {
                 carouselCurrentIndex = index;
                 updateCarouselWidget();
             }
@@ -3506,15 +3521,18 @@ function initCarouselWidgetLogic() {
 
 function updateCarouselWidget() {
     carouselCards.forEach((card, index) => {
-        card.classList.remove('center', 'left-1', 'right-1', 'left-2', 'right-2', 'hidden');
+        card.classList.remove('center', 'prev', 'next', 'hidden');
         const diff = index - carouselCurrentIndex;
 
-        if (diff === 0) card.classList.add('center');
-        else if (diff === -1) card.classList.add('left-1');
-        else if (diff === 1) card.classList.add('right-1');
-        else if (diff === -2) card.classList.add('left-2');
-        else if (diff === 2) card.classList.add('right-2');
-        else card.classList.add('hidden');
+        if (diff === 0) {
+            card.classList.add('center');
+        } else if (diff === -1 || (carouselCurrentIndex === 0 && index === carouselSongsData.length - 1)) {
+            card.classList.add('prev');
+        } else if (diff === 1 || (carouselCurrentIndex === carouselSongsData.length - 1 && index === 0)) {
+            card.classList.add('next');
+        } else {
+            card.classList.add('hidden');
+        }
     });
 }
 
@@ -3576,7 +3594,7 @@ function closeCarouselImageModal() {
 }
 
 function updateCarouselImagesInDOM() {
-    const cardImgs = document.querySelectorAll('.cw-carousel-card-img');
+    const cardImgs = document.querySelectorAll('.cw-ins-photo-img');
     const customImagesToSave = [];
     carouselSongsData.forEach((song, index) => {
         if (cardImgs[index]) {
