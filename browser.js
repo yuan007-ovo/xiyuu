@@ -300,9 +300,6 @@ function sysBrowserRenderPoipiku(page) {
                     <div class="poipiku-card-meta">
                         <div class="poipiku-category">${post.category}</div>
                         <div class="poipiku-actions" style="display: flex; align-items: center; width: 100%;">
-                            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
-                            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-                            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="#999"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
                             <div onclick="sharePoipikuToChar(${post.id})" style="margin-left: auto; display: flex; align-items: center; gap: 4px; cursor: pointer; color: #1da1f2; font-size: 12px; font-weight: bold;">
                                 <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none"><path d="M14 5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11V5z"/></svg> 分享
                             </div>
@@ -384,18 +381,6 @@ function sysBrowserRenderPoipiku(page) {
                 </div>
 
                 <div class="poipiku-input-group">
-                    <label>Category (分类标签)</label>
-                    <select id="poipikuSettingCategory" class="poipiku-input">
-                        <option value="random">随机生成 (Random)</option>
-                        <option value="过去的">过去的</option>
-                        <option value="涂鸦">涂鸦</option>
-                        <option value="R18">R18</option>
-                        <option value="剧透">剧透</option>
-                        <option value="短打">短打</option>
-                    </select>
-                </div>
-
-                <div class="poipiku-input-group">
                     <label>Worldbook (关联世界书)</label>
                     <div id="poipikuGenWbSelectText" onclick="openPoipikuWbSelectModal()" class="poipiku-input" style="cursor: pointer; text-align: center; background: #f9f9f9; color: #888;">未选择 (点击选择)</div>
                 </div>
@@ -419,7 +404,6 @@ function sysBrowserRenderPoipiku(page) {
         // 恢复下拉框选中状态
         if (savedSettings.char1Id) document.getElementById('poipikuSettingChar1').value = savedSettings.char1Id;
         if (savedSettings.char2Id) document.getElementById('poipikuSettingChar2').value = savedSettings.char2Id;
-        if (savedSettings.category) document.getElementById('poipikuSettingCategory').value = savedSettings.category;
         if (savedSettings.style) document.getElementById('poipikuSettingStyle').value = savedSettings.style;
         
         currentPoipikuWbEntries = savedSettings.wbEntries || [];
@@ -957,7 +941,6 @@ async function executePoipikuGenAPI() {
     const imageCount = parseInt(document.getElementById('poipikuSettingImageCount').value) || 0;
     const textCount = parseInt(document.getElementById('poipikuSettingTextCount').value) || 0;
     const textLength = document.getElementById('poipikuSettingTextLength').value.trim() || '适中';
-    const category = document.getElementById('poipikuSettingCategory').value;
     const style = document.getElementById('poipikuSettingStyle').value;
     const customPrompt = document.getElementById('poipikuSettingPrompt').value.trim();
 
@@ -971,7 +954,7 @@ async function executePoipikuGenAPI() {
 
     // 保存设置
     const settingsToSave = {
-        char1Id, char2Id, imageCount, textCount, textLength, category, style, prompt: customPrompt, wbEntries: currentPoipikuWbEntries
+        char1Id, char2Id, imageCount, textCount, textLength, style, prompt: customPrompt, wbEntries: currentPoipikuWbEntries
     };
     ChatDB.setItem('poipiku_gen_settings', JSON.stringify(settingsToSave));
 
@@ -1037,7 +1020,7 @@ ${customPrompt ? `【画面与配文要求】：${customPrompt}\n` : ''}
 对于图文插画动态，格式如下：
   {
     "author": "随机生成一个路人画师的网名（绝对不能是主角的名字）",
-    "category": "如果分类是'random'，请你根据内容随机生成一个简短的分类词（如：涂鸦、R18、剧透、日常等），否则使用设定的分类",
+    "category": "请你根据内容随机生成一个简短的分类词（如：涂鸦、R18、剧透、日常等）",
     "imageDesc": "详细描述你画的图片画面内容（因为无法直接生成图片，请用文字详细描述画面）",
     "text": "你发布这张图时配的文字（可以带点画师的吐槽、碎碎念）",
     "tags": ["标签1", "标签2"]
@@ -1045,7 +1028,7 @@ ${customPrompt ? `【画面与配文要求】：${customPrompt}\n` : ''}
 对于同人文动态，格式如下：
   {
     "author": "随机生成一个路人写手的网名（绝对不能是主角的名字）",
-    "category": "如果分类是'random'，请你根据内容随机生成一个简短的分类词（如：短打、段子、同人、R18等），否则使用设定的分类",
+    "category": "请你根据内容随机生成一个简短的分类词（如：短打、段子、同人、R18等）",
     "imageDesc": "", 
     "text": "这里写同人文/短打的正文内容，字数尽量符合要求，使用 HTML 标签如 <p> 进行段落排版",
     "tags": ["标签1", "标签2"]
@@ -1074,13 +1057,27 @@ ${customPrompt ? `【画面与配文要求】：${customPrompt}\n` : ''}
             const parsed = JSON.parse(replyRaw);
             let worksArray = Array.isArray(parsed) ? parsed : [parsed];
             
+            const npcAvatars = [
+                'https://i.postimg.cc/8cVtnWVq/IMG-20260509-054541.jpg',
+                'https://i.postimg.cc/qB8m6m8F/IMG-20260509-054512.jpg',
+                'https://i.postimg.cc/8khyfyh0/IMG-20260509-054523.jpg',
+                'https://i.postimg.cc/44z8H8zL/IMG-20260509-054532.jpg',
+                'https://i.postimg.cc/FFjPkPjD/IMG-20260509-054551.jpg',
+                'https://i.postimg.cc/DfqC4Cqx/IMG-20260509-054600.jpg',
+                'https://i.postimg.cc/2j4HLH47/IMG-20260509-054609.jpg',
+                'https://i.postimg.cc/gcvMLMvK/IMG-20260509-054628.jpg',
+                'https://i.postimg.cc/66dH4HdL/IMG-20260509-054640.jpg',
+                'https://i.postimg.cc/44z8H8zv/IMG-20260509-054649.jpg'
+            ];
+
             // 倒序插入，保证第一篇在最上面
             worksArray.reverse().forEach((workData, index) => {
-                const finalCategory = (category === 'random' || !category) ? (workData.category || "涂鸦") : category;
+                const finalCategory = workData.category || "涂鸦";
+                const randomAvatar = npcAvatars[Math.floor(Math.random() * npcAvatars.length)];
                 const newPost = {
                     id: Date.now() + index,
                     author: workData.author || "Anonymous",
-                    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=" + (workData.author || "Anon"),
+                    avatar: randomAvatar,
                     time: "刚刚",
                     category: finalCategory,
                     imageDesc: workData.imageDesc || "",
