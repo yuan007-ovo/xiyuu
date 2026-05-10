@@ -1790,7 +1790,7 @@ function sysBrowserRenderHaitang(page, bookId = null, chapterIndex = 0) {
 
         body.innerHTML = `
             <div class="ht-read-header">
-                <span onclick="sysBrowserRenderHaitang('home')" style="cursor: pointer;">＜ 返回首页</span>
+                <span onclick="sysBrowserRenderHaitang('home')" style="cursor: pointer;">返回首页</span>
                 <span>书籍详情</span>
                 <span style="width: 60px;"></span>
             </div>
@@ -1839,7 +1839,7 @@ function sysBrowserRenderHaitang(page, bookId = null, chapterIndex = 0) {
 
         body.innerHTML = `
             <div class="ht-read-header">
-                <span onclick="sysBrowserRenderHaitang('detail', ${book.id})" style="cursor: pointer;">＜ 返回目录</span>
+                <span onclick="sysBrowserRenderHaitang('detail', ${book.id})" style="cursor: pointer;"> 返回目录</span>
                 <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%;">${chapterTitle}</span>
                 <span style="width: 60px;"></span>
             </div>
