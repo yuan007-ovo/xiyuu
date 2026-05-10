@@ -820,6 +820,14 @@ async function triggerSmsAiReply() {
                 
                 renderSmsHistory();
 
+                const smsChatPage = document.getElementById('smsChatPage');
+                const isSmsChatVisible = smsChatPage && !smsChatPage.classList.contains('hidden') && currentSmsTargetId === currentSmsTargetId;
+                if (!isSmsChatVisible) {
+                    if (typeof showCustomNotification === 'function') {
+                        showCustomNotification('sms', currentSmsTargetId, charName, msgObj.content, char.avatarUrl);
+                    }
+                }
+
                 if (i < messagesArray.length - 1) {
                     await new Promise(resolve => setTimeout(resolve, 1000));
                 }

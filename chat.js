@@ -6697,6 +6697,7 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
     systemPrompt += `\n【支付宝互动规则 (直接到账，绝对不需要确认)】\n`;
     systemPrompt += `如果你想通过支付宝给对方转账(直接到账，无需对方确认)，请输出: {"type":"alipay_transfer", "amount":"转账金额(纯数字)", "content":"转账备注"}\n`;
     systemPrompt += `如果你想通过支付宝给对方发消息，请输出: {"type":"alipay_text", "content":"消息内容"}\n`;
+    systemPrompt += `如果你想给对方充话费，请输出: {"type":"phone_recharge", "amount":"充值金额(纯数字)"}\n`;
     systemPrompt += `注意：支付宝转账是直接到账的！如果看到对方通过支付宝给你转账，你已经直接收到了钱，绝对不要输出 transfer_action 去确认收款！。\n`;
     
     // --- 注入亲属卡规则 ---
@@ -7182,6 +7183,9 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
                     }
                 } else if (msgObj.type === 'image') {
                     newMsg.content = `<div class="chat-desc-img-120"><div class="img-text">${msgObj.content}</div></div>`;
+                } else if (msgObj.type === 'voice') {
+                    newMsg.type = 'voice';
+                    newMsg.content = msgObj.content;
                 } else if (msgObj.type === 'transfer') {
                     newMsg.type = 'transfer';
                     newMsg.amount = msgObj.amount || '0.00';
@@ -7443,8 +7447,51 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
                         }
                         if (typeof renderAlipayChatList === 'function') renderAlipayChatList();
                         if (typeof renderAlipayData === 'function') renderAlipayData();
+
+                        // 触发全局弹窗
+                        const alipayChatRoomPage = document.getElementById('alipayChatRoomPage');
+                        const isAlipayChatVisible = alipayChatRoomPage && alipayChatRoomPage.classList.contains('show') && typeof currentAlipayChatCharId !== 'undefined' && currentAlipayChatCharId === targetCharId;
+                        if (!isAlipayChatVisible) {
+                            showCustomNotification('alipay', targetCharId, '支付宝', `支付宝到账${amount.toFixed(2)}元`, null, '#1677ff', '支');
+                        }
                     }
                     continue; // 支付宝操作不写入微信主聊天记录
+                } else if (msgObj.type === 'phone_recharge') {
+                    let amount = parseFloat(msgObj.amount || 0);
+                    if (amount > 0) {
+                        // 增加 User 话费余额
+                        let callBalance = parseFloat(ChatDB.getItem(`call_balance_${currentLoginId}`) || '0');
+                        callBalance += amount;
+                        ChatDB.setItem(`call_balance_${currentLoginId}`, callBalance.toFixed(2));
+                        
+                        // 记录短信通知 (10086)
+                        let smsHistory = JSON.parse(ChatDB.getItem(`sms_history_${currentLoginId}_10086`) || '[]');
+                        let rechargeMsg = {
+                            role: 'char',
+                            type: 'text',
+                            content: `【充值交费】尊敬的客户，您好！您的号码已成功充值 ${amount.toFixed(2)} 元，当前余额为 ${callBalance.toFixed(2)} 元。`,
+                            senderName: '10086',
+                            timestamp: Date.now()
+                        };
+                        smsHistory.push(rechargeMsg);
+                        ChatDB.setItem(`sms_history_${currentLoginId}_10086`, JSON.stringify(smsHistory));
+                        
+                        let smsSessions = JSON.parse(ChatDB.getItem(`sms_sessions_${currentLoginId}`) || '[]');
+                        smsSessions = smsSessions.filter(id => id !== '10086');
+                        smsSessions.unshift('10086');
+                        ChatDB.setItem(`sms_sessions_${currentLoginId}`, JSON.stringify(smsSessions));
+
+                        // 触发全局弹窗
+                        const smsChatPage = document.getElementById('smsChatPage');
+                        const isSmsChatVisible = smsChatPage && !smsChatPage.classList.contains('hidden') && typeof currentSmsTargetId !== 'undefined' && currentSmsTargetId === '10086';
+                        if (!isSmsChatVisible) {
+                            showCustomNotification('sms', '10086', '10086', rechargeMsg.content, null, '#007aff', '中');
+                        }
+                        
+                        if (typeof renderCallServicePage === 'function') renderCallServicePage();
+                        if (typeof renderSmsList === 'function') renderSmsList();
+                    }
+                    continue;
                 } else if (msgObj.type === 'alipay_text') {
                     let aliChatHistory = JSON.parse(ChatDB.getItem(`alipay_chat_history_${currentLoginId}_${targetCharId}`) || '[]');
                     let newAliMsg = { role: 'char', type: 'text', content: msgObj.content, timestamp: Date.now() };
@@ -9364,7 +9411,94 @@ if (window.Worker) {
 // 应用内消息通知弹窗逻辑
 // ==========================================
 let notifTimeout;
-let currentNotifCharId = null;
+let currentNotifType = 'chat'; // 'chat', 'alipay', 'sms'
+let currentNotifTargetId = null;
+
+function showCustomNotification(type, targetId, title, content, avatarUrl, bgColor, text) {
+    const notifEl = document.getElementById('inAppNotification');
+    const avatarEl = document.getElementById('notifAvatar');
+    
+    if (avatarUrl) {
+        avatarEl.style.backgroundImage = `url('${avatarUrl}')`;
+        avatarEl.style.backgroundColor = 'transparent';
+        avatarEl.innerText = '';
+    } else {
+        avatarEl.style.backgroundImage = 'none';
+        avatarEl.style.backgroundColor = bgColor || '#111';
+        avatarEl.style.color = '#fff';
+        avatarEl.style.display = 'flex';
+        avatarEl.style.justifyContent = 'center';
+        avatarEl.style.alignItems = 'center';
+        avatarEl.innerText = text || title.charAt(0);
+    }
+    
+    document.getElementById('notifName').innerText = title;
+    document.getElementById('notifDesc').innerText = content;
+
+    currentNotifType = type;
+    currentNotifTargetId = targetId;
+
+    notifEl.classList.remove('show');
+    void notifEl.offsetWidth; 
+    notifEl.classList.add('show');
+
+    clearTimeout(notifTimeout);
+    notifTimeout = setTimeout(() => {
+        notifEl.classList.remove('show');
+    }, 4000);
+
+    const soundUrl = ChatDB.getItem('sys_notif_sound');
+    if (soundUrl) {
+        const audio = new Audio(soundUrl);
+        audio.play().catch(e => console.log("自动播放提示音被拦截:", e));
+    }
+
+    // 触发系统级通知 (融合真实浏览器通知逻辑)
+    const notifMode = ChatDB.getItem('sys_notif_mode') || 'off';
+    let shouldSend = false;
+    if (notifMode === 'always') {
+        shouldSend = true;
+    } else if (notifMode === 'background') {
+        if (document.hidden || document.visibilityState !== 'visible') {
+            shouldSend = true;
+        }
+    }
+
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const finalBody = `[${timeStr}] ${content}`;
+
+    if (shouldSend && "Notification" in window && Notification.permission === "granted") {
+        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.ready.then(function(registration) {
+                registration.showNotification(title, {
+                    body: finalBody,
+                    icon: avatarUrl || 'https://i.postimg.cc/1RGRdT9k/IMG-20260427-175620.png',
+                    badge: avatarUrl || 'https://i.postimg.cc/1RGRdT9k/IMG-20260427-175620.png',
+                    timestamp: Date.now(),
+                    vibrate: [200, 100, 200],
+                    tag: 'msg-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+                    renotify: true
+                });
+            });
+        } else {
+            try {
+                const sysNotif = new Notification(title, {
+                    body: finalBody,
+                    icon: avatarUrl || 'https://i.postimg.cc/1RGRdT9k/IMG-20260427-175620.png',
+                    timestamp: Date.now()
+                });
+                sysNotif.onclick = function() {
+                    window.focus();
+                    handleNotificationClick();
+                    sysNotif.close();
+                };
+            } catch (e) {
+                console.error("原生通知发送失败:", e);
+            }
+        }
+    }
+}
 
 function showMsgNotification(charId, content) {
     const currentLoginId = ChatDB.getItem('current_login_account');
@@ -9381,103 +9515,45 @@ function showMsgNotification(charId, content) {
     if (content.includes('[赠送亲属卡]') || content.includes('[索要亲属卡]')) cleanContent = '[亲属卡]';
     if (content.includes('weibo-share-card')) cleanContent = '[微博分享]';
 
-    // 1. 触发应用内顶部弹窗
-    document.getElementById('notifAvatar').style.backgroundImage = `url('${char.avatarUrl || ''}')`;
-    document.getElementById('notifName').innerText = displayName;
-    document.getElementById('notifDesc').innerText = cleanContent;
-
-    currentNotifCharId = charId;
-
-    const notifEl = document.getElementById('inAppNotification');
-    notifEl.classList.remove('show');
-    
-    // 强制重绘以重新触发动画
-    void notifEl.offsetWidth; 
-    
-    notifEl.classList.add('show');
-
-    clearTimeout(notifTimeout);
-    notifTimeout = setTimeout(() => {
-        notifEl.classList.remove('show');
-    }, 4000);
-
-    // 2. 播放提示音
-    const soundUrl = ChatDB.getItem('sys_notif_sound');
-    if (soundUrl) {
-        const audio = new Audio(soundUrl);
-        audio.play().catch(e => console.log("自动播放提示音被拦截:", e));
-    }
-
-    // 3. 触发系统级通知 (融合真实浏览器通知逻辑)
-    const notifMode = ChatDB.getItem('sys_notif_mode') || 'off';
-
-    let shouldSend = false;
-
-    // 【彻底修复】：移除所有旧版 localStorage 变量的干扰，严格按照当前设置执行
-    if (notifMode === 'always') {
-        shouldSend = true; // 全程弹窗
-    } else if (notifMode === 'background') {
-        // 仅后台弹窗：严格判断网页是否处于不可见状态（切到后台、锁屏、最小化）
-        if (document.hidden || document.visibilityState !== 'visible') {
-            shouldSend = true;
-        }
-    }
-
-    const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    const finalBody = `[${timeStr}] ${cleanContent}`;
-
-    if (shouldSend && "Notification" in window && Notification.permission === "granted") {
-        // 既然有了 sw.js，我们优先使用 Service Worker 发送高权限的系统通知
-        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-            navigator.serviceWorker.ready.then(function(registration) {
-                registration.showNotification(displayName, {
-                    body: finalBody,
-                    icon: char.avatarUrl || 'https://i.postimg.cc/1RGRdT9k/IMG-20260427-175620.png',
-                    badge: char.avatarUrl || 'https://i.postimg.cc/1RGRdT9k/IMG-20260427-175620.png',
-                    timestamp: Date.now(),
-                    vibrate: [200, 100, 200],
-                    tag: 'msg-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-                    renotify: true
-                });
-            });
-        } else {
-            // 兜底方案
-            try {
-                const sysNotif = new Notification(displayName, {
-                    body: finalBody,
-                    icon: char.avatarUrl || 'https://i.postimg.cc/1RGRdT9k/IMG-20260427-175620.png',
-                    timestamp: Date.now()
-                });
-                sysNotif.onclick = function() {
-                    window.focus();
-                    handleNotificationClick();
-                    sysNotif.close();
-                };
-            } catch (e) {
-                console.error("原生通知发送失败:", e);
-            }
-        }
-    }
+    showCustomNotification('chat', charId, displayName, cleanContent, char.avatarUrl);
 }
 
 function handleNotificationClick() {
     const notifEl = document.getElementById('inAppNotification');
     notifEl.classList.remove('show');
-    if (currentNotifCharId) {
-        // 1. 强制关闭所有可能遮挡的全屏面板（如设置、角色库、个人主页等）
-        document.querySelectorAll('.theme-panel').forEach(panel => {
-            panel.style.display = 'none';
-        });
-        
-        // 2. 确保微信主面板显示
+    
+    document.querySelectorAll('.theme-panel').forEach(panel => {
+        panel.style.display = 'none';
+    });
+
+    if (currentNotifType === 'chat' && currentNotifTargetId) {
         document.getElementById('wechatPanel').style.display = 'flex';
-        
-        // 3. 切换到底部的“Chat(聊天列表)” Tab
         switchWechatTab('chat');
-        
-        // 4. 直接打开该角色的全屏聊天室
-        openChatRoom(currentNotifCharId);
+        openChatRoom(currentNotifTargetId);
+    } else if (currentNotifType === 'alipay') {
+        if (typeof openAlipayPanel === 'function') openAlipayPanel();
+        if (currentNotifTargetId && typeof openAlipayChatRoom === 'function') {
+            openAlipayChatRoom(currentNotifTargetId);
+        }
+    } else if (currentNotifType === 'sms') {
+        if (typeof openSmsApp === 'function') openSmsApp();
+        if (currentNotifTargetId && typeof openSmsChat === 'function') {
+            let targetName = currentNotifTargetId;
+            let targetAvatar = '';
+            let bg = '#111';
+            let text = targetName.charAt(0);
+            if (targetName === '10086') { bg = '#007aff'; text = '中'; }
+            else {
+                let allEntities = getAllEntities();
+                let entity = allEntities.find(e => e.id === currentNotifTargetId);
+                if (entity) {
+                    targetName = entity.netName || entity.name;
+                    targetAvatar = entity.avatarUrl;
+                    text = targetName.charAt(0);
+                }
+            }
+            openSmsChat(currentNotifTargetId, targetName, targetAvatar, bg, text);
+        }
     }
 }
 // 辅助函数：获取当前登录账号绑定的面具ID
