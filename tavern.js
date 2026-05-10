@@ -991,16 +991,16 @@ function renderTavStatusBars() {
                 </div>
                 <div class="tav-setting-row-col">
                     <span>HTML 代码</span>
-                    <textarea class="tav-ins-textarea" onchange="updateTavStatusBar('${sb.id}', 'html', this.value); this.parentElement.nextElementSibling.querySelector('.tav-status-preview-box').innerHTML = this.value;" style="font-family:monospace; margin-top:4px; height: 120px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;">${sb.html.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
-                </div>
-                <div class="tav-setting-row-col">
-                    <span>HTML 预览</span>
-                    <div class="tav-status-preview-box" style="margin-top:4px; padding:10px; background:#f9f9f9; border-radius:8px; border:1px dashed #ccc; overflow-x:auto; min-height: 40px;">
-                        ${sb.html}
-                    </div>
+                    <textarea class="tav-ins-textarea" onchange="updateTavStatusBar('${sb.id}', 'html', this.value); this.parentElement.nextElementSibling.nextElementSibling.querySelector('.tav-status-preview-box').innerHTML = this.value;" style="font-family:monospace; margin-top:4px; height: 120px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;">${sb.html.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
                 </div>
                 <div style="padding: 15px 0; border-top: 1px solid var(--tav-border-color); margin-top: 10px;">
                     <div class="tav-ins-btn outline" style="color: #ff3b30; border-color: #ff3b30;" onclick="deleteTavStatusBar('${sb.id}')">删除此状态栏</div>
+                </div>
+                <div class="tav-setting-row-col">
+                    <span>HTML 预览</span>
+                    <div class="tav-status-preview-box" style="margin-top:4px; padding:10px; background:#f9f9f9; border-radius:8px; border:1px dashed #ccc; overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; min-height: 40px; max-height: 200px;">
+                        ${sb.html}
+                    </div>
                 </div>
             </div>
         `;

@@ -8788,6 +8788,11 @@ body.ios-standalone .status-bar {
     pointer-events: none;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     transform-origin: right center;
+    max-height: 60vh;
+    max-width: 80vw;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
 }
 
 .tav-floating-ball-container.expanded .tav-floating-panel {
