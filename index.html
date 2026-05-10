@@ -1886,7 +1886,7 @@
             </div>
         </div>
 
-        <div class="panel-content wechat-tab-content" id="tab-me" style="display: none; padding: 20px; padding-bottom: calc(140px + env(safe-area-inset-bottom)); background-color: #fafafa; overflow-y: auto;">
+        <div class="panel-content wechat-tab-content" id="tab-me" style="display: none; padding: 20px; background-color: #fafafa; overflow-y: auto;">
             
             <!-- 顶部切换账号胶囊 -->
             <div class="me-switch-capsule" onclick="openSwitchAccountPanel()">
@@ -1977,6 +1977,9 @@
                     <div class="me-menu-arrow"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg></div>
                 </div>
             </div>
+            
+            <!-- 底部占位，防止被悬浮胶囊挡住 -->
+            <div style="height: 120px; flex-shrink: 0; width: 100%;"></div>
         </div>
         <!-- 悬浮胶囊底栏 -->
         <div class="wechat-bottom-bar">
