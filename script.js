@@ -784,6 +784,8 @@ function importAllData(e) {
 async function backupToCloud(e) {
     if(e) e.stopPropagation();
     document.getElementById('settingsPopup').classList.remove('show');
+    const dataManagementModalOverlay = document.getElementById('dataManagementModalOverlay');
+    if(dataManagementModalOverlay) dataManagementModalOverlay.classList.remove('show');
     
     const token = localStorage.getItem('auth_token');
     if (!token || !token.startsWith('valid_user_')) {
@@ -842,6 +844,8 @@ async function backupToCloud(e) {
 async function restoreFromCloud(e) {
     if(e) e.stopPropagation();
     document.getElementById('settingsPopup').classList.remove('show');
+    const dataManagementModalOverlay = document.getElementById('dataManagementModalOverlay');
+    if(dataManagementModalOverlay) dataManagementModalOverlay.classList.remove('show');
     
     const token = localStorage.getItem('auth_token');
     if (!token || !token.startsWith('valid_user_')) {

@@ -7,10 +7,21 @@ const musicLoginPanel = document.getElementById('musicLoginPanel');
 
 // 音乐播放器核心实例
 const audioPlayer = new Audio();
+audioPlayer.autoplay = true;
+audioPlayer.preload = 'auto';
 // 自动播放下一首
 audioPlayer.addEventListener('ended', () => {
     playNextMusicSong(true); // 传入 true 表示自动切歌
 });
+
+// 👇 新增：监听元数据加载完毕，恢复刷新页面前的播放进度
+audioPlayer.addEventListener('loadedmetadata', () => {
+    if (window.pendingRestoreTime) {
+        audioPlayer.currentTime = window.pendingRestoreTime;
+        window.pendingRestoreTime = null;
+    }
+});
+// 👆 新增结束
 
 let currentPlayingSong = null;
 
@@ -366,6 +377,14 @@ function logoutMusicApp() {
         window.parsedLyrics = [];
         window.currentPlayingLyric = "";
         
+        // 👇 新增：清空本地缓存的播放状态，防止换号后幽灵播放
+        localStorage.removeItem('music_current_song');
+        localStorage.removeItem('music_song_url');
+        localStorage.removeItem('music_parsed_lyrics');
+        localStorage.removeItem('music_current_time');
+        localStorage.removeItem('music_duration');
+        // 👆 新增结束
+        
         // 2. 隐藏并重置悬浮胶囊和迷你播放器
         const capsuleContainer = document.getElementById('globalMusicCapsuleContainer');
         if (capsuleContainer) capsuleContainer.style.display = 'none';
@@ -583,6 +602,13 @@ async function musicPlaySong(id, title, artist, cover) {
         
         if (songUrl) {
             audioPlayer.src = songUrl;
+            
+            // 👇 新增：保存当前播放状态到本地，供刷新后恢复
+            localStorage.setItem('music_current_song', JSON.stringify(currentPlayingSong));
+            localStorage.setItem('music_song_url', songUrl);
+            localStorage.setItem('music_parsed_lyrics', JSON.stringify(window.parsedLyrics || []));
+            // 👆 新增结束
+
             const playPromise = audioPlayer.play();
             if (playPromise !== undefined) {
                 playPromise.then(() => {
@@ -1418,6 +1444,11 @@ audioPlayer.addEventListener('timeupdate', () => {
     const currentTime = audioPlayer.currentTime;
     const duration = audioPlayer.duration;
 
+    // 👇 新增：实时保存播放进度
+    localStorage.setItem('music_current_time', currentTime);
+    if (!isNaN(duration)) localStorage.setItem('music_duration', duration);
+    // 👆 新增结束
+
     // 1. 滚动歌词逻辑
     if (window.parsedLyrics && window.parsedLyrics.length > 0) {
         let activeIdx = 0;
@@ -1519,6 +1550,11 @@ audioPlayer.addEventListener('play', () => {
 
     const disc = document.querySelector('.mp-disc-outer');
     if (disc) disc.style.animationPlayState = 'running';
+
+    // 👇 新增：播放时自动触发系统级保活，防止锁屏或切后台被杀
+    if (typeof toggleKeepAlive === 'function') {
+        toggleKeepAlive(true);
+    }
 });
 
 audioPlayer.addEventListener('pause', () => {
@@ -1532,7 +1568,7 @@ audioPlayer.addEventListener('pause', () => {
     const miniPlayBtn2 = document.getElementById('miniPlayBtn2');
     const miniPauseBtn2 = document.getElementById('miniPauseBtn2');
     if (miniPlayBtn2) miniPlayBtn2.style.display = 'block';
-    if (miniPauseBtn2) miniPauseBtn2.style.display = 'none';
+    if (miniPauseBtn2) miniPlayBtn2.style.display = 'none';
 
     // 桌面小组件按钮
     const desktopPlayIcon = document.querySelector('#carousel-music-widget-container .cw-ins-icon-play');
@@ -1542,6 +1578,11 @@ audioPlayer.addEventListener('pause', () => {
 
     const disc = document.querySelector('.mp-disc-outer');
     if (disc) disc.style.animationPlayState = 'paused';
+
+    // 👇 新增：暂停时如果用户没有开启全局保活，则关闭保活释放资源
+    if (typeof toggleKeepAlive === 'function' && ChatDB.getItem('app_keep_alive') !== 'true') {
+        toggleKeepAlive(false);
+    }
 });
 
 function toggleMusicPlay() {
@@ -1959,6 +2000,12 @@ function playLocalSong(song) {
     if (mpLyricArtist) mpLyricArtist.innerText = song.artist;
     
     currentPlayingSong = song;
+
+    // 👇 新增：保存当前播放状态到本地，供刷新后恢复
+    localStorage.setItem('music_current_song', JSON.stringify(currentPlayingSong));
+    localStorage.setItem('music_song_url', song.url);
+    localStorage.setItem('music_parsed_lyrics', JSON.stringify(window.parsedLyrics || []));
+    // 👆 新增结束
 
     audioPlayer.src = song.url;
     const playPromise = audioPlayer.play();
@@ -2780,6 +2827,81 @@ window.addEventListener('DOMContentLoaded', () => {
     if (savedPlaylist) {
         try { window.currentPlaylistTracks = JSON.parse(savedPlaylist); } catch(e){}
     }
+    
+    // 👇 新增：恢复上一首未播完的歌及进度
+    const savedSong = localStorage.getItem('music_current_song');
+    if (savedSong) {
+        try {
+            currentPlayingSong = JSON.parse(savedSong);
+            const savedUrl = localStorage.getItem('music_song_url');
+            const savedTime = parseFloat(localStorage.getItem('music_current_time') || 0);
+            const savedLyrics = localStorage.getItem('music_parsed_lyrics');
+            
+            if (savedLyrics) {
+                window.parsedLyrics = JSON.parse(savedLyrics);
+                const lyricContent = document.getElementById('mpLyricContent');
+                if (lyricContent) {
+                    lyricContent.innerHTML = window.parsedLyrics.map((line, idx) => `<div class="lyric-line" id="lrc-line-${idx}">${line.text}</div>`).join('');
+                }
+            }
+
+            if (savedUrl) {
+                audioPlayer.autoplay = false; // 临时关闭自动播放，防止刷新直接发声
+                audioPlayer.src = savedUrl;
+                window.pendingRestoreTime = savedTime; // 交给 loadedmetadata 恢复进度
+                setTimeout(() => { audioPlayer.autoplay = true; }, 1000);
+            }
+
+            // 恢复 UI
+            document.querySelector('.music-player-title').innerText = currentPlayingSong.title;
+            document.querySelector('.music-player-sub').innerText = currentPlayingSong.artist;
+            document.querySelector('.music-player-disc-inner').style.backgroundImage = `url(${currentPlayingSong.cover})`;
+            document.querySelector('.music-player-disc-inner').style.backgroundSize = 'cover';
+            
+            const mpSongName = document.getElementById('mpSongName');
+            if (mpSongName) mpSongName.innerText = currentPlayingSong.title;
+            const mpArtistName = document.getElementById('mpArtistName');
+            if (mpArtistName) mpArtistName.innerText = currentPlayingSong.artist;
+            const mpDiscCover = document.getElementById('mpDiscCover');
+            if (mpDiscCover) mpDiscCover.style.backgroundImage = `url(${currentPlayingSong.cover})`;
+            
+            const mpLyricTitle = document.getElementById('mpLyricTitle');
+            if (mpLyricTitle) mpLyricTitle.innerText = currentPlayingSong.title;
+            const mpLyricArtist = document.getElementById('mpLyricArtist');
+            if (mpLyricArtist) mpLyricArtist.innerText = currentPlayingSong.artist;
+
+            // 恢复桌面小组件 UI
+            const desktopTitle = document.querySelector('#carousel-music-widget-container .cw-ins-photo-card.center .cw-ins-photo-title');
+            if (desktopTitle) desktopTitle.innerText = currentPlayingSong.title;
+            const desktopArtist = document.querySelector('#carousel-music-widget-container .cw-ins-photo-card.center .cw-ins-photo-artist');
+            if (desktopArtist) desktopArtist.innerText = currentPlayingSong.artist;
+
+            // 恢复进度条 UI
+            const duration = parseFloat(localStorage.getItem('music_duration') || 0);
+            if (duration > 0) {
+                const progressPercent = (savedTime / duration) * 100;
+                const fill = document.getElementById('mpProgressFill');
+                const dot = document.getElementById('mpProgressDot');
+                if(fill) fill.style.width = `${progressPercent}%`;
+                if(dot) dot.style.left = `${progressPercent}%`;
+                
+                const curTimeEl = document.getElementById('mpCurrentTime');
+                const durTimeEl = document.getElementById('mpDuration');
+                if(curTimeEl) curTimeEl.innerText = formatTime(savedTime);
+                if(durTimeEl) durTimeEl.innerText = formatTime(duration);
+
+                const miniFill = document.getElementById('miniProgressFill');
+                const miniCur = document.getElementById('miniCurrentTime');
+                const miniDur = document.getElementById('miniDuration');
+                if(miniFill) miniFill.style.width = `${progressPercent}%`;
+                if(miniCur) miniCur.innerText = formatTime(savedTime);
+                if(miniDur) miniDur.innerText = formatTime(duration);
+            }
+        } catch(e) {
+            console.error("恢复音乐状态失败", e);
+        }
+    }
+    // 👆 新增结束
     
     const savedState = localStorage.getItem('music_capsule_visible');
     const container = document.getElementById('globalMusicCapsuleContainer');
