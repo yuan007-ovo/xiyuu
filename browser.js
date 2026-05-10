@@ -1539,6 +1539,48 @@ ${customPrompt ? `【画面与配文要求】：${customPrompt}\n` : ''}
 // 海棠书屋 (Haitang) 逻辑
 // ==========================================
 let sysBrowserHaitangData = [];
+let isHaitangEditMode = false;
+let haitangSelectedBooks = [];
+
+window.toggleHaitangEditMode = function() {
+    isHaitangEditMode = !isHaitangEditMode;
+    haitangSelectedBooks = [];
+    sysBrowserRenderHaitang('home');
+};
+
+window.toggleHaitangBookSelect = function(id) {
+    if (!isHaitangEditMode) return;
+    const index = haitangSelectedBooks.indexOf(id);
+    if (index > -1) {
+        haitangSelectedBooks.splice(index, 1);
+    } else {
+        haitangSelectedBooks.push(id);
+    }
+    sysBrowserRenderHaitang('home');
+};
+
+window.haitangSelectAll = function() {
+    if (haitangSelectedBooks.length === sysBrowserHaitangData.length && sysBrowserHaitangData.length > 0) {
+        haitangSelectedBooks = []; // 取消全选
+    } else {
+        haitangSelectedBooks = sysBrowserHaitangData.map(b => b.id);
+    }
+    sysBrowserRenderHaitang('home');
+};
+
+window.haitangDeleteSelected = function() {
+    if (haitangSelectedBooks.length === 0) {
+        sysBrowserShowToast('请先选择要删除的书籍');
+        return;
+    }
+    if (confirm(`确定要删除选中的 ${haitangSelectedBooks.length} 本书吗？`)) {
+        sysBrowserHaitangData = sysBrowserHaitangData.filter(b => !haitangSelectedBooks.includes(b.id));
+        haitangSelectedBooks = [];
+        isHaitangEditMode = false;
+        sysBrowserRenderHaitang('home');
+        sysBrowserShowToast('删除成功');
+    }
+};
 
 function sysBrowserRenderHaitang(page, bookId = null, chapterIndex = 0) {
     const body = document.getElementById('sysBrowserHaitangBody');
@@ -1574,9 +1616,16 @@ function sysBrowserRenderHaitang(page, bookId = null, chapterIndex = 0) {
     if (page === 'home') {
         let listHtml = '';
         sysBrowserHaitangData.forEach(book => {
+            let checkboxHtml = '';
+            if (isHaitangEditMode) {
+                const isChecked = haitangSelectedBooks.includes(book.id) ? 'checked' : '';
+                checkboxHtml = `<input type="checkbox" class="ht-book-checkbox" value="${book.id}" ${isChecked} onclick="event.stopPropagation(); toggleHaitangBookSelect(${book.id})" style="margin-right: 10px; accent-color: #8b1a1a; width: 16px; height: 16px; flex-shrink: 0;">`;
+            }
+            
             listHtml += `
-                <div class="ht-book-item" onclick="sysBrowserRenderHaitang('detail', ${book.id})">
+                <div class="ht-book-item" onclick="${isHaitangEditMode ? `toggleHaitangBookSelect(${book.id})` : `sysBrowserRenderHaitang('detail', ${book.id})`}">
                     <div class="ht-book-left">
+                        ${checkboxHtml}
                         <span class="ht-book-tag">${book.tag}</span>
                         <span class="ht-book-name">${book.title}</span>
                     </div>
@@ -1585,11 +1634,27 @@ function sysBrowserRenderHaitang(page, bookId = null, chapterIndex = 0) {
             `;
         });
 
+        let editBarHtml = '';
+        if (isHaitangEditMode) {
+            editBarHtml = `
+                <div style="display: flex; justify-content: space-between; padding: 10px 15px; background: #fdf5f6; border-top: 1px solid #e5a5ab; position: sticky; bottom: 0; z-index: 10;">
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="haitangSelectAll()" style="background: #fff; color: #8b1a1a; border: 1px solid #8b1a1a; padding: 6px 16px; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: bold;">全选</button>
+                        <button onclick="haitangDeleteSelected()" style="background: #8b1a1a; color: #fff; border: none; padding: 6px 16px; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: bold;">删除</button>
+                    </div>
+                    <button onclick="toggleHaitangEditMode()" style="background: #ccc; color: #fff; border: none; padding: 6px 16px; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: bold;">取消</button>
+                </div>
+            `;
+        }
+
         body.innerHTML = `
             <div class="ht-section">
                 <div class="ht-section-title">
                     <span>★ 最新更新</span>
-                    <span class="ht-section-more">更多>></span>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        ${!isHaitangEditMode ? `<span class="ht-section-more" onclick="toggleHaitangEditMode()" style="color: #8b1a1a; font-weight: bold; cursor: pointer;">编辑</span>` : ''}
+                        <span class="ht-section-more">更多>></span>
+                    </div>
                 </div>
                 <div class="ht-book-list">
                     ${listHtml}
@@ -1600,6 +1665,7 @@ function sysBrowserRenderHaitang(page, bookId = null, chapterIndex = 0) {
                 Copyright © 2026 Haitang Culture. All Rights Reserved.<br>
                 本站所有内容均为网友自由发表，不代表本站立场。
             </div>
+            ${editBarHtml}
         `;
     } else if (page === 'detail') {
         const book = sysBrowserHaitangData.find(b => b.id === bookId);
