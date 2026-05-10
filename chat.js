@@ -7469,7 +7469,7 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
                         let rechargeMsg = {
                             role: 'char',
                             type: 'text',
-                            content: `【充值交费】尊敬的客户，您好！您的号码已成功充值 ${amount.toFixed(2)} 元，当前余额为 ${callBalance.toFixed(2)} 元。`,
+                            content: `【充值交费】尊敬的客户，您好！${charName} 为您的号码成功充值 ${amount.toFixed(2)} 元，当前余额为 ${callBalance.toFixed(2)} 元。`,
                             senderName: '10086',
                             timestamp: Date.now()
                         };
