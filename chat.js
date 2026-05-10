@@ -10932,22 +10932,7 @@ function openAppShareDetail(index) {
     const msg = history[index];
     if (!msg || msg.type !== 'app_share') return;
 
-    if (msg.shareUrl && typeof openSysBrowserApp === 'function') {
-        // 直接打开浏览器并跳转
-        openSysBrowserApp();
-        if (msg.appName === 'Poipiku') {
-            sysBrowserNavigateTo('poipiku', 'poipiku');
-        } else if (msg.appName === '海棠书屋') {
-            sysBrowserNavigateTo('haitang', 'haitang');
-        } else if (msg.appName === '世界百科') {
-            sysBrowserNavigateTo(msg.shareUrl, 'ai');
-        } else {
-            sysBrowserNavigateTo(msg.shareUrl, 'real');
-        }
-        return; // 结束，不弹窗
-    }
-
-    // 兜底：如果没法跳转，显示弹窗
+    // 强制显示弹窗，不再直接跳转浏览器
     document.getElementById('appShareDetailTitle').innerText = msg.shareTitle || '分享详情';
     
     const contentEl = document.getElementById('appShareDetailContent');
