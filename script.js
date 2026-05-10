@@ -575,6 +575,8 @@ function showExportModal(type, e) {
     document.getElementById('settingsPopup').classList.remove('show');
     const themePopup = document.getElementById('themePopup');
     if(themePopup) themePopup.classList.remove('show');
+    const dataManagementModalOverlay = document.getElementById('dataManagementModalOverlay');
+    if(dataManagementModalOverlay) dataManagementModalOverlay.classList.remove('show');
     document.getElementById('exportNameInput').value = type === 'theme' ? 'theme_data' : 'all_backup_data';
     document.getElementById('exportModalOverlay').classList.add('show');
     setTimeout(() => document.getElementById('exportNameInput').focus(), 100);
@@ -654,11 +656,19 @@ async function showStorageAnalysisModal() {
     const apiPresets = ChatDB.getItem('api_presets') || '[]';
     const wbDataStr = ChatDB.getItem('worldbook_data') || '{}'; 
     
-    // 收集 Chat 相关数据
+    // 收集 Chat 相关数据和其他 APP 数据
     let chatDataSize = 0;
+    let otherAppsDataSize = 0;
     for (let key in window.ChatMemoryCache) {
-        if (key !== 'current_api_config' && key !== 'api_presets' && key !== 'worldbook_data' && key !== 'ios_immersive_mode' && key !== 'ios_statusbar_hidden') {
-            chatDataSize += new Blob([window.ChatMemoryCache[key]]).size;
+        if (key === 'current_api_config' || key === 'api_presets' || key === 'worldbook_data' || key === 'ios_immersive_mode' || key === 'ios_statusbar_hidden') {
+            continue;
+        }
+        const size = new Blob([window.ChatMemoryCache[key]]).size;
+        // 区分纯聊天数据和其他APP数据
+        if (key.startsWith('chat_') || key.startsWith('contacts_') || key.startsWith('moments_') || key.startsWith('unread_') || key.startsWith('blacklist_')) {
+            chatDataSize += size;
+        } else {
+            otherAppsDataSize += size;
         }
     }
     
@@ -667,13 +677,14 @@ async function showStorageAnalysisModal() {
     const apiSize = new Blob([apiConfig, apiPresets]).size;
     const wbSize = new Blob([wbDataStr]).size; 
     
-    const totalSize = stateSize + presetsSize + apiSize + wbSize + chatDataSize || 1; 
+    const totalSize = stateSize + presetsSize + apiSize + wbSize + chatDataSize + otherAppsDataSize || 1; 
     
     const statePct = Math.round((stateSize / totalSize) * 100);
     const presetsPct = Math.round((presetsSize / totalSize) * 100);
     const apiPct = Math.round((apiSize / totalSize) * 100);
     const wbPct = Math.round((wbSize / totalSize) * 100);
-    const chatPct = 100 - statePct - presetsPct - apiPct - wbPct; 
+    const chatPct = Math.round((chatDataSize / totalSize) * 100);
+    const otherPct = 100 - statePct - presetsPct - apiPct - wbPct - chatPct; 
     
     // 绘制扇形图 (使用 conic-gradient)
     const chart = document.getElementById('storagePieChart');
@@ -682,7 +693,8 @@ async function showStorageAnalysisModal() {
         #007aff ${statePct}% ${statePct + presetsPct}%, 
         #ff9500 ${statePct + presetsPct}% ${statePct + presetsPct + apiPct}%,
         #af52de ${statePct + presetsPct + apiPct}% ${statePct + presetsPct + apiPct + wbPct}%,
-        #ff2d55 ${statePct + presetsPct + apiPct + wbPct}% 100%
+        #ff2d55 ${statePct + presetsPct + apiPct + wbPct}% ${statePct + presetsPct + apiPct + wbPct + chatPct}%,
+        #5ac8fa ${statePct + presetsPct + apiPct + wbPct + chatPct}% 100%
     )`;
     
     // 更新图例
@@ -693,11 +705,20 @@ async function showStorageAnalysisModal() {
         <div class="legend-item"><span class="legend-color" style="background:#ff9500;"></span>API配置 (${apiPct}%) - ${(apiSize/1024).toFixed(1)}KB</div>
         <div class="legend-item"><span class="legend-color" style="background:#af52de;"></span>世界书 (${wbPct}%) - ${(wbSize/1024).toFixed(1)}KB</div>
         <div class="legend-item"><span class="legend-color" style="background:#ff2d55;"></span>聊天数据 (${chatPct}%) - ${(chatDataSize/1024).toFixed(1)}KB</div>
+        <div class="legend-item"><span class="legend-color" style="background:#5ac8fa;"></span>其他APP数据 (${otherPct}%) - ${(otherAppsDataSize/1024).toFixed(1)}KB</div>
     `;
 }
 
 function hideStorageAnalysisModal() {
     document.getElementById('storageModalOverlay').classList.remove('show');
+}
+
+function openDataManagementModal() {
+    document.getElementById('dataManagementModalOverlay').classList.add('show');
+}
+
+function closeDataManagementModal() {
+    document.getElementById('dataManagementModalOverlay').classList.remove('show');
 }
 
 // 导入所有数据 (修复异步写入丢失与旧数据残留问题)
@@ -754,20 +775,156 @@ function importAllData(e) {
         }
     });
     document.getElementById('settingsPopup').classList.remove('show');
+    const dataManagementModalOverlay = document.getElementById('dataManagementModalOverlay');
+    if(dataManagementModalOverlay) dataManagementModalOverlay.classList.remove('show');
 }
-
-function checkUpdate(e) {
+// ==========================================
+// 云端备份与恢复逻辑 (Supabase) - 极速纯文本版
+// ==========================================
+async function backupToCloud(e) {
     if(e) e.stopPropagation();
     document.getElementById('settingsPopup').classList.remove('show');
-    alert('正在检查更新...');
-    setTimeout(() => {
-        location.reload(true);
-    }, 500);
+    
+    const token = localStorage.getItem('auth_token');
+    if (!token || !token.startsWith('valid_user_')) {
+        return alert('请先在登录界面使用 QQ 账号登录，才能使用云端备份功能！');
+    }
+    const qq = token.replace('valid_user_', '');
+    
+    if (typeof supabaseClient === 'undefined' || !supabaseClient) {
+        return alert('数据库连接失败，请检查网络！');
+    }
+
+    showToast('正在打包数据...', 'loading');
+    
+    try {
+        // 1. 收集所有数据
+        const state = await getGlobalStateFromDB() || captureFullState();
+        const presets = await getAllPresets();
+        
+        const chatDBData = {};
+        for (let key in window.ChatMemoryCache) {
+            chatDBData[key] = window.ChatMemoryCache[key];
+        }
+
+        const localData = {};
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            localData[key] = localStorage.getItem(key);
+        }
+        
+        const allData = { state, presets, chatDBData, localData };
+        
+        // 【核心修复】：将巨大的对象转换为纯文本字符串，绕过数据库的 JSON 解析，实现秒传
+        const allDataString = JSON.stringify(allData);
+        
+        showToast('正在极速上传至云端...', 'loading');
+        
+        // 2. 上传到 Supabase
+        const { error } = await supabaseClient
+            .from('user_backups')
+            .upsert({ 
+                qq: qq, 
+                backup_data: allDataString, 
+                updated_at: new Date().toISOString() 
+            }, { onConflict: 'qq' });
+            
+        if (error) throw error;
+        
+        hideToast();
+        alert('☁️ 云端备份成功！您的数据已安全保存在云端。');
+    } catch (err) {
+        hideToast();
+        alert('云端备份失败: ' + err.message);
+    }
+}
+
+async function restoreFromCloud(e) {
+    if(e) e.stopPropagation();
+    document.getElementById('settingsPopup').classList.remove('show');
+    
+    const token = localStorage.getItem('auth_token');
+    if (!token || !token.startsWith('valid_user_')) {
+        return alert('请先在登录界面使用 QQ 账号登录，才能使用云端恢复功能！');
+    }
+    const qq = token.replace('valid_user_', '');
+    
+    if (typeof supabaseClient === 'undefined' || !supabaseClient) {
+        return alert('数据库连接失败，请检查网络！');
+    }
+
+    if (!confirm('⚠️ 警告：从云端恢复将覆盖当前设备上的所有本地数据！\n确定要恢复吗？')) return;
+    
+    showToast('正在从云端下载数据...', 'loading');
+    
+    try {
+        // 1. 从 Supabase 下载备份
+        const { data, error } = await supabaseClient
+            .from('user_backups')
+            .select('backup_data, updated_at')
+            .eq('qq', qq)
+            .single();
+            
+        if (error || !data || !data.backup_data) {
+            throw new Error('未找到您的云端备份记录！请确认您之前是否备份过。');
+        }
+        
+        // 【核心修复】：将下载下来的纯文本字符串解析回对象
+        const backupData = typeof data.backup_data === 'string' ? JSON.parse(data.backup_data) : data.backup_data;
+        const backupTime = new Date(data.updated_at).toLocaleString();
+        
+        if (!confirm(`找到备份数据 (备份时间: ${backupTime})。\n即将开始恢复，恢复完成后页面将自动刷新。`)) {
+            hideToast();
+            return;
+        }
+        
+        showToast('正在恢复数据...', 'loading');
+        
+        // 2. 恢复数据到本地
+        if (backupData.state) {
+            await saveGlobalStateToDB(backupData.state);
+        }
+        if (backupData.presets && Array.isArray(backupData.presets)) {
+            for (const p of backupData.presets) {
+                await savePresetToDB(p);
+            }
+        }
+        
+        if (backupData.chatDBData && chatDBInstance) {
+            const tx = chatDBInstance.transaction(CHAT_STORE_NAME, 'readwrite');
+            const store = tx.objectStore(CHAT_STORE_NAME);
+            store.clear(); 
+            window.ChatMemoryCache = {}; 
+            
+            for (let key in backupData.chatDBData) {
+                store.put({ key: key, value: backupData.chatDBData[key] });
+                window.ChatMemoryCache[key] = backupData.chatDBData[key];
+            }
+            
+            tx.oncomplete = () => {
+                hideToast();
+                alert('☁️ 云端数据恢复成功！即将刷新页面...');
+                location.reload();
+            };
+            tx.onerror = () => {
+                throw new Error('数据写入本地数据库失败');
+            };
+        } else {
+            hideToast();
+            alert('☁️ 云端数据恢复成功！即将刷新页面...');
+            location.reload();
+        }
+    } catch (err) {
+        hideToast();
+        alert('云端恢复失败: ' + err.message);
+    }
 }
 
 function clearAllData(e) {
     if(e) e.stopPropagation();
     document.getElementById('settingsPopup').classList.remove('show');
+    const dataManagementModalOverlay = document.getElementById('dataManagementModalOverlay');
+    if(dataManagementModalOverlay) dataManagementModalOverlay.classList.remove('show');
     if (confirm('警告：此操作将清空所有本地数据（包括聊天记录、角色、设置、音乐等），且不可恢复！\n\n确定要清空所有数据吗？')) {
         if (confirm('再次确认：真的要清空所有数据吗？')) {
             localStorage.clear();
@@ -956,20 +1113,38 @@ if (sbToggle) {
 }
 
 // ==========================================
-// 后台保活逻辑 (无声音频 + WakeLock)
+// 后台保活逻辑 (无声音频 + WakeLock) - 温和防冲突版
 // ==========================================
 let keepAliveAudio = null;
 let wakeLock = null;
+let wakeLockInterval = null;
 
 function initKeepAlive() {
     if (!keepAliveAudio) {
-        // 极短的无声 WAV 音频 Base64
-        keepAliveAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+        keepAliveAudio = document.createElement('video');
+        keepAliveAudio.src = 'https://img.heliar.top/file/1772516513350_30min-osbvow_2.mp4';
         keepAliveAudio.loop = true;
         keepAliveAudio.volume = 0.01;
-        // 允许在后台和静音模式下播放
         keepAliveAudio.setAttribute('playsinline', '');
         keepAliveAudio.setAttribute('webkit-playsinline', '');
+        keepAliveAudio.style.display = 'none';
+        document.body.appendChild(keepAliveAudio);
+
+        // 【移除】了之前强行抢夺焦点的 pause 监听，不再打断抖音/小红书
+    }
+}
+
+async function requestWakeLock() {
+    if ('wakeLock' in navigator) {
+        try {
+            if (wakeLock !== null) {
+                await wakeLock.release();
+            }
+            wakeLock = await navigator.wakeLock.request('screen');
+            console.log("✅ WakeLock 已激活");
+        } catch (err) {
+            console.log("⚠️ WakeLock 请求失败:", err);
+        }
     }
 }
 
@@ -978,36 +1153,38 @@ async function toggleKeepAlive(enable) {
     if (enable) {
         try {
             await keepAliveAudio.play();
-            console.log("✅ 后台保活音频已启动");
+            console.log("✅ 后台保活视频已启动");
         } catch (e) {
-            console.log("⚠️ 保活音频播放失败，等待用户交互后启动", e);
+            console.log("⚠️ 保活视频播放失败，等待用户交互后启动", e);
         }
         
-        // 尝试请求 WakeLock (保持屏幕常亮，防止休眠杀后台)
-        if ('wakeLock' in navigator) {
-            try {
-                wakeLock = await navigator.wakeLock.request('screen');
-                console.log("✅ WakeLock 已激活");
-            } catch (err) {
-                console.log("⚠️ WakeLock 请求失败:", err);
-            }
-        }
+        await requestWakeLock();
+        
+        if (wakeLockInterval) clearInterval(wakeLockInterval);
+        wakeLockInterval = setInterval(requestWakeLock, 30000);
+
         ChatDB.setItem('app_keep_alive', 'true');
     } else {
         keepAliveAudio.pause();
         if (wakeLock !== null) {
             wakeLock.release().then(() => { wakeLock = null; });
         }
+        if (wakeLockInterval) {
+            clearInterval(wakeLockInterval);
+            wakeLockInterval = null;
+        }
         ChatDB.setItem('app_keep_alive', 'false');
         console.log("❌ 后台保活已关闭");
     }
 }
 
-// 监听可见性变化，如果开启了保活，在重新可见时重新请求 WakeLock
+// 监听可见性变化：切回前台时，如果保活是开启的，自动恢复播放和 WakeLock
 document.addEventListener('visibilitychange', async () => {
-    if (wakeLock !== null && document.visibilityState === 'visible') {
-        if ('wakeLock' in navigator) {
-            wakeLock = await navigator.wakeLock.request('screen');
+    if (ChatDB.getItem('app_keep_alive') === 'true' && document.visibilityState === 'visible') {
+        await requestWakeLock();
+        // 如果刚才因为刷抖音被系统暂停了，切回来时自动恢复播放
+        if (keepAliveAudio && keepAliveAudio.paused) {
+            keepAliveAudio.play().catch(e => console.log('恢复播放失败', e));
         }
     }
 });

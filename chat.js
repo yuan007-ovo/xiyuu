@@ -4481,6 +4481,8 @@ function handleMoreAction(action) {
         document.getElementById('chatLocationNameInput').value = '';
         document.getElementById('chatLocationDescInput').value = '';
         document.getElementById('sendLocationModalOverlay').classList.add('show');
+    } else if (action === 'memory') {
+        openMemoryPanel(); // 新增：打开角色记忆库
     } else if (action === 'tavern') {
         openTavernMode(); // 新增：打开酒馆模式
     } else {
@@ -7496,13 +7498,14 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
             
             if (charMemoryForAuto && charMemoryForAuto.settings && charMemoryForAuto.settings.autoSummarize) {
                 const autoTurns = charMemoryForAuto.settings.autoTurns || 10;
-                if (currentTurns > 0 && currentTurns % autoTurns === 0) {
-                    if (charMemoryForAuto.lastAutoSummaryTurn !== currentTurns) {
-                        charMemoryForAuto.lastAutoSummaryTurn = currentTurns;
-                        ChatDB.setItem(`char_memory_${currentPersonaId}_${targetCharId}`, JSON.stringify(charMemoryForAuto));
-                        // 静默调用总结，提取这几轮的独立记忆
-                        executeSilentAutoSummary(targetCharId, currentTurns, autoTurns);
-                    }
+                let lastTurn = charMemoryForAuto.lastAutoSummaryTurn || 0;
+                
+                // 修复：只要当前轮数减去上次总结的轮数 >= 设定的间隔，就触发总结，防止因多发消息跳过整数倍导致中断
+                if (currentTurns - lastTurn >= autoTurns) {
+                    charMemoryForAuto.lastAutoSummaryTurn = currentTurns;
+                    ChatDB.setItem(`char_memory_${currentPersonaId}_${targetCharId}`, JSON.stringify(charMemoryForAuto));
+                    // 静默调用总结，提取这几轮的独立记忆
+                    executeSilentAutoSummary(targetCharId, currentTurns, currentTurns - lastTurn);
                 }
             }
 
@@ -9384,17 +9387,14 @@ function showMsgNotification(charId, content) {
 
     // 3. 触发系统级通知 (融合真实浏览器通知逻辑)
     const notifMode = ChatDB.getItem('sys_notif_mode') || 'off';
-    
-    // 兼容 script.js 中的全局变量
-    const isRealNotifEnabled = localStorage.getItem('ios_theme_real_notif_enabled') === 'true';
-    const isAlwaysRealNotifEnabled = localStorage.getItem('ios_theme_always_real_notif_enabled') === 'true';
 
     let shouldSend = false;
 
-    // 判断是否需要发送通知 (结合 chat.js 的 notifMode 和 script.js 的全局开关)
-    if (notifMode === 'always' || isAlwaysRealNotifEnabled) {
-        shouldSend = true;
-    } else if (notifMode === 'background' || isRealNotifEnabled) {
+    // 【彻底修复】：移除所有旧版 localStorage 变量的干扰，严格按照当前设置执行
+    if (notifMode === 'always') {
+        shouldSend = true; // 全程弹窗
+    } else if (notifMode === 'background') {
+        // 仅后台弹窗：严格判断网页是否处于不可见状态（切到后台、锁屏、最小化）
         if (document.hidden || document.visibilityState !== 'visible') {
             shouldSend = true;
         }
@@ -9695,9 +9695,13 @@ async function executeManualSummary() {
     let history = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${currentProfileCharId}`) || '[]');
     if (history.length === 0) return alert('暂无聊天记录可总结！');
     
-    const startIndex = Math.max(0, history.length - end * 2);
-    const endIndex = history.length - (start - 1) * 2;
-    const targetHistory = history.slice(startIndex, endIndex);
+    // 过滤掉系统消息，确保轮数计算准确
+    let validHistory = history.filter(m => m.type !== 'system' && m.type !== 'hidden_system');
+    
+    // 按照正向轮数截取 (第1轮为最开始的2条消息)
+    const startIndex = Math.max(0, (start - 1) * 2);
+    const endIndex = end * 2;
+    const targetHistory = validHistory.slice(startIndex, endIndex);
     
     let chatText = targetHistory.map(m => `${m.role === 'user' ? 'User' : 'Char'}: ${m.content}`).join('\n');
 
@@ -11065,7 +11069,7 @@ function closeAppShareDetail() {
 // ==========================================
 // 后台静默自动总结 (不弹窗，不打断聊天)
 // ==========================================
-async function executeSilentAutoSummary(charId, currentTurns, autoTurns) {
+async function executeSilentAutoSummary(charId, currentTurns, turnsToSummarize) {
     const currentLoginId = ChatDB.getItem('current_login_account');
     if (!currentLoginId || !charId) return;
 
@@ -11080,7 +11084,7 @@ async function executeSilentAutoSummary(charId, currentTurns, autoTurns) {
     let history = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${charId}`) || '[]');
     // 过滤掉系统消息，确保提取的是真实对话
     let validHistory = history.filter(m => m.type !== 'system' && m.type !== 'hidden_system');
-    const targetHistory = validHistory.slice(-(autoTurns * 2));
+    const targetHistory = validHistory.slice(-(turnsToSummarize * 2));
     
     if (targetHistory.length === 0) {
         if (typeof hideToast === 'function') hideToast();
@@ -11130,7 +11134,7 @@ ${customPrompt}
             
             try {
                 const parsed = JSON.parse(replyRaw);
-                const finalText = `[第 ${currentTurns - autoTurns + 1} ~ ${currentTurns} 轮记忆]\n${parsed.summary || '无总结内容'}`;
+                const finalText = `[第 ${currentTurns - turnsToSummarize + 1} ~ ${currentTurns} 轮记忆]\n${parsed.summary || '无总结内容'}`;
                 const tags = Array.isArray(parsed.tags) ? parsed.tags : [];
                 
                 memory = JSON.parse(ChatDB.getItem(`char_memory_${personaId}_${charId}`) || '{}');
