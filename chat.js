@@ -4814,6 +4814,18 @@ function executeRollRedo() {
             ChatDB.setItem(`chat_history_${currentChatRoomCharId}_${currentLoginId}`, JSON.stringify(targetHistory));
         }
         
+        // 清除上一轮的心声
+        let ivHistory = JSON.parse(ChatDB.getItem(`inner_voice_history_${currentLoginId}_${currentChatRoomCharId}`) || '[]');
+        if (ivHistory.length > 0) {
+            ivHistory = ivHistory.filter(iv => iv.timestamp <= lastUserMsg.timestamp);
+            ChatDB.setItem(`inner_voice_history_${currentLoginId}_${currentChatRoomCharId}`, JSON.stringify(ivHistory));
+            if (ivHistory.length > 0) {
+                ChatDB.setItem(`last_inner_voice_${currentChatRoomCharId}`, ivHistory[ivHistory.length - 1].content);
+            } else {
+                ChatDB.removeItem(`last_inner_voice_${currentChatRoomCharId}`);
+            }
+        }
+        
         renderChatHistory(currentChatRoomCharId);
         
         // 触发重新生成
@@ -7851,7 +7863,18 @@ function saveEditedMessage() {
         }
 
         if (currentEditMsgType !== 'split') {
+            const oldContent = history[currentActionMsgIndex].content || "";
+            let oldQuoteText = oldContent.replace(/<img[^>]*>/g, '[图片]');
+            
             history[currentActionMsgIndex] = msg;
+            
+            let newQuoteText = msg.content.replace(/<img[^>]*>/g, '[图片]');
+            
+            for (let i = currentActionMsgIndex + 1; i < history.length; i++) {
+                if (history[i].quote && history[i].quote === oldQuoteText) {
+                    history[i].quote = newQuoteText;
+                }
+            }
         }
         
         ChatDB.setItem(`chat_history_${currentLoginId}_${currentChatRoomCharId}`, JSON.stringify(history));

@@ -324,7 +324,7 @@ function sysBrowserRenderPoipiku(page) {
         let stylePresets = JSON.parse(ChatDB.getItem('tav_presets_style') || '[]');
         let styleOptions = '<option value="">请选择预设文风 (可选)</option>';
         if (stylePresets.length === 0) {
-            styleOptions = '<option value="">暂无文风预设，请先在酒馆配置</option>';
+            styleOptions = '<option value="">暂无文风预设，请先在线下配置</option>';
         } else {
             stylePresets.forEach(p => {
                 styleOptions += `<option value="${p.content.replace(/"/g, '&quot;')}">${p.name}</option>`;
@@ -1860,7 +1860,7 @@ function sysBrowserRenderHaitang(page, bookId = null, chapterIndex = 0) {
         let stylePresets = JSON.parse(ChatDB.getItem('tav_presets_style') || '[]');
         let styleOptions = '<option value="">请选择预设文风 (可选)</option>';
         if (stylePresets.length === 0) {
-            styleOptions = '<option value="">暂无文风预设，请先在酒馆配置</option>';
+            styleOptions = '<option value="">暂无文风预设，请先在线下配置</option>';
         } else {
             stylePresets.forEach(p => {
                 styleOptions += `<option value="${p.content.replace(/"/g, '&quot;')}" ${savedSettings.style === p.content ? 'selected' : ''}>${p.name}</option>`;
@@ -1996,10 +1996,7 @@ async function executeHaitangGenAPI() {
     let prompt = `你是一个在海棠书屋（海棠文化线上文学城）上连载小说的作者。
 请根据以下设定，生成 ${postCount} 本小说。每本小说需要包含简介和 2 个章节的正文。小说正文内容需要直白露骨，色情。
 
-【主角 A】：${char1RealName}
-设定：${char1Desc}
-
-${char2 ? `【主角 B】：${char2RealName}\n设定：${char2Desc}\n` : ''}
+${charactersContext}
 ${wbContext ? `【世界观背景】：\n${wbContext}\n` : ''}
 ${style ? `【文风要求】：${style}\n` : ''}
 ${customPrompt ? `【剧情大纲/XP要求】：${customPrompt}\n` : ''}
@@ -2055,8 +2052,7 @@ ${customPrompt ? `【剧情大纲/XP要求】：${customPrompt}\n` : ''}
                     tag: workData.tag || category,
                     desc: workData.desc || "暂无简介",
                     chapters: workData.chapters || [],
-                    char1Id: char1Id,
-                    char2Id: char2Id
+                    charIds: currentHaitangSelectedChars
                 };
                 sysBrowserHaitangData.unshift(newPost);
             });
