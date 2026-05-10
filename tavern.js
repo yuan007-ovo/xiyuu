@@ -247,6 +247,14 @@ function tavEnterChat() {
     const fontColorInput = document.getElementById('tavFontColorInput');
     if (fontColorInput) fontColorInput.value = savedFontColor;
     tavChangeFontColor(savedFontColor);
+
+    // 读取回复选项插件开关状态
+    const isReplyOptionsEnabled = ChatDB.getItem('tav_plugin_reply_options') === 'true';
+    const replyOptionsToggle = document.getElementById('tavReplyOptionsToggle');
+    if (replyOptionsToggle) {
+        if (isReplyOptionsEnabled) replyOptionsToggle.classList.add('active');
+        else replyOptionsToggle.classList.remove('active');
+    }
 }
 
 function closeTavernMode() {
@@ -1400,6 +1408,17 @@ function tavRenderChat() {
             </div>
         `;
 
+        let optionsHtml = '';
+        if (!isMe && msg.replyOptions && msg.replyOptions.length > 0 && msg === history[history.length - 1]) {
+            const labels = ['A', 'B', 'C'];
+            let btnsHtml = msg.replyOptions.map((opt, index) => {
+                const safeOpt = opt.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                return `<div class="tav-option-btn" onclick="tavFillInput('${safeOpt}')">${labels[index]}. ${opt}</div>`;
+            }).join('');
+            btnsHtml += `<div class="tav-option-btn custom" onclick="tavFocusInput()">D. 自定义回复</div>`;
+            optionsHtml = `<div class="tav-reply-options">${btnsHtml}</div>`;
+        }
+
         card.innerHTML = `
             <div class="tav-chat-card-header">
                 <div class="tav-chat-card-avatar" style="background-image: url('${isMe ? userAvatar : charAvatar}');"></div>
@@ -1407,6 +1426,7 @@ function tavRenderChat() {
             </div>
             ${cardTopHtml ? `<div class="tav-demo-inner-status top">${cardTopHtml}</div>` : ''}
             <div class="tav-chat-card-content">${content}</div>
+            ${optionsHtml}
             ${cardBottomHtml ? `<div class="tav-demo-inner-status bottom">${cardBottomHtml}</div>` : ''}
             ${menuHtml}
         `;
@@ -1657,6 +1677,12 @@ async function tavTriggerAI(isRegenerate = false, isContinue = false) {
         if (note) sysPrompt += `\n\n【作者备注】\n${note}`;
     }
 
+    // 注入回复选项插件指令
+    const isReplyOptionsEnabled = document.getElementById('tavReplyOptionsToggle')?.classList.contains('active');
+    if (isReplyOptionsEnabled) {
+        sysPrompt += `\n\n【互动选项】请在回复正文结束后，根据当前剧情为 User 提供 3 个符合逻辑的回复选项，格式严格为：\n<options>\nA: 选项1内容\nB: 选项2内容\nC: 选项3内容\n</options>`;
+    }
+
     messages.push({ role: 'system', content: sysPrompt });
 
     // 10. 拼接酒馆线下历史记录
@@ -1688,6 +1714,22 @@ async function tavTriggerAI(isRegenerate = false, isContinue = false) {
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const data = await response.json();
         let replyText = data.choices[0].message.content;
+        let replyOptions = [];
+
+        // 提取回复选项
+        if (isReplyOptionsEnabled) {
+            const optionsMatch = replyText.match(/<options>([\s\S]*?)<\/options>/i);
+            if (optionsMatch) {
+                const optionsText = optionsMatch[1].trim();
+                const lines = optionsText.split('\n').filter(l => l.trim() !== '');
+                lines.forEach(line => {
+                    let cleanLine = line.replace(/^[A-D1-4][:：.、]\s*/i, '').trim();
+                    if (cleanLine) replyOptions.push(cleanLine);
+                });
+                replyOptions = replyOptions.slice(0, 3);
+                replyText = replyText.replace(/<options>[\s\S]*?<\/options>/i, '').trim();
+            }
+        }
 
         // 提取并保存记忆总结
         if (isVectorEnabled) {
@@ -1705,11 +1747,13 @@ async function tavTriggerAI(isRegenerate = false, isContinue = false) {
         // 保存消息 (核心修改：使用 tav_chat_history_)
         if (isContinue && history.length > 0 && history[history.length-1].sender === 'char') {
             history[history.length-1].content += replyText;
+            if (replyOptions.length > 0) history[history.length-1].replyOptions = replyOptions;
         } else {
             history.push({
                 id: Date.now().toString(),
                 sender: 'char',
                 content: replyText,
+                replyOptions: replyOptions.length > 0 ? replyOptions : null,
                 timestamp: new Date().toISOString()
             });
         }
@@ -1888,3 +1932,28 @@ window.addEventListener('ChatDBReady', () => {
         renderTavRegexList();
     }
 });
+
+// ==========================================
+// 回复选项插件逻辑
+// ==========================================
+function tavToggleReplyOptionsPlugin(el) {
+    el.classList.toggle('active');
+    ChatDB.setItem('tav_plugin_reply_options', el.classList.contains('active'));
+}
+
+function tavFillInput(text) {
+    const inputEl = document.getElementById('tavChatInput');
+    if (inputEl) {
+        inputEl.value = text;
+        inputEl.focus();
+        inputEl.style.height = '';
+        inputEl.style.height = inputEl.scrollHeight + 'px';
+    }
+}
+
+function tavFocusInput() {
+    const inputEl = document.getElementById('tavChatInput');
+    if (inputEl) {
+        inputEl.focus();
+    }
+}
