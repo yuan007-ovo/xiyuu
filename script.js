@@ -2164,12 +2164,15 @@ function clearGlobalStateFromDB() {
 
 // --- 抓取当前页面所有状态 ---
 function captureFullState() {
+    const avatarEl = document.querySelector('.circle-avatar');
+    const musicCoverEl = document.querySelector('.music-cover');
+    
     const state = {
         fontUrl: window.currentGlobalFontUrl || '',
         fontSize: window.currentGlobalFontSize || '14', // 新增：保存字体大小
         wallpaper: document.getElementById('iphone-container').style.backgroundImage,
-        avatar: document.querySelector('.circle-avatar').style.backgroundImage,
-        musicCover: document.querySelector('.music-cover').style.backgroundImage,
+        avatar: avatarEl ? avatarEl.style.backgroundImage : '',
+        musicCover: musicCoverEl ? musicCoverEl.style.backgroundImage : '',
         gallery: Array.from(document.querySelectorAll('.gallery-item-widget')).map(el => el.style.backgroundImage),
         wallpaperGallery: Array.from(document.querySelectorAll('#wallpaperGrid .gallery-item')).map(el => el.style.backgroundImage), // 新增：保存壁纸库列表
         apps: {},
@@ -2207,7 +2210,9 @@ function applyFullState(state) {
     }
 
     if (state.wallpaper && state.wallpaper !== 'none') setDesktopWallpaper(state.wallpaper.replace(/^url\(["']?/, '').replace(/["']?\)$/, ''));
-    if (state.avatar && state.avatar !== 'none') document.querySelector('.circle-avatar').style.backgroundImage = state.avatar;
+    
+    const avatarEl = document.querySelector('.circle-avatar');
+    if (avatarEl && state.avatar && state.avatar !== 'none') avatarEl.style.backgroundImage = state.avatar;
     
     // 新增：恢复壁纸库列表
     if (state.wallpaperGallery && Array.isArray(state.wallpaperGallery)) {
@@ -2220,15 +2225,13 @@ function applyFullState(state) {
             }
         });
     }
-    if (state.musicCover && state.musicCover !== 'none' && state.musicCover !== '') {
-        const musicCoverEl = document.querySelector('.music-cover');
-        if (musicCoverEl) {
+    
+    const musicCoverEl = document.querySelector('.music-cover');
+    if (musicCoverEl) {
+        if (state.musicCover && state.musicCover !== 'none' && state.musicCover !== '') {
             musicCoverEl.style.backgroundImage = state.musicCover;
             musicCoverEl.classList.add('has-image');
-        }
-    } else {
-        const musicCoverEl = document.querySelector('.music-cover');
-        if (musicCoverEl) {
+        } else {
             musicCoverEl.style.backgroundImage = '';
             musicCoverEl.classList.remove('has-image');
         }
@@ -2282,7 +2285,8 @@ function applyFullState(state) {
     });
 
     const textEls = document.querySelectorAll('[contenteditable="true"]');
-    if (state.texts) {
+    // 修复：只有当页面上的可编辑元素数量与保存时一致，才进行覆盖，防止错位覆盖其他小组件
+    if (state.texts && state.texts.length === textEls.length) {
         state.texts.forEach((txt, idx) => {
             if (txt && textEls[idx]) textEls[idx].innerText = txt;
         });
@@ -2316,7 +2320,8 @@ function silentSaveDesktopOrder() {
                     rawContent: rawContent,
                     isCustom: item.classList.contains('custom-desktop-widget'),
                     isTransparent: item.classList.contains('is-transparent-widget'),
-                    bgColor: item.style.background
+                    bgColor: item.style.background,
+                    is2x2: item.classList.contains('widget-2x2') // 修复：保存小组件尺寸信息
                 });
             } else if (item.classList.contains('app-item')) {
                 const iconEl = item.querySelector('.app-icon');
@@ -2680,25 +2685,20 @@ function restoreDesktopOrder() {
     // 按照保存的顺序重新排列 DOM
     order.forEach(item => {
         let slotsUsed = 1;
-        if (item.type === 'widget') slotsUsed = 16;
+        // 修复：兼容旧数据，如果 is2x2 未定义，且 html 中包含 widget-2x2，则认为是 2x2
+        let is2x2 = item.is2x2;
+        if (is2x2 === undefined && item.html && item.html.includes('widget-2x2')) {
+            is2x2 = true;
+        }
+        if (item.type === 'widget') slotsUsed = is2x2 ? 4 : 16;
         
         const targetPage = (currentSlot < 28) ? page1 : page2;
         if (!targetPage) return;
 
         if (item.type === 'widget') {
             const temp = document.createElement('div');
-            if (item.isCustom && item.rawContent) {
-                const transparentClass = item.isTransparent ? 'is-transparent-widget' : '';
-                temp.innerHTML = `
-                <div class="widget-container custom-desktop-widget ${transparentClass}" style="background: ${item.bgColor || ''}" data-raw-content="${item.rawContent}">
-                    <div class="widget-delete-btn" onclick="deleteDesktopWidget(this)">
-                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#ff3b30"></circle><line x1="8" y1="12" x2="16" y2="12" stroke="#fff" stroke-width="2"></line></svg>
-                    </div>
-                    ${decodeURIComponent(item.rawContent)}
-                </div>`;
-            } else {
-                temp.innerHTML = item.html;
-            }
+            // 修复：无论是否是自定义小组件，都直接使用保存的完整 HTML，这样才能保留用户修改的文字和图片
+            temp.innerHTML = item.html;
             const widget = temp.firstElementChild;
             targetPage.appendChild(widget);
             
@@ -2709,6 +2709,7 @@ function restoreDesktopOrder() {
                 });
             });
         } else if (item.type === 'app' && elements.app[item.id]) {
+
             targetPage.appendChild(elements.app[item.id]);
             delete elements.app[item.id];
         } else if (item.type === 'placeholder') {
@@ -2913,7 +2914,8 @@ function saveDesktopEdit() {
                     rawContent: rawContent,
                     isCustom: item.classList.contains('custom-desktop-widget'),
                     isTransparent: item.classList.contains('is-transparent-widget'),
-                    bgColor: item.style.background
+                    bgColor: item.style.background,
+                    is2x2: item.classList.contains('widget-2x2') // 修复：保存小组件尺寸信息
                 });
             } else if (item.classList.contains('app-item')) {
                 const iconEl = item.querySelector('.app-icon');
@@ -3321,9 +3323,9 @@ function addWidgetToDesktop(type) {
             <div class="cw-ins-container">
                 <div class="cw-ins-top">
                     <div class="cw-ins-lyrics">
-                        <div class="cw-ins-lyric-line" id="cwDesktopLyric1"></div>
-                        <div class="cw-ins-lyric-line active" id="cwDesktopLyric2">◍˃ᵕ˂◍</div>
-                        <div class="cw-ins-lyric-line" id="cwDesktopLyric3"></div>
+                        <div class="cw-ins-lyric-line" id="cwDesktopLyric1" contenteditable="true" spellcheck="false"></div>
+                        <div class="cw-ins-lyric-line active" id="cwDesktopLyric2" contenteditable="true" spellcheck="false">◍˃ᵕ˂◍</div>
+                        <div class="cw-ins-lyric-line" id="cwDesktopLyric3" contenteditable="true" spellcheck="false"></div>
                     </div>
                     <div class="cw-ins-polaroid-area" id="cwCarouselArea">
                         <!-- 卡片由 JS 动态生成 -->
@@ -3479,8 +3481,7 @@ function initCarouselWidgetLogic() {
     const area = document.getElementById('cwCarouselArea');
     if (!area) return;
     
-    area.innerHTML = '';
-    carouselCards = [];
+    const existingCards = area.querySelectorAll('.cw-ins-photo-card');
     
     // 尝试从本地存储读取用户自定义的图片 (优先使用 ChatDB 防止 Base64 爆内存)
     const savedImagesStr = ChatDB.getItem('carousel_custom_images') || localStorage.getItem('carousel_custom_images');
@@ -3491,29 +3492,44 @@ function initCarouselWidgetLogic() {
         });
     }
     
-    carouselSongsData.forEach((song, index) => {
-        const card = document.createElement('div');
-        card.className = 'cw-ins-photo-card';
-        card.innerHTML = `
-            <svg class="cw-card-star s1" viewBox="0 0 24 24" onclick="openCarouselImageModal(); event.stopPropagation();"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
-            <svg class="cw-card-star s2" viewBox="0 0 24 24" onclick="openCarouselImageModal(); event.stopPropagation();"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
-            <svg class="cw-card-star s3" viewBox="0 0 24 24" onclick="openCarouselImageModal(); event.stopPropagation();"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
-            <img class="cw-ins-photo-img" src="${song.img}" draggable="false">
-            <div class="cw-ins-photo-text">
-                <div class="cw-ins-photo-title">${song.title || 'Music App'}</div>
-                <div class="cw-ins-photo-artist">${song.artist || 'Not Playing'}</div>
-            </div>
-        `;
-        card.addEventListener('click', (e) => {
-            // 点击卡片任何位置（除了五角星），只进行轮播切换
-            if (carouselCurrentIndex !== index) {
-                carouselCurrentIndex = index;
-                updateCarouselWidget();
-            }
+    if (existingCards.length === carouselSongsData.length) {
+        // 修复：如果已经从本地存储恢复了 DOM，则直接复用，防止覆盖用户修改的文字
+        carouselCards = Array.from(existingCards);
+        carouselCards.forEach((card, index) => {
+            card.onclick = (e) => {
+                if (carouselCurrentIndex !== index) {
+                    carouselCurrentIndex = index;
+                    updateCarouselWidget();
+                }
+            };
         });
-        carouselCards.push(card);
-        area.appendChild(card);
-    });
+    } else {
+        area.innerHTML = '';
+        carouselCards = [];
+        
+        carouselSongsData.forEach((song, index) => {
+            const card = document.createElement('div');
+            card.className = 'cw-ins-photo-card';
+            card.innerHTML = `
+                <svg class="cw-card-star s1" viewBox="0 0 24 24" onclick="openCarouselImageModal(); event.stopPropagation();"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                <svg class="cw-card-star s2" viewBox="0 0 24 24" onclick="openCarouselImageModal(); event.stopPropagation();"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                <svg class="cw-card-star s3" viewBox="0 0 24 24" onclick="openCarouselImageModal(); event.stopPropagation();"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                <img class="cw-ins-photo-img" src="${song.img}" draggable="false">
+                <div class="cw-ins-photo-text">
+                    <div class="cw-ins-photo-title" contenteditable="true" spellcheck="false">${song.title || 'Music App'}</div>
+                    <div class="cw-ins-photo-artist" contenteditable="true" spellcheck="false">${song.artist || 'Not Playing'}</div>
+                </div>
+            `;
+            card.onclick = (e) => {
+                if (carouselCurrentIndex !== index) {
+                    carouselCurrentIndex = index;
+                    updateCarouselWidget();
+                }
+            };
+            carouselCards.push(card);
+            area.appendChild(card);
+        });
+    }
     
     updateCarouselWidget();
     bindCarouselSwipe();

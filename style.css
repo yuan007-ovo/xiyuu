@@ -6877,6 +6877,7 @@ body.ios-standalone .status-bar {
     flex-direction: column;
     gap: 12px;
     padding-right: 15px;
+    overflow: hidden; /* 修复：防止歌词过长撑破容器 */
 }
 .cw-ins-lyric-line {
     font-size: 12px;
@@ -6885,6 +6886,10 @@ body.ios-standalone .status-bar {
     font-family: "Georgia", "Times New Roman", serif;
     font-style: italic;
     line-height: 1.4;
+    white-space: nowrap; /* 修复：强制单行显示，超出显示省略号 */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
 }
 .cw-ins-lyric-line.active {
     font-size: 16px;
