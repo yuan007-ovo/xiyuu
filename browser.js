@@ -36,32 +36,53 @@ let sysBrowserTabs = [
 ];
 let sysBrowserActiveTabId = 1;
 
-// Poipiku 模拟数据
-const sysBrowserPoipikuData = [
-    {
-        id: 1,
-        author: "AI_Creator",
-        avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=AI",
-        time: "刚刚",
-        category: "R18G / 剧透",
-        imageDesc: "一张充满赛博朋克风格的城市夜景图，霓虹灯闪烁，两个身影在雨中并肩而立。",
-        text: "随便摸了一张，感觉氛围还不错。大家随便看看~",
-        tags: ["赛博朋克", "摸鱼", "夜景"],
-        reactions: { heart: 128, star: 45, smile: 32 }
-    },
-    {
-        id: 2,
-        author: "Anonymous",
-        avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon",
-        time: "2小时前",
-        category: "涂鸦 / WIP",
-        imageDesc: "一张未完成的线稿，画着一个正在喝咖啡的慵懒角色。",
-        text: "线稿阶段，不知道什么时候能上完色_(:з」∠)_",
-        tags: ["WIP", "线稿", "日常"],
-        reactions: { heart: 56, star: 12, smile: 8 }
-    }
-];
+// Poipiku 模拟数据 (持久化)
+let sysBrowserPoipikuData = JSON.parse(ChatDB.getItem('sys_browser_poipiku_posts') || '[]');
 
+let sysBrowserShareContext = null;
+
+function sharePoipikuToChar(postId) {
+    sysBrowserShareContext = { type: 'poipiku_post', postId: postId };
+    openUniversalShareModal();
+}
+
+function openUniversalShareModal() {
+    const currentLoginId = ChatDB.getItem('current_login_account');
+    if (!currentLoginId) {
+        sysBrowserShowToast('请先登录账号');
+        return;
+    }
+    
+    const listEl = document.getElementById('universalShareContactList');
+    if (!listEl) {
+        sysBrowserShowToast('未找到分享弹窗组件');
+        return;
+    }
+    listEl.innerHTML = '';
+    
+    let contacts = JSON.parse(ChatDB.getItem(`contacts_${currentLoginId}`) || '[]');
+    let allEntities = typeof getAllEntities === 'function' ? getAllEntities() : [];
+    let remarks = JSON.parse(ChatDB.getItem(`char_remarks_${currentLoginId}`) || '{}');
+    
+    const friends = contacts.map(id => allEntities.find(c => c.id === id)).filter(c => c);
+    
+    if (friends.length === 0) {
+        listEl.innerHTML = '<div style="text-align:center; color:#aaa; font-size:12px;">暂无好友可分享</div>';
+    } else {
+        friends.forEach(f => {
+            const displayName = remarks[f.id] || f.netName || f.name;
+            const item = document.createElement('div');
+            item.style.cssText = 'display: flex; align-items: center; gap: 10px; padding: 10px; background: #f9f9f9; border-radius: 10px; cursor: pointer;';
+            item.innerHTML = `
+                <div style="width: 36px; height: 36px; border-radius: 8px; background-image: url('${f.avatarUrl || ''}'); background-size: cover; background-color: #eee;"></div>
+                <div style="font-size: 14px; font-weight: bold; color: #333;">${displayName}</div>
+            `;
+            item.onclick = () => confirmSysBrowserShare(f.id);
+            listEl.appendChild(item);
+        });
+    }
+    document.getElementById('universalShareModalOverlay').classList.add('show');
+}
 
 // 打开浏览器 APP
 function openSysBrowserApp() {
@@ -245,6 +266,11 @@ function sysBrowserRenderPoipiku(page) {
 
     if (page === 'home') {
         let html = '';
+        
+        if (sysBrowserPoipikuData.length === 0) {
+            html += '<div style="text-align: center; color: #aaa; font-size: 13px; padding: 40px 0;">暂无动态，请点击右上角设置生成</div>';
+        }
+
         sysBrowserPoipikuData.forEach(post => {
             // 如果有图片描述，才渲染图片框
             let imgHtml = '';
@@ -273,10 +299,13 @@ function sysBrowserRenderPoipiku(page) {
                     
                     <div class="poipiku-card-meta">
                         <div class="poipiku-category">${post.category}</div>
-                        <div class="poipiku-actions">
+                        <div class="poipiku-actions" style="display: flex; align-items: center; width: 100%;">
                             <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
                             <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
                             <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="#999"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                            <div onclick="sharePoipikuToChar(${post.id})" style="margin-left: auto; display: flex; align-items: center; gap: 4px; cursor: pointer; color: #1da1f2; font-size: 12px; font-weight: bold;">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none"><path d="M14 5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11V5z"/></svg> 分享
+                            </div>
                         </div>
                     </div>
 
@@ -322,6 +351,9 @@ function sysBrowserRenderPoipiku(page) {
             });
         }
 
+        // 读取持久化的设置
+        let savedSettings = JSON.parse(ChatDB.getItem('poipiku_gen_settings') || '{}');
+
         body.innerHTML = `
             <div class="poipiku-card" style="padding: 20px;">
                 <h2 style="color: #1da1f2; border-bottom: 2px solid #1da1f2; padding-bottom: 10px; margin-bottom: 20px; font-weight: 900;">AI Generation Settings</h2>
@@ -339,16 +371,16 @@ function sysBrowserRenderPoipiku(page) {
                 <div style="display: flex; gap: 15px;">
                     <div class="poipiku-input-group" style="flex: 1;">
                         <label>图文插画数量</label>
-                        <input type="number" id="poipikuSettingImageCount" class="poipiku-input" value="1" min="0" placeholder="填0则不生成">
+                        <input type="number" id="poipikuSettingImageCount" class="poipiku-input" value="${savedSettings.imageCount !== undefined ? savedSettings.imageCount : 1}" min="0" placeholder="填0则不生成">
                     </div>
                     <div class="poipiku-input-group" style="flex: 1;">
                         <label>同人文数量</label>
-                        <input type="number" id="poipikuSettingTextCount" class="poipiku-input" value="1" min="0" placeholder="填0则不生成">
+                        <input type="number" id="poipikuSettingTextCount" class="poipiku-input" value="${savedSettings.textCount !== undefined ? savedSettings.textCount : 1}" min="0" placeholder="填0则不生成">
                     </div>
                 </div>
                 <div class="poipiku-input-group">
                     <label>同人文字数要求</label>
-                    <input type="text" id="poipikuSettingTextLength" class="poipiku-input" value="500字左右" placeholder="例如：500字左右，或长篇大论">
+                    <input type="text" id="poipikuSettingTextLength" class="poipiku-input" value="${savedSettings.textLength || '500字左右'}" placeholder="例如：500字左右，或长篇大论">
                 </div>
 
                 <div class="poipiku-input-group">
@@ -377,13 +409,25 @@ function sysBrowserRenderPoipiku(page) {
 
                 <div class="poipiku-input-group">
                     <label>Prompt (画面与配文要求)</label>
-                    <textarea id="poipikuSettingPrompt" class="poipiku-textarea" placeholder="例如：画一张他们在海边散步的图，配文要显得很慵懒..."></textarea>
+                    <textarea id="poipikuSettingPrompt" class="poipiku-textarea" placeholder="例如：画一张他们在海边散步的图，配文要显得很慵懒...">${savedSettings.prompt || ''}</textarea>
                 </div>
 
-                <button class="poipiku-submit-btn" onclick="executePoipikuGenAPI()">上传 (Generate)</button>
+                <button id="poipikuGenBtn" class="poipiku-submit-btn" onclick="executePoipikuGenAPI()">上传 (Generate)</button>
             </div>
         `;
-        currentPoipikuWbEntries = [];
+        
+        // 恢复下拉框选中状态
+        if (savedSettings.char1Id) document.getElementById('poipikuSettingChar1').value = savedSettings.char1Id;
+        if (savedSettings.char2Id) document.getElementById('poipikuSettingChar2').value = savedSettings.char2Id;
+        if (savedSettings.category) document.getElementById('poipikuSettingCategory').value = savedSettings.category;
+        if (savedSettings.style) document.getElementById('poipikuSettingStyle').value = savedSettings.style;
+        
+        currentPoipikuWbEntries = savedSettings.wbEntries || [];
+        if (currentPoipikuWbEntries.length > 0) {
+            const textEl = document.getElementById('poipikuGenWbSelectText');
+            textEl.innerText = `已选 ${currentPoipikuWbEntries.length} 个条目`;
+            textEl.style.color = '#111';
+        }
     }
 }
 
@@ -403,7 +447,105 @@ function sysBrowserShowToast(text) {
 }
 
 function sysBrowserShareToChar() {
+    sysBrowserToggleMenu(); // 关闭菜单抽屉
+    sysBrowserShareContext = { type: 'page' };
+    openUniversalShareModal();
+}
+
+function closeUniversalShareModal() {
+    document.getElementById('universalShareModalOverlay').classList.remove('show');
+}
+
+function confirmSysBrowserShare(targetId) {
+    const currentLoginId = ChatDB.getItem('current_login_account');
+    
+    let title = '网页分享';
+    let desc = '点击查看详情';
+    let appName = '浏览器';
+    let content = '';
+    
+    if (sysBrowserShareContext && sysBrowserShareContext.type === 'poipiku_post') {
+        const post = sysBrowserPoipikuData.find(p => p.id === sysBrowserShareContext.postId);
+        if (!post) return;
+        title = `${post.author} 的 Poipiku 动态`;
+        desc = post.text;
+        appName = 'Poipiku';
+        content = `
+            <div class="app-share-card" onclick="alert('打开 Poipiku 查看')">
+                <div class="app-share-title">${title}</div>
+                <div class="app-share-desc">${desc}</div>
+                <div class="app-share-footer">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" stroke="none"><path d="M14 5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11V5z"/></svg>
+                    来自 ${appName}
+                </div>
+            </div>
+        `;
+    } else {
+        const currentState = sysBrowserHistoryStack[sysBrowserCurrentHistoryIndex];
+        if (currentState) {
+            if (currentState.type === 'poipiku') {
+                title = 'Poipiku 插画交流平台';
+                desc = '我发现了一个有趣的同人作品主页，快来看看吧！';
+                appName = 'Poipiku';
+            } else if (currentState.type === 'haitang') {
+                title = '海棠文化线上文学城';
+                desc = '分享了一个精彩的小说页面，快来看看吧！';
+                appName = '海棠书屋';
+            } else if (currentState.type === 'ai') {
+                title = currentState.url;
+                desc = '分享了一个百科页面';
+                appName = '世界百科';
+            } else if (currentState.type === 'real') {
+                title = currentState.url;
+                desc = '分享了一个网页链接';
+                appName = 'Safari';
+            }
+        }
+        content = `
+            <div class="app-share-card" onclick="alert('打开 ${appName} 查看')">
+                <div class="app-share-title">${title}</div>
+                <div class="app-share-desc">${desc}</div>
+                <div class="app-share-footer">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" stroke="none"><path d="M14 5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11V5z"/></svg>
+                    来自 ${appName}
+                </div>
+            </div>
+        `;
+    }
+    
+    // 构造消息并保存
+    let newMsg = { role: 'user', type: 'app_share', shareTitle: title, shareDesc: desc, appName: appName, content: content, timestamp: Date.now() };
+    
+    let history = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${targetId}`) || '[]');
+    history.push(newMsg);
+    ChatDB.setItem(`chat_history_${currentLoginId}_${targetId}`, JSON.stringify(history));
+    
+    let targetHistory = JSON.parse(ChatDB.getItem(`chat_history_${targetId}_${currentLoginId}`) || '[]');
+    targetHistory.push({ ...newMsg, role: 'char' });
+    ChatDB.setItem(`chat_history_${targetId}_${currentLoginId}`, JSON.stringify(targetHistory));
+    
+    let sessions = JSON.parse(ChatDB.getItem(`chat_sessions_${currentLoginId}`) || '[]');
+    sessions = sessions.filter(id => id !== targetId);
+    sessions.unshift(targetId);
+    ChatDB.setItem(`chat_sessions_${currentLoginId}`, JSON.stringify(sessions));
+    
+    let targetSessions = JSON.parse(ChatDB.getItem(`chat_sessions_${targetId}`) || '[]');
+    targetSessions = targetSessions.filter(id => id !== currentLoginId);
+    targetSessions.unshift(currentLoginId);
+    ChatDB.setItem(`chat_sessions_${targetId}`, JSON.stringify(targetSessions));
+    
+    let unreadCount = parseInt(ChatDB.getItem(`unread_${targetId}_${currentLoginId}`) || '0');
+    ChatDB.setItem(`unread_${targetId}_${currentLoginId}`, (unreadCount + 1).toString());
+    
+    closeUniversalShareModal();
     sysBrowserShowToast('已分享给 Ta');
+    
+    // 刷新聊天列表
+    if (typeof renderChatList === 'function') renderChatList();
+    // 如果当前正在和该角色聊天，刷新聊天室
+    if (typeof currentChatRoomCharId !== 'undefined' && currentChatRoomCharId === targetId) {
+        if (typeof renderChatHistory === 'function') renderChatHistory(targetId);
+    }
 }
 
 // --- 多标签页逻辑 ---
@@ -827,6 +969,18 @@ async function executePoipikuGenAPI() {
         return alert('请先在设置中配置 API 信息！');
     }
 
+    // 保存设置
+    const settingsToSave = {
+        char1Id, char2Id, imageCount, textCount, textLength, category, style, prompt: customPrompt, wbEntries: currentPoipikuWbEntries
+    };
+    ChatDB.setItem('poipiku_gen_settings', JSON.stringify(settingsToSave));
+
+    const btn = document.getElementById('poipikuGenBtn');
+    const originalBtnText = btn.innerText;
+    btn.innerText = '正在生成中...';
+    btn.style.pointerEvents = 'none';
+    btn.style.opacity = '0.7';
+
     let allEntities = typeof getAllEntities === 'function' ? getAllEntities() : [];
     let personas = JSON.parse(ChatDB.getItem('chat_personas') || '[]');
     
@@ -882,6 +1036,7 @@ ${customPrompt ? `【画面与配文要求】：${customPrompt}\n` : ''}
 请严格返回一个合法的 JSON 数组，包含 ${totalCount} 个对象。
 对于图文插画动态，格式如下：
   {
+    "author": "随机生成一个路人画师的网名（绝对不能是主角的名字）",
     "category": "如果分类是'random'，请你根据内容随机生成一个简短的分类词（如：涂鸦、R18、剧透、日常等），否则使用设定的分类",
     "imageDesc": "详细描述你画的图片画面内容（因为无法直接生成图片，请用文字详细描述画面）",
     "text": "你发布这张图时配的文字（可以带点画师的吐槽、碎碎念）",
@@ -889,6 +1044,7 @@ ${customPrompt ? `【画面与配文要求】：${customPrompt}\n` : ''}
   }
 对于同人文动态，格式如下：
   {
+    "author": "随机生成一个路人写手的网名（绝对不能是主角的名字）",
     "category": "如果分类是'random'，请你根据内容随机生成一个简短的分类词（如：短打、段子、同人、R18等），否则使用设定的分类",
     "imageDesc": "", 
     "text": "这里写同人文/短打的正文内容，字数尽量符合要求，使用 HTML 标签如 <p> 进行段落排版",
@@ -923,8 +1079,8 @@ ${customPrompt ? `【画面与配文要求】：${customPrompt}\n` : ''}
                 const finalCategory = (category === 'random' || !category) ? (workData.category || "涂鸦") : category;
                 const newPost = {
                     id: Date.now() + index,
-                    author: char1RealName,
-                    avatar: char1.avatarUrl || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + char1RealName,
+                    author: workData.author || "Anonymous",
+                    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=" + (workData.author || "Anon"),
                     time: "刚刚",
                     category: finalCategory,
                     imageDesc: workData.imageDesc || "",
@@ -939,6 +1095,7 @@ ${customPrompt ? `【画面与配文要求】：${customPrompt}\n` : ''}
                 sysBrowserPoipikuData.unshift(newPost);
             });
 
+            ChatDB.setItem('sys_browser_poipiku_posts', JSON.stringify(sysBrowserPoipikuData));
             sysBrowserRenderPoipiku('home');
             sysBrowserShowToast(`成功生成 ${worksArray.length} 篇动态！`);
         } else {
@@ -947,6 +1104,10 @@ ${customPrompt ? `【画面与配文要求】：${customPrompt}\n` : ''}
     } catch (e) {
         console.error(e);
         sysBrowserShowToast('生成出错：' + e.message);
+    } finally {
+        btn.innerText = originalBtnText;
+        btn.style.pointerEvents = 'auto';
+        btn.style.opacity = '1';
     }
 }
 
