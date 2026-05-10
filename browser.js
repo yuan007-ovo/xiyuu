@@ -1541,6 +1541,109 @@ ${customPrompt ? `【画面与配文要求】：${customPrompt}\n` : ''}
 let sysBrowserHaitangData = [];
 let isHaitangEditMode = false;
 let haitangSelectedBooks = [];
+let currentHaitangSelectedChars = [];
+
+function openHaitangCharSelectModal() {
+    const listEl = document.getElementById('haitangCharSelectList');
+    listEl.innerHTML = '';
+    
+    let chars = JSON.parse(ChatDB.getItem('chat_chars') || '[]');
+    let personas = JSON.parse(ChatDB.getItem('chat_personas') || '[]');
+    
+    const groups = [
+        { name: '角色 (Chars)', items: chars.map(c => ({ id: c.id, name: c.name || c.netName || '未命名' })) },
+        { name: '用户面具 (User Personas)', items: personas.map(p => ({ id: p.id, name: p.realName || '未命名', isPersona: true })) }
+    ];
+    
+    groups.forEach(group => {
+        if (group.items.length === 0) return;
+        
+        const groupContainer = document.createElement('div');
+        groupContainer.style.borderBottom = '1px solid #f5f5f5';
+        
+        const groupHeader = document.createElement('div');
+        groupHeader.style.display = 'flex';
+        groupHeader.style.alignItems = 'center';
+        groupHeader.style.justifyContent = 'space-between';
+        groupHeader.style.padding = '15px 5px';
+        groupHeader.style.cursor = 'pointer';
+        
+        const titleSpan = document.createElement('span');
+        titleSpan.innerText = group.name;
+        titleSpan.style.fontSize = '15px';
+        titleSpan.style.color = '#333';
+        titleSpan.style.fontWeight = '500';
+        
+        const arrowSvg = document.createElement('div');
+        arrowSvg.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="#aaa" style="transition: transform 0.2s;"><path d="M7 10l5 5 5-5z"/></svg>`;
+        const arrowIcon = arrowSvg.firstChild;
+        
+        groupHeader.appendChild(titleSpan);
+        groupHeader.appendChild(arrowSvg);
+        
+        const entriesContainer = document.createElement('div');
+        entriesContainer.style.display = 'none';
+        entriesContainer.style.paddingBottom = '10px';
+        
+        groupHeader.onclick = () => {
+            const isHidden = entriesContainer.style.display === 'none';
+            entriesContainer.style.display = isHidden ? 'block' : 'none';
+            arrowIcon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+        };
+        
+        group.items.forEach(item => {
+            const entryDiv = document.createElement('div');
+            entryDiv.style.display = 'flex';
+            entryDiv.style.alignItems = 'center';
+            entryDiv.style.gap = '12px';
+            entryDiv.style.padding = '12px 5px 12px 15px';
+            
+            const entryCb = document.createElement('input');
+            entryCb.type = 'checkbox';
+            entryCb.value = item.isPersona ? `persona_${item.id}` : `char_${item.id}`;
+            entryCb.checked = currentHaitangSelectedChars.includes(entryCb.value);
+            entryCb.style.width = '16px';
+            entryCb.style.height = '16px';
+            entryCb.style.cursor = 'pointer';
+            entryCb.style.accentColor = '#8b1a1a';
+            
+            entryCb.onchange = (e) => {
+                if (e.target.checked) {
+                    if (!currentHaitangSelectedChars.includes(entryCb.value)) currentHaitangSelectedChars.push(entryCb.value);
+                } else {
+                    currentHaitangSelectedChars = currentHaitangSelectedChars.filter(id => id !== entryCb.value);
+                }
+            };
+            
+            const entryTitle = document.createElement('span');
+            entryTitle.innerText = item.name;
+            entryTitle.style.fontSize = '14px';
+            entryTitle.style.color = '#666';
+            
+            entryDiv.appendChild(entryCb);
+            entryDiv.appendChild(entryTitle);
+            entriesContainer.appendChild(entryDiv);
+        });
+        
+        groupContainer.appendChild(groupHeader);
+        groupContainer.appendChild(entriesContainer);
+        listEl.appendChild(groupContainer);
+    });
+    
+    document.getElementById('haitangCharSelectModalOverlay').classList.add('show');
+}
+
+function confirmHaitangCharSelect() {
+    const textEl = document.getElementById('haitangGenCharSelectText');
+    if (currentHaitangSelectedChars.length > 0) {
+        textEl.innerText = `已选 ${currentHaitangSelectedChars.length} 个角色`;
+        textEl.style.color = '#111';
+    } else {
+        textEl.innerText = '未选择 (点击选择)';
+        textEl.style.color = '#888';
+    }
+    document.getElementById('haitangCharSelectModalOverlay').classList.remove('show');
+}
 
 window.toggleHaitangEditMode = function() {
     isHaitangEditMode = !isHaitangEditMode;
@@ -1754,25 +1857,6 @@ function sysBrowserRenderHaitang(page, bookId = null, chapterIndex = 0) {
         // 读取已保存的设置
         let savedSettings = JSON.parse(ChatDB.getItem('haitang_gen_settings') || '{}');
 
-        let allEntities = typeof getAllEntities === 'function' ? getAllEntities() : [];
-        let personas = JSON.parse(ChatDB.getItem('chat_personas') || '[]');
-        let char1Options = '<option value="">请选择角色</option>';
-        let char2Options = '<option value="">请选择角色</option>';
-        
-        allEntities.forEach(e => {
-            if (e.isNPC || e.isGroup) return;
-            let realName = e.name || e.netName || '未命名';
-            if (e.isAccount) {
-                const persona = personas.find(p => p.id === e.personaId);
-                if (persona && persona.realName) {
-                    realName = persona.realName;
-                }
-            }
-            const type = e.isAccount ? '用户' : '角色';
-            char1Options += `<option value="${e.id}" ${savedSettings.char1Id === e.id ? 'selected' : ''}>${realName} (${type})</option>`;
-            char2Options += `<option value="${e.id}" ${savedSettings.char2Id === e.id ? 'selected' : ''}>${realName} (${type})</option>`;
-        });
-
         let stylePresets = JSON.parse(ChatDB.getItem('tav_presets_style') || '[]');
         let styleOptions = '<option value="">请选择预设文风 (可选)</option>';
         if (stylePresets.length === 0) {
@@ -1788,13 +1872,8 @@ function sysBrowserRenderHaitang(page, bookId = null, chapterIndex = 0) {
                 <h2 style="color: #8b1a1a; border-bottom: 2px solid #8b1a1a; padding-bottom: 10px; margin-bottom: 20px; font-size: 16px;">海棠书屋 - AI 产粮设置</h2>
                 
                 <div class="poipiku-input-group">
-                    <label style="color: #8b1a1a;">主角 A (必选)</label>
-                    <select id="htSettingChar1" class="poipiku-input" style="border-color: #e5a5ab;">${char1Options}</select>
-                </div>
-                
-                <div class="poipiku-input-group">
-                    <label style="color: #8b1a1a;">主角 B (可选)</label>
-                    <select id="htSettingChar2" class="poipiku-input" style="border-color: #e5a5ab;">${char2Options}</select>
+                    <label style="color: #8b1a1a;">出场角色 (必选)</label>
+                    <div id="haitangGenCharSelectText" onclick="openHaitangCharSelectModal()" class="poipiku-input" style="cursor: pointer; text-align: center; background: #fff; color: #888; border-color: #e5a5ab;">未选择 (点击选择)</div>
                 </div>
 
                 <div style="display: flex; gap: 15px;">
@@ -1845,6 +1924,16 @@ function sysBrowserRenderHaitang(page, bookId = null, chapterIndex = 0) {
             document.getElementById('htSettingCategory').value = savedSettings.category;
         }
         
+        // 恢复角色选择
+        currentHaitangSelectedChars = savedSettings.charIds || [];
+        if (currentHaitangSelectedChars.length > 0) {
+            const charTextEl = document.getElementById('haitangGenCharSelectText');
+            if(charTextEl) {
+                charTextEl.innerText = `已选 ${currentHaitangSelectedChars.length} 个角色`;
+                charTextEl.style.color = '#111';
+            }
+        }
+        
         // 恢复世界书选择
         currentPoipikuWbEntries = savedSettings.wbEntries || [];
         if (currentPoipikuWbEntries.length > 0) {
@@ -1858,19 +1947,17 @@ function sysBrowserRenderHaitang(page, bookId = null, chapterIndex = 0) {
 }
 
 async function executeHaitangGenAPI() {
-    const char1Id = document.getElementById('htSettingChar1').value;
-    const char2Id = document.getElementById('htSettingChar2').value;
     const postCount = parseInt(document.getElementById('htSettingCount').value) || 1;
     const category = document.getElementById('htSettingCategory').value;
     const textLength = document.getElementById('htSettingLength').value.trim() || '适中';
     const style = document.getElementById('htSettingStyle').value;
     const customPrompt = document.getElementById('htSettingPrompt').value.trim();
 
-    if (!char1Id) return alert('请至少选择主角 A！');
+    if (currentHaitangSelectedChars.length === 0) return alert('请至少选择一个出场角色！');
 
     // 保存设置到本地数据库
     const settingsToSave = {
-        char1Id, char2Id, postCount, category, textLength, style, prompt: customPrompt, wbEntries: currentPoipikuWbEntries
+        charIds: currentHaitangSelectedChars, postCount, category, textLength, style, prompt: customPrompt, wbEntries: currentPoipikuWbEntries
     };
     ChatDB.setItem('haitang_gen_settings', JSON.stringify(settingsToSave));
 
@@ -1879,29 +1966,25 @@ async function executeHaitangGenAPI() {
         return alert('请先在设置中配置 API 信息！');
     }
 
-    let allEntities = typeof getAllEntities === 'function' ? getAllEntities() : [];
+    let chars = JSON.parse(ChatDB.getItem('chat_chars') || '[]');
     let personas = JSON.parse(ChatDB.getItem('chat_personas') || '[]');
     
-    const char1 = allEntities.find(e => e.id === char1Id);
-    const char2 = char2Id ? allEntities.find(e => e.id === char2Id) : null;
-
-    let char1RealName = char1.name || char1.netName || '未命名';
-    let char1Desc = char1.description || '无';
-    if (char1.isAccount) {
-        const p = personas.find(p => p.id === char1.personaId);
-        if (p) { char1RealName = p.realName || char1RealName; char1Desc = p.persona || '普通用户'; }
-    }
-
-    let char2RealName = '';
-    let char2Desc = '';
-    if (char2) {
-        char2RealName = char2.name || char2.netName || '未命名';
-        char2Desc = char2.description || '无';
-        if (char2.isAccount) {
-            const p = personas.find(p => p.id === char2.personaId);
-            if (p) { char2RealName = p.realName || char2RealName; char2Desc = p.persona || '普通用户'; }
+    let charactersContext = '';
+    currentHaitangSelectedChars.forEach((selectedId, index) => {
+        if (selectedId.startsWith('persona_')) {
+            const pId = selectedId.replace('persona_', '');
+            const p = personas.find(x => x.id === pId);
+            if (p) {
+                charactersContext += `【出场角色 ${index + 1}】：${p.realName || '未命名'}\n设定：${p.persona || '普通用户'}\n\n`;
+            }
+        } else if (selectedId.startsWith('char_')) {
+            const cId = selectedId.replace('char_', '');
+            const c = chars.find(x => x.id === cId);
+            if (c) {
+                charactersContext += `【出场角色 ${index + 1}】：${c.name || '未命名'}\n设定：${c.description || '无'}\n\n`;
+            }
         }
-    }
+    });
 
     let wbContext = '';
     if (currentPoipikuWbEntries.length > 0) {
@@ -2092,31 +2175,35 @@ async function confirmHaitangUrge() {
     let allEntities = typeof getAllEntities === 'function' ? getAllEntities() : [];
     let personas = JSON.parse(ChatDB.getItem('chat_personas') || '[]');
 
-    if (book.char1Id) {
-        const char1 = allEntities.find(e => e.id === book.char1Id);
-        if (char1) {
-            let char1RealName = char1.name || char1.netName || '未命名';
-            let char1Desc = char1.description || '无';
-            if (char1.isAccount) {
-                const p = personas.find(p => p.id === char1.personaId);
-                if (p) { char1RealName = p.realName || char1RealName; char1Desc = p.persona || '普通用户'; }
-            }
-            charactersContext += `【主角 A】：${char1RealName}\n设定：${char1Desc}\n\n`;
-        }
+    let targetCharIds = book.charIds || [];
+    // 兼容旧版本生成的书籍
+    if (targetCharIds.length === 0) {
+        if (book.char1Id) targetCharIds.push(book.char1Id);
+        if (book.char2Id) targetCharIds.push(book.char2Id);
     }
 
-    if (book.char2Id) {
-        const char2 = allEntities.find(e => e.id === book.char2Id);
-        if (char2) {
-            let char2RealName = char2.name || char2.netName || '未命名';
-            let char2Desc = char2.description || '无';
-            if (char2.isAccount) {
-                const p = personas.find(p => p.id === char2.personaId);
-                if (p) { char2RealName = p.realName || char2RealName; char2Desc = p.persona || '普通用户'; }
+    targetCharIds.forEach((selectedId, index) => {
+        if (typeof selectedId === 'string' && selectedId.startsWith('persona_')) {
+            const pId = selectedId.replace('persona_', '');
+            const p = personas.find(x => x.id === pId);
+            if (p) {
+                charactersContext += `【出场角色 ${index + 1}】：${p.realName || '未命名'}\n设定：${p.persona || '普通用户'}\n\n`;
             }
-            charactersContext += `【主角 B】：${char2RealName}\n设定：${char2Desc}\n\n`;
+        } else {
+            // 兼容旧的纯 ID 或 char_ 前缀
+            const cId = (typeof selectedId === 'string' && selectedId.startsWith('char_')) ? selectedId.replace('char_', '') : selectedId;
+            const c = allEntities.find(x => x.id === cId);
+            if (c) {
+                let realName = c.name || c.netName || '未命名';
+                let desc = c.description || '无';
+                if (c.isAccount) {
+                    const p = personas.find(p => p.id === c.personaId);
+                    if (p) { realName = p.realName || realName; desc = p.persona || '普通用户'; }
+                }
+                charactersContext += `【出场角色 ${index + 1}】：${realName}\n设定：${desc}\n\n`;
+            }
         }
-    }
+    });
 
     // 构建海棠设置绑定的世界书上下文 (从本地存储读取)
     let wbContext = '';
