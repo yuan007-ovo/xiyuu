@@ -9467,12 +9467,18 @@ function getCurrentPersonaIdForMemory() {
 }
 
 function openMemoryPanel() {
-    if (!currentProfileCharId) return;
-    initMemoryData(currentProfileCharId);
+    // 兼容：优先使用聊天室的ID，如果没有则使用主页的ID
+    const targetCharId = currentChatRoomCharId || currentProfileCharId;
+    if (!targetCharId) return;
+    
+    // 临时将 currentProfileCharId 设为当前操作的 ID，以兼容内部其他依赖该变量的记忆库函数
+    currentProfileCharId = targetCharId;
+
+    initMemoryData(targetCharId);
     
     // 填充头部角色信息
     let chars = JSON.parse(ChatDB.getItem('chat_chars') || '[]');
-    const char = chars.find(c => c.id === currentProfileCharId);
+    const char = chars.find(c => c.id === targetCharId);
     if (char) {
         const avatarEl = document.getElementById('memoryCharAvatar');
         if (avatarEl) avatarEl.style.backgroundImage = `url('${char.avatarUrl || ''}')`;
@@ -9482,7 +9488,7 @@ function openMemoryPanel() {
     
     // 计算并显示当前聊天层数
     const currentLoginId = ChatDB.getItem('current_login_account');
-    let history = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${currentProfileCharId}`) || '[]');
+    let history = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${targetCharId}`) || '[]');
     const currentLayer = Math.ceil(history.length / 2);
     const layerEl = document.getElementById('memoryChatLayer');
     if (layerEl) {
