@@ -9715,7 +9715,10 @@ async function executeManualSummary() {
     let memory = JSON.parse(ChatDB.getItem(`char_memory_${personaId}_${currentProfileCharId}`) || '{}');
     if (!memory.summary) memory.summary = [];
     
-    let customPrompt = (memory.settings && memory.settings.customPrompt) ? memory.settings.customPrompt : "保持客观、简短，不要输出多余的废话。";
+    // 修复：将默认的第三人称限制移到默认提示词中，如果用户有自定义，则完全使用用户的
+    let customPrompt = (memory.settings && memory.settings.customPrompt) 
+        ? memory.settings.customPrompt 
+        : "用第三人称简短概括这段对话中发生的主要事件（50字以内），保持客观、简短，不要输出多余的废话。";
 
     let chars = JSON.parse(ChatDB.getItem('chat_chars') || '[]');
     const char = chars.find(c => c.id === currentProfileCharId);
@@ -9729,7 +9732,7 @@ async function executeManualSummary() {
 
     const summaryPrompt = `你是一个专业的角色扮演记忆整理助手。请根据以下最新的聊天记录，提取记忆。
 要求输出两部分：
-1. 【故事梗概】：用第三人称简短概括这段对话中发生的主要事件（50字以内）。
+1. 【故事梗概】：根据下方的【附加要求】对聊天记录进行总结。
 2. 【事实标签】：提取出对话中暴露的永久性事实、设定、重要物品或关系变化，以标签形式列出（如：[User对海鲜过敏]、[Char送了User一条项链]）。
 
 【角色设定参考】：
@@ -9738,7 +9741,7 @@ ${charDesc}
 【最新的聊天记录】：
 ${chatText}
 
-【附加要求】：
+【附加要求 (最高优先级)】：
 ${customPrompt}
 
 请严格按照以下格式输出：
@@ -11101,18 +11104,22 @@ async function executeSilentAutoSummary(charId, currentTurns, turnsToSummarize) 
 
     const personaId = getCurrentPersonaIdForMemory();
     let memory = JSON.parse(ChatDB.getItem(`char_memory_${personaId}_${charId}`) || '{}');
-    let customPrompt = (memory.settings && memory.settings.customPrompt) ? memory.settings.customPrompt : "保持客观、简短。";
+    
+    // 修复：将默认的第三人称限制移到默认提示词中，如果用户有自定义，则完全使用用户的
+    let customPrompt = (memory.settings && memory.settings.customPrompt) 
+        ? memory.settings.customPrompt 
+        : "用第三人称简短概括这段对话中发生的主要事件，保持客观、简短。";
 
     const summaryPrompt = `你是一个专业的角色扮演记忆整理助手。请根据以下最新的聊天记录，提取记忆。
 【最新的聊天记录】：
 ${chatText}
 
-【附加要求】：
+【附加要求 (最高优先级)】：
 ${customPrompt}
 
 请严格按照 JSON 格式输出，包含以下两个字段：
 {
-  "summary": "用第三人称简短概括这段对话中发生的主要事件（50字以内）",
+  "summary": "根据附加要求生成的总结内容",
   "tags": ["事实标签1", "事实标签2", "提取出对话中暴露的永久性事实、设定或物品"]
 }`;
 
