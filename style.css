@@ -11827,8 +11827,9 @@ input[type="time"].slim-input { font-family: monospace; font-size: 14px; padding
 .poipiku-img-container { width: 100%; height: 200px; border: 1px solid #eee; border-radius: 4px; overflow: hidden; position: relative; cursor: pointer; }
 .poipiku-img-blur { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #f4f4f4; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 2; transition: opacity 0.3s; }
 .poipiku-show-btn { background: #1da1f2; color: #fff; font-size: 13px; font-weight: bold; padding: 8px 20px; border-radius: 20px; }
-.poipiku-img-real { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #fff; display: flex; justify-content: center; align-items: center; padding: 20px; z-index: 1; }
-.poipiku-img-desc-text { font-size: 14px; color: #555; text-align: center; line-height: 1.5; font-style: italic; }
+.poipiku-img-real { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #fff; display: flex; flex-direction: column; padding: 20px; z-index: 1; overflow-y: auto; box-sizing: border-box; scrollbar-width: none; }
+.poipiku-img-real::-webkit-scrollbar { display: none; }
+.poipiku-img-desc-text { font-size: 14px; color: #555; text-align: center; line-height: 1.5; font-style: italic; margin: auto 0; }
 .poipiku-img-container.revealed .poipiku-img-blur { opacity: 0; pointer-events: none; }
 
 /* Poipiku 设置页面专属样式 */
@@ -11886,6 +11887,27 @@ input[type="time"].slim-input { font-family: monospace; font-size: 14px; padding
 .ht-chapter-item:active { background-color: #fdf5f6; }
 
 .ht-read-header { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #fdf5f6; border-bottom: 1px solid #e5a5ab; color: #8b1a1a; font-size: 14px; font-weight: bold; position: sticky; top: 0; z-index: 10; }
+
+/* 海棠沉浸式阅读模式 (仿番茄) */
+#sys-browser-view-haitang.immersive-reading {
+    background-color: #f4ecd8 !important; /* 羊皮纸颜色 */
+    color: #333 !important;
+}
+#sys-browser-view-haitang.immersive-reading .ht-read-header,
+#sys-browser-view-haitang.immersive-reading .ht-read-footer {
+    display: none !important;
+}
+#sys-browser-view-haitang.immersive-reading .ht-article-content {
+    padding: 40px 20px;
+    font-size: 18px;
+    line-height: 2;
+    color: #222;
+    height: 100%;
+    overflow-y: auto;
+}
+#sys-browser-view-haitang.immersive-reading .ht-article-content h2 {
+    color: #222 !important;
+}
 
 /* 5. 加载动画 */
 #sys-browser-view-loading { justify-content: center; align-items: center; background: #fff; }

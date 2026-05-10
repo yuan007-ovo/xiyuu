@@ -4327,6 +4327,20 @@ function toggleEmojiSelection(id) {
     renderEmojis();
 }
 
+function selectAllEmojis() {
+    let emojis = JSON.parse(ChatDB.getItem('chat_emojis') || '[]');
+    let currentEmojis = emojis.filter(e => e.group === currentEmojiGroup);
+    
+    // 如果已经全选了，再次点击则取消全选
+    if (selectedEmojiIds.length === currentEmojis.length && currentEmojis.length > 0) {
+        selectedEmojiIds = [];
+    } else {
+        // 否则全选当前分组的所有表情包
+        selectedEmojiIds = currentEmojis.map(e => e.id);
+    }
+    renderEmojis();
+}
+
 function batchDeleteEmojis() {
     if (selectedEmojiIds.length === 0) return alert('请先选择要删除的表情包！');
     if (confirm(`确定要删除选中的 ${selectedEmojiIds.length} 个表情包吗？`)) {
@@ -6627,6 +6641,13 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
     systemPrompt += `4. 拒绝代付: {"type":"mall_action", "action":"reject", "content":"拒绝时说的话"}\n`;
     if (hasPendingPayRequest) systemPrompt += `- 对方发来了一个代付请求，你可以根据人设选择同意代付(输出 {"type":"mall_action", "action":"pay"}) 或 拒绝(输出 {"type":"mall_action", "action":"reject"})！\n`;
 
+    // --- 注入 DayAPP (日历/手账) 互动规则 ---
+    systemPrompt += `\n【日历/手账 (DayAPP) 互动规则】\n`;
+    systemPrompt += `如果你想在聊天中动态添加你今天的日程安排，请在 JSON 根节点添加 "day_schedule_update" 数组字段：\n`;
+    systemPrompt += `"day_schedule_update": [{"timeStart": "09:00", "timeEnd": "10:00", "title": "日程标题", "desc": "备注说明"}]\n`;
+    systemPrompt += `如果你想在聊天中动态添加你今天的食谱记录，请在 JSON 根节点添加 "day_recipe_update" 数组字段：\n`;
+    systemPrompt += `"day_recipe_update": [{"type": "早餐/午餐/晚餐/加餐", "name": "食物名称", "cal": 500, "emoji": "🍔"}]\n`;
+
     // --- 注入朋友圈规则 ---
     let moments = JSON.parse(ChatDB.getItem(`moments_${currentLoginId}`) || '[]');
     let visibleMoments = moments.filter(m => {
@@ -6752,8 +6773,11 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
             content = msg.content;
         } else if (msg.type === 'app_share') {
             // 核心：提取分享卡片里的真实文字内容喂给大模型
-            let cleanShareContent = (msg.shareContent || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-            content = `${source}*${senderName} 分享了一个来自【${msg.appName || '未知应用'}】的内容*\n【标题】: ${msg.shareTitle || '无'}\n【详细内容】: ${cleanShareContent}`;
+            let cleanShareContent = (msg.shareContent || msg.shareDesc || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            content = `${source}*${senderName} 分享了一个来自【${msg.appName || '未知应用'}】的链接/内容*\n【标题】: ${msg.shareTitle || '无'}\n【详细内容】: ${cleanShareContent}`;
+            if (msg.shareUrl) {
+                content += `\n【链接地址】: ${msg.shareUrl}`;
+            }
         } else {
             content = source + content.replace(/<[^>]+>/g, '');
         }
@@ -6876,6 +6900,47 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
                     }
                     if (aiText && typeof showMusicLiveMessage === 'function') {
                         showMusicLiveMessage('char', aiText);
+                    }
+                }
+
+                if (parsedData.day_schedule_update && Array.isArray(parsedData.day_schedule_update)) {
+                    const todayObj = new Date();
+                    const todayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
+                    let charSchedules = JSON.parse(ChatDB.getItem(`day_schedule_char_${targetCharId}`) || '[]');
+                    parsedData.day_schedule_update.forEach(s => {
+                        charSchedules.push({
+                            id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                            date: todayStr,
+                            timeStart: s.timeStart || '12:00',
+                            timeEnd: s.timeEnd || '13:00',
+                            title: s.title || '未知日程',
+                            desc: s.desc || '',
+                            done: false
+                        });
+                    });
+                    ChatDB.setItem(`day_schedule_char_${targetCharId}`, JSON.stringify(charSchedules));
+                    if (typeof renderDayData === 'function' && document.getElementById('dayAppPanel') && document.getElementById('dayAppPanel').style.display === 'flex') {
+                        renderDayData(typeof currentDayView !== 'undefined' ? currentDayView : 'char');
+                    }
+                }
+
+                if (parsedData.day_recipe_update && Array.isArray(parsedData.day_recipe_update)) {
+                    const todayObj = new Date();
+                    const todayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
+                    let charRecipes = JSON.parse(ChatDB.getItem(`day_recipe_char_${targetCharId}`) || '[]');
+                    parsedData.day_recipe_update.forEach(r => {
+                        charRecipes.push({
+                            id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                            date: todayStr,
+                            type: r.type || '午餐',
+                            name: r.name || '未知食物',
+                            cal: r.cal || 0,
+                            emoji: r.emoji || '🍽️'
+                        });
+                    });
+                    ChatDB.setItem(`day_recipe_char_${targetCharId}`, JSON.stringify(charRecipes));
+                    if (typeof renderDayData === 'function' && document.getElementById('dayAppPanel') && document.getElementById('dayAppPanel').style.display === 'flex') {
+                        renderDayData(typeof currentDayView !== 'undefined' ? currentDayView : 'char');
                     }
                 }
 
@@ -10867,11 +10932,27 @@ function openAppShareDetail(index) {
     const msg = history[index];
     if (!msg || msg.type !== 'app_share') return;
 
+    if (msg.shareUrl && typeof openSysBrowserApp === 'function') {
+        // 直接打开浏览器并跳转
+        openSysBrowserApp();
+        if (msg.appName === 'Poipiku') {
+            sysBrowserNavigateTo('poipiku', 'poipiku');
+        } else if (msg.appName === '海棠书屋') {
+            sysBrowserNavigateTo('haitang', 'haitang');
+        } else if (msg.appName === '世界百科') {
+            sysBrowserNavigateTo(msg.shareUrl, 'ai');
+        } else {
+            sysBrowserNavigateTo(msg.shareUrl, 'real');
+        }
+        return; // 结束，不弹窗
+    }
+
+    // 兜底：如果没法跳转，显示弹窗
     document.getElementById('appShareDetailTitle').innerText = msg.shareTitle || '分享详情';
     
     const contentEl = document.getElementById('appShareDetailContent');
     // 统一使用 innerHTML 渲染我们构造好的富文本卡片
-    contentEl.innerHTML = msg.shareContent || '暂无内容';
+    contentEl.innerHTML = msg.shareContent || msg.shareDesc || '暂无内容';
 
     document.getElementById('appShareDetailModalOverlay').classList.add('show');
 }

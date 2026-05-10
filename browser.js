@@ -321,23 +321,6 @@ function sysBrowserRenderPoipiku(page) {
         body.innerHTML = html;
     } else if (page === 'setting') {
         // 渲染设置页面
-        let allEntities = typeof getAllEntities === 'function' ? getAllEntities() : [];
-        let personas = JSON.parse(ChatDB.getItem('chat_personas') || '[]');
-        let charOptions = '<option value="">请选择角色</option>';
-        
-        allEntities.forEach(e => {
-            if (e.isNPC || e.isGroup) return;
-            let realName = e.name || e.netName || '未命名';
-            if (e.isAccount) {
-                const persona = personas.find(p => p.id === e.personaId);
-                if (persona && persona.realName) {
-                    realName = persona.realName;
-                }
-            }
-            const type = e.isAccount ? '用户' : '角色';
-            charOptions += `<option value="${e.id}">${realName} (${type})</option>`;
-        });
-
         let stylePresets = JSON.parse(ChatDB.getItem('tav_presets_style') || '[]');
         let styleOptions = '<option value="">请选择预设文风 (可选)</option>';
         if (stylePresets.length === 0) {
@@ -356,13 +339,8 @@ function sysBrowserRenderPoipiku(page) {
                 <h2 style="color: #1da1f2; border-bottom: 2px solid #1da1f2; padding-bottom: 10px; margin-bottom: 20px; font-weight: 900;">AI Generation Settings</h2>
                 
                 <div class="poipiku-input-group">
-                    <label>Character A (主角 A - 必选)</label>
-                    <select id="poipikuSettingChar1" class="poipiku-input">${charOptions}</select>
-                </div>
-                
-                <div class="poipiku-input-group">
-                    <label>Character B (主角 B - 可选)</label>
-                    <select id="poipikuSettingChar2" class="poipiku-input">${charOptions}</select>
+                    <label>Characters (出场角色 - 必选)</label>
+                    <div id="poipikuGenCharSelectText" onclick="openPoipikuCharSelectModal()" class="poipiku-input" style="cursor: pointer; text-align: center; background: #f9f9f9; color: #888;">未选择 (点击选择)</div>
                 </div>
 
                 <div style="display: flex; gap: 15px;">
@@ -402,10 +380,15 @@ function sysBrowserRenderPoipiku(page) {
         `;
         
         // 恢复下拉框选中状态
-        if (savedSettings.char1Id) document.getElementById('poipikuSettingChar1').value = savedSettings.char1Id;
-        if (savedSettings.char2Id) document.getElementById('poipikuSettingChar2').value = savedSettings.char2Id;
         if (savedSettings.style) document.getElementById('poipikuSettingStyle').value = savedSettings.style;
         
+        currentPoipikuSelectedChars = savedSettings.charIds || [];
+        if (currentPoipikuSelectedChars.length > 0) {
+            const charTextEl = document.getElementById('poipikuGenCharSelectText');
+            charTextEl.innerText = `已选 ${currentPoipikuSelectedChars.length} 个角色`;
+            charTextEl.style.color = '#111';
+        }
+
         currentPoipikuWbEntries = savedSettings.wbEntries || [];
         if (currentPoipikuWbEntries.length > 0) {
             const textEl = document.getElementById('poipikuGenWbSelectText');
@@ -420,14 +403,20 @@ function sysBrowserToggleMenu() {
     sysBrowserMenuOverlay.classList.toggle('show');
 }
 
-function sysBrowserShowToast(text) {
+let sysBrowserToastTimeout = null;
+function sysBrowserShowToast(text, duration = 2000) {
     if(sysBrowserMenuOverlay.classList.contains('show')) sysBrowserToggleMenu();
     const toast = document.getElementById('sysBrowserToast');
     document.getElementById('sysBrowserToastText').innerText = text;
     toast.classList.add('show');
-    setTimeout(() => {
-        toast.classList.remove('show');
-    }, 2000);
+    
+    if (sysBrowserToastTimeout) clearTimeout(sysBrowserToastTimeout);
+    
+    if (duration > 0) {
+        sysBrowserToastTimeout = setTimeout(() => {
+            toast.classList.remove('show');
+        }, duration);
+    }
 }
 
 function sysBrowserShareToChar() {
@@ -447,6 +436,8 @@ function confirmSysBrowserShare(targetId) {
     let desc = '点击查看详情';
     let appName = '浏览器';
     let content = '';
+    let shareUrl = '';
+    let shareContent = '';
     
     if (sysBrowserShareContext && sysBrowserShareContext.type === 'poipiku_post') {
         const post = sysBrowserPoipikuData.find(p => p.id === sysBrowserShareContext.postId);
@@ -454,6 +445,8 @@ function confirmSysBrowserShare(targetId) {
         title = `${post.author} 的 Poipiku 动态`;
         desc = post.text;
         appName = 'Poipiku';
+        shareUrl = 'poipiku';
+        shareContent = `作者：${post.author}\n分类：${post.category}\n配文：${post.text}\n图片描述：${post.imageDesc || '无'}`;
         content = `
             <div class="app-share-card" onclick="alert('打开 Poipiku 查看')">
                 <div class="app-share-title">${title}</div>
@@ -467,22 +460,27 @@ function confirmSysBrowserShare(targetId) {
     } else {
         const currentState = sysBrowserHistoryStack[sysBrowserCurrentHistoryIndex];
         if (currentState) {
+            shareUrl = currentState.url;
             if (currentState.type === 'poipiku') {
                 title = 'Poipiku 插画交流平台';
                 desc = '我发现了一个有趣的同人作品主页，快来看看吧！';
                 appName = 'Poipiku';
+                shareContent = '分享了 Poipiku 首页';
             } else if (currentState.type === 'haitang') {
                 title = '海棠文化线上文学城';
                 desc = '分享了一个精彩的小说页面，快来看看吧！';
                 appName = '海棠书屋';
+                shareContent = '分享了海棠书屋页面';
             } else if (currentState.type === 'ai') {
                 title = currentState.url;
                 desc = '分享了一个百科页面';
                 appName = '世界百科';
+                shareContent = `分享了百科词条：${currentState.url}`;
             } else if (currentState.type === 'real') {
                 title = currentState.url;
                 desc = '分享了一个网页链接';
                 appName = 'Safari';
+                shareContent = `分享了网址：${currentState.url}`;
             }
         }
         content = `
@@ -498,7 +496,7 @@ function confirmSysBrowserShare(targetId) {
     }
     
     // 构造消息并保存
-    let newMsg = { role: 'user', type: 'app_share', shareTitle: title, shareDesc: desc, appName: appName, content: content, timestamp: Date.now() };
+    let newMsg = { role: 'user', type: 'app_share', shareTitle: title, shareDesc: desc, appName: appName, content: content, shareUrl: shareUrl, shareContent: shareContent, timestamp: Date.now() };
     
     let history = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${targetId}`) || '[]');
     history.push(newMsg);
@@ -729,10 +727,353 @@ function sysBrowserDeleteHistoryItem(itemId, event) {
     }
 }
 
+let currentSysBrowserWbEntries = JSON.parse(ChatDB.getItem('sys_browser_wb_entries') || '[]');
+
 function sysBrowserOpenSettings() {
     sysBrowserToggleMenu();
     sysBrowserSwitchView('settings');
     sysBrowserAddressText.innerText = '设置';
+    
+    // 初始化世界书文本
+    currentSysBrowserWbEntries = JSON.parse(ChatDB.getItem('sys_browser_wb_entries') || '[]');
+    const textEl = document.getElementById('sysBrowserWbSelectText');
+    if (textEl) {
+        if (currentSysBrowserWbEntries.length > 0) {
+            textEl.innerText = `已选 ${currentSysBrowserWbEntries.length} 个条目`;
+            textEl.style.color = '#111';
+        } else {
+            textEl.innerText = '未选择';
+            textEl.style.color = '#888';
+        }
+    }
+}
+
+function openSysBrowserWbSelectModal() {
+    const listEl = document.getElementById('sysBrowserWbSelectList');
+    listEl.innerHTML = '';
+    let wbData = JSON.parse(ChatDB.getItem('worldbook_data')) || { groups: [], entries: [] };
+    
+    if (wbData.groups.length === 0 || wbData.entries.length === 0) {
+        listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #aaa; font-size: 12px;">暂无世界书数据</div>';
+    } else {
+        wbData.groups.forEach(group => {
+            const groupEntries = wbData.entries.filter(e => e.group === group);
+            if (groupEntries.length === 0) return;
+            
+            const groupContainer = document.createElement('div');
+            groupContainer.style.borderBottom = '1px solid #f5f5f5';
+            
+            const groupHeader = document.createElement('div');
+            groupHeader.style.display = 'flex';
+            groupHeader.style.alignItems = 'center';
+            groupHeader.style.justifyContent = 'space-between';
+            groupHeader.style.padding = '15px 5px';
+            groupHeader.style.cursor = 'pointer';
+            
+            const leftDiv = document.createElement('div');
+            leftDiv.style.display = 'flex';
+            leftDiv.style.alignItems = 'center';
+            leftDiv.style.gap = '12px';
+            
+            const groupCb = document.createElement('input');
+            groupCb.type = 'checkbox';
+            groupCb.setAttribute('data-group-target', group);
+            groupCb.style.width = '18px';
+            groupCb.style.height = '18px';
+            groupCb.style.cursor = 'pointer';
+            groupCb.style.accentColor = '#111';
+            
+            const allSelected = groupEntries.every(e => currentSysBrowserWbEntries.includes(e.id));
+            groupCb.checked = allSelected;
+            
+            groupCb.onclick = (e) => e.stopPropagation();
+            groupCb.onchange = (e) => {
+                const isChecked = e.target.checked;
+                document.querySelectorAll(`.sys-browser-wb-entry-checkbox[data-group-name="${group}"]`).forEach(cb => {
+                    cb.checked = isChecked;
+                    if (isChecked && !currentSysBrowserWbEntries.includes(cb.value)) {
+                        currentSysBrowserWbEntries.push(cb.value);
+                    } else if (!isChecked) {
+                        currentSysBrowserWbEntries = currentSysBrowserWbEntries.filter(id => id !== cb.value);
+                    }
+                });
+            };
+            
+            const titleSpan = document.createElement('span');
+            titleSpan.innerText = group;
+            titleSpan.style.fontSize = '15px';
+            titleSpan.style.color = '#333';
+            titleSpan.style.fontWeight = '500';
+            
+            leftDiv.appendChild(groupCb);
+            leftDiv.appendChild(titleSpan);
+            
+            const arrowSvg = document.createElement('div');
+            arrowSvg.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="#aaa" style="transition: transform 0.2s;"><path d="M7 10l5 5 5-5z"/></svg>`;
+            const arrowIcon = arrowSvg.firstChild;
+            
+            groupHeader.appendChild(leftDiv);
+            groupHeader.appendChild(arrowSvg);
+            
+            const entriesContainer = document.createElement('div');
+            entriesContainer.style.display = 'none';
+            entriesContainer.style.paddingBottom = '10px';
+            
+            groupHeader.onclick = () => {
+                const isHidden = entriesContainer.style.display === 'none';
+                entriesContainer.style.display = isHidden ? 'block' : 'none';
+                arrowIcon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+            };
+            
+            groupEntries.forEach(entry => {
+                const entryDiv = document.createElement('div');
+                entryDiv.style.display = 'flex';
+                entryDiv.style.alignItems = 'center';
+                entryDiv.style.gap = '12px';
+                entryDiv.style.padding = '12px 5px 12px 35px';
+                
+                const entryCb = document.createElement('input');
+                entryCb.type = 'checkbox';
+                entryCb.className = `sys-browser-wb-entry-checkbox`;
+                entryCb.setAttribute('data-group-name', group);
+                entryCb.value = entry.id;
+                entryCb.checked = currentSysBrowserWbEntries.includes(entry.id);
+                entryCb.style.width = '16px';
+                entryCb.style.height = '16px';
+                entryCb.style.cursor = 'pointer';
+                entryCb.style.accentColor = '#111';
+                
+                entryCb.onchange = (e) => {
+                    if (e.target.checked) {
+                        if (!currentSysBrowserWbEntries.includes(entry.id)) currentSysBrowserWbEntries.push(entry.id);
+                    } else {
+                        currentSysBrowserWbEntries = currentSysBrowserWbEntries.filter(id => id !== entry.id);
+                    }
+                    const allCbs = Array.from(document.querySelectorAll(`.sys-browser-wb-entry-checkbox[data-group-name="${group}"]`));
+                    const allChecked = allCbs.every(cb => cb.checked);
+                    document.querySelector(`input[data-group-target="${group}"]`).checked = allChecked;
+                };
+                
+                const entryTitle = document.createElement('span');
+                entryTitle.innerText = entry.title || '未命名';
+                entryTitle.style.fontSize = '14px';
+                entryTitle.style.color = '#666';
+                
+                entryDiv.appendChild(entryCb);
+                entryDiv.appendChild(entryTitle);
+                entriesContainer.appendChild(entryDiv);
+            });
+            
+            groupContainer.appendChild(groupHeader);
+            groupContainer.appendChild(entriesContainer);
+            listEl.appendChild(groupContainer);
+        });
+    }
+    document.getElementById('sysBrowserWbSelectModalOverlay').classList.add('show');
+}
+
+function confirmSysBrowserWbSelect() {
+    ChatDB.setItem('sys_browser_wb_entries', JSON.stringify(currentSysBrowserWbEntries));
+    const textEl = document.getElementById('sysBrowserWbSelectText');
+    if (currentSysBrowserWbEntries.length > 0) {
+        textEl.innerText = `已选 ${currentSysBrowserWbEntries.length} 个条目`;
+        textEl.style.color = '#111';
+    } else {
+        textEl.innerText = '未选择';
+        textEl.style.color = '#888';
+    }
+    document.getElementById('sysBrowserWbSelectModalOverlay').classList.remove('show');
+}
+
+function handleSysBrowserTopRightClick() {
+    const currentState = sysBrowserHistoryStack[sysBrowserCurrentHistoryIndex];
+    if (!currentState) return;
+    
+    if (currentState.type === 'real') {
+        sysBrowserRefreshPage();
+    } else if (currentState.type === 'ai' || currentState.type === 'search_list') {
+        openSysBrowserGenModal();
+    } else if (currentState.type === 'poipiku' || currentState.type === 'haitang') {
+        sysBrowserShowToast('此页面请在设置中生成');
+    }
+}
+
+function openSysBrowserGenModal() {
+    document.getElementById('sysBrowserGenModalOverlay').classList.add('show');
+}
+
+function closeSysBrowserGenModal() {
+    document.getElementById('sysBrowserGenModalOverlay').classList.remove('show');
+}
+
+function confirmSysBrowserGen() {
+    const type = document.getElementById('sysBrowserGenType').value;
+    const count = parseInt(document.getElementById('sysBrowserGenCount').value) || 3;
+    closeSysBrowserGenModal();
+    
+    const currentState = sysBrowserHistoryStack[sysBrowserCurrentHistoryIndex];
+    if (currentState) {
+        generateSysBrowserWebpageAPI(currentState.url, type, count);
+    }
+}
+
+async function generateSysBrowserWebpageAPI(keyword, type, count) {
+    const apiConfig = JSON.parse(ChatDB.getItem('current_api_config') || '{}');
+    if (!apiConfig.url || !apiConfig.key || !apiConfig.model) {
+        return alert('请先在设置中配置 API 信息！');
+    }
+
+    let wbContext = '';
+    if (currentSysBrowserWbEntries.length > 0) {
+        let wbData = JSON.parse(ChatDB.getItem('worldbook_data')) || { entries: [] };
+        let entries = wbData.entries.filter(e => currentSysBrowserWbEntries.includes(e.id));
+        wbContext = entries.map(e => e.content).join('\n');
+    }
+
+    let prompt = `你是一个网页内容生成引擎。用户在浏览器中搜索或访问了关键词：【${keyword}】。
+请根据以下世界书背景设定，生成符合该关键词的网页内容。
+${wbContext ? `【世界观背景】：\n${wbContext}\n` : ''}`;
+
+    if (type === 'search') {
+        prompt += `
+请生成 ${count} 条【搜索结果列表】。
+必须严格返回一个合法的 JSON 数组，格式如下：
+[
+  {
+    "title": "搜索结果的标题",
+    "url": "伪造的网址(如: www.example.com/xxx)",
+    "snippet": "搜索结果的摘要描述，吸引人点击"
+  }
+]
+注意：只返回 JSON 数组，不要包含任何 markdown 标记。`;
+    } else if (type === 'zhihu') {
+        prompt += `
+请生成一篇【知乎问答论坛】风格的网页。包含一个问题和 ${count} 个回答。
+必须严格返回一个合法的 JSON 对象，格式如下：
+{
+  "title": "关于该关键词的知乎提问标题",
+  "desc": "问题的详细描述补充",
+  "answers": [
+    {
+      "author": "随机生成的网友昵称",
+      "upvotes": "赞同数(如: 1.2万)",
+      "content": "回答的正文内容，使用 HTML 标签如 <p>, <strong> 进行排版，内容要符合知乎网友的语气（如：谢邀、人在美国、利益相关等）"
+    }
+  ]
+}
+注意：只返回 JSON 对象，不要包含任何 markdown 标记。`;
+    } else {
+        prompt += `
+请生成 ${count} 篇【百科词条或新闻报道】风格的网页正文。
+必须严格返回一个合法的 JSON 数组，格式如下：
+[
+  {
+    "title": "文章标题",
+    "content": "文章的正文内容，使用 HTML 标签如 <h3>, <p>, <ul>, <li>, <strong> 等进行排版"
+  }
+]
+注意：只返回 JSON 数组，不要包含任何 markdown 标记。`;
+    }
+
+    sysBrowserSwitchView('loading');
+    sysBrowserShowToast('正在生成网页内容...', 0); // 传入 0 表示不自动隐藏
+
+    try {
+        const response = await fetch(`${apiConfig.url.replace(/\/$/, '')}/chat/completions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.key}` },
+            body: JSON.stringify({
+                model: apiConfig.model,
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0.8
+            })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            let replyRaw = data.choices[0].message.content.trim();
+            replyRaw = replyRaw.replace(/^```json/i, '').replace(/^```html/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
+            
+            const contentContainer = document.querySelector('#sys-browser-view-ai-web .sys-browser-ai-article-content');
+            const metaContainer = document.querySelector('#sys-browser-view-ai-web .sys-browser-ai-article-meta');
+            const imgContainer = document.querySelector('#sys-browser-view-ai-web .sys-browser-ai-article-img');
+            
+            if (type === 'search') {
+                const parsed = JSON.parse(replyRaw);
+                let listArray = Array.isArray(parsed) ? parsed : [parsed];
+                sysBrowserAiTitle.innerText = `搜索结果: ${keyword}`;
+                metaContainer.innerHTML = `<span>约找到 3,420,000 个结果</span>`;
+                imgContainer.style.display = 'none';
+                
+                let html = '';
+                listArray.forEach(item => {
+                    html += `
+                        <div style="margin-bottom: 20px; cursor: pointer;" onclick="sysBrowserNavigateTo('${item.title}', 'ai')">
+                            <h3 style="color: #1a0dab; font-size: 18px; margin-bottom: 4px; text-decoration: underline;">${item.title}</h3>
+                            <p style="color: #006621; font-size: 13px; margin-bottom: 4px;">https://${item.url}</p>
+                            <p style="color: #545454; font-size: 14px;">${item.snippet}</p>
+                        </div>
+                    `;
+                });
+                contentContainer.innerHTML = html;
+                
+            } else if (type === 'zhihu') {
+                const parsed = JSON.parse(replyRaw);
+                sysBrowserAiTitle.innerText = parsed.title || keyword;
+                metaContainer.innerHTML = `<span style="color: #0066ff; font-weight: bold;">知乎 Zhihu</span><span>问题描述</span>`;
+                imgContainer.style.display = 'none';
+                
+                let html = `<div style="font-size: 14px; color: #555; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee;">${parsed.desc || ''}</div>`;
+                
+                if (parsed.answers && Array.isArray(parsed.answers)) {
+                    parsed.answers.forEach(ans => {
+                        html += `
+                            <div style="margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px solid #f0f0f0;">
+                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                                    <div style="width: 32px; height: 32px; border-radius: 4px; background: #eee; display: flex; justify-content: center; align-items: center; font-size: 12px; color: #888;">${ans.author.charAt(0)}</div>
+                                    <div style="font-size: 14px; font-weight: bold; color: #444;">${ans.author}</div>
+                                </div>
+                                <div style="font-size: 12px; color: #888; margin-bottom: 10px;">▲ ${ans.upvotes} 人赞同了该回答</div>
+                                <div style="font-size: 15px; color: #333; line-height: 1.6; word-break: break-all;">
+                                    ${ans.content}
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                contentContainer.innerHTML = html;
+                
+            } else {
+                // Wiki 模式
+                const parsed = JSON.parse(replyRaw);
+                let listArray = Array.isArray(parsed) ? parsed : [parsed];
+                sysBrowserAiTitle.innerText = keyword;
+                metaContainer.innerHTML = `<span>作者: AI 引擎</span><span>刚刚发布</span>`;
+                imgContainer.style.display = 'none';
+                
+                let html = '';
+                listArray.forEach(item => {
+                    html += `
+                        <div style="margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #eee;">
+                            <h2 style="font-size: 20px; font-weight: bold; color: #111; margin-bottom: 15px;">${item.title}</h2>
+                            <div style="font-size: 15px; color: #333; line-height: 1.8;">${item.content}</div>
+                        </div>
+                    `;
+                });
+                contentContainer.innerHTML = html;
+            }
+            
+            sysBrowserSwitchView('ai');
+            sysBrowserShowToast('网页生成成功！');
+        } else {
+            sysBrowserShowToast('生成失败，请检查 API。');
+            sysBrowserSwitchView('ai');
+        }
+    } catch (e) {
+        console.error(e);
+        sysBrowserShowToast('生成出错：' + e.message);
+        sysBrowserSwitchView('ai');
+    }
 }
 
 function sysBrowserClearData() {
@@ -798,6 +1139,109 @@ sysBrowserUpdateNavButtons();
 // Poipiku AI 生成逻辑
 // ==========================================
 let currentPoipikuWbEntries = [];
+let currentPoipikuSelectedChars = [];
+
+function openPoipikuCharSelectModal() {
+    const listEl = document.getElementById('poipikuCharSelectList');
+    listEl.innerHTML = '';
+    
+    let chars = JSON.parse(ChatDB.getItem('chat_chars') || '[]');
+    let personas = JSON.parse(ChatDB.getItem('chat_personas') || '[]');
+    
+    const groups = [
+        { name: '角色 (Chars)', items: chars.map(c => ({ id: c.id, name: c.name || c.netName || '未命名' })) },
+        { name: '用户面具 (User Personas)', items: personas.map(p => ({ id: p.id, name: p.realName || '未命名', isPersona: true })) }
+    ];
+    
+    groups.forEach(group => {
+        if (group.items.length === 0) return;
+        
+        const groupContainer = document.createElement('div');
+        groupContainer.style.borderBottom = '1px solid #f5f5f5';
+        
+        const groupHeader = document.createElement('div');
+        groupHeader.style.display = 'flex';
+        groupHeader.style.alignItems = 'center';
+        groupHeader.style.justifyContent = 'space-between';
+        groupHeader.style.padding = '15px 5px';
+        groupHeader.style.cursor = 'pointer';
+        
+        const titleSpan = document.createElement('span');
+        titleSpan.innerText = group.name;
+        titleSpan.style.fontSize = '15px';
+        titleSpan.style.color = '#333';
+        titleSpan.style.fontWeight = '500';
+        
+        const arrowSvg = document.createElement('div');
+        arrowSvg.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="#aaa" style="transition: transform 0.2s;"><path d="M7 10l5 5 5-5z"/></svg>`;
+        const arrowIcon = arrowSvg.firstChild;
+        
+        groupHeader.appendChild(titleSpan);
+        groupHeader.appendChild(arrowSvg);
+        
+        const entriesContainer = document.createElement('div');
+        entriesContainer.style.display = 'none';
+        entriesContainer.style.paddingBottom = '10px';
+        
+        groupHeader.onclick = () => {
+            const isHidden = entriesContainer.style.display === 'none';
+            entriesContainer.style.display = isHidden ? 'block' : 'none';
+            arrowIcon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+        };
+        
+        group.items.forEach(item => {
+            const entryDiv = document.createElement('div');
+            entryDiv.style.display = 'flex';
+            entryDiv.style.alignItems = 'center';
+            entryDiv.style.gap = '12px';
+            entryDiv.style.padding = '12px 5px 12px 15px';
+            
+            const entryCb = document.createElement('input');
+            entryCb.type = 'checkbox';
+            entryCb.value = item.isPersona ? `persona_${item.id}` : `char_${item.id}`;
+            entryCb.checked = currentPoipikuSelectedChars.includes(entryCb.value);
+            entryCb.style.width = '16px';
+            entryCb.style.height = '16px';
+            entryCb.style.cursor = 'pointer';
+            entryCb.style.accentColor = '#1da1f2';
+            
+            entryCb.onchange = (e) => {
+                if (e.target.checked) {
+                    if (!currentPoipikuSelectedChars.includes(entryCb.value)) currentPoipikuSelectedChars.push(entryCb.value);
+                } else {
+                    currentPoipikuSelectedChars = currentPoipikuSelectedChars.filter(id => id !== entryCb.value);
+                }
+            };
+            
+            const entryTitle = document.createElement('span');
+            entryTitle.innerText = item.name;
+            entryTitle.style.fontSize = '14px';
+            entryTitle.style.color = '#666';
+            
+            entryDiv.appendChild(entryCb);
+            entryDiv.appendChild(entryTitle);
+            entriesContainer.appendChild(entryDiv);
+        });
+        
+        groupContainer.appendChild(groupHeader);
+        groupContainer.appendChild(entriesContainer);
+        listEl.appendChild(groupContainer);
+    });
+    
+    document.getElementById('poipikuCharSelectModalOverlay').classList.add('show');
+}
+
+function confirmPoipikuCharSelect() {
+    const textEl = document.getElementById('poipikuGenCharSelectText');
+    if (currentPoipikuSelectedChars.length > 0) {
+        textEl.innerText = `已选 ${currentPoipikuSelectedChars.length} 个角色`;
+        textEl.style.color = '#111';
+    } else {
+        textEl.innerText = '未选择 (点击选择)';
+        textEl.style.color = '#888';
+    }
+    document.getElementById('poipikuCharSelectModalOverlay').classList.remove('show');
+}
 
 function openPoipikuWbSelectModal() {
     const listEl = document.getElementById('poipikuWbSelectList');
@@ -936,15 +1380,13 @@ function confirmPoipikuWbSelect() {
 }
 
 async function executePoipikuGenAPI() {
-    const char1Id = document.getElementById('poipikuSettingChar1').value;
-    const char2Id = document.getElementById('poipikuSettingChar2').value;
     const imageCount = parseInt(document.getElementById('poipikuSettingImageCount').value) || 0;
     const textCount = parseInt(document.getElementById('poipikuSettingTextCount').value) || 0;
     const textLength = document.getElementById('poipikuSettingTextLength').value.trim() || '适中';
     const style = document.getElementById('poipikuSettingStyle').value;
     const customPrompt = document.getElementById('poipikuSettingPrompt').value.trim();
 
-    if (!char1Id) return alert('请至少选择主角 A！');
+    if (currentPoipikuSelectedChars.length === 0) return alert('请至少选择一个出场角色！');
     if (imageCount <= 0 && textCount <= 0) return alert('请至少生成1篇内容！');
 
     const apiConfig = JSON.parse(ChatDB.getItem('current_api_config') || '{}');
@@ -954,7 +1396,7 @@ async function executePoipikuGenAPI() {
 
     // 保存设置
     const settingsToSave = {
-        char1Id, char2Id, imageCount, textCount, textLength, style, prompt: customPrompt, wbEntries: currentPoipikuWbEntries
+        charIds: currentPoipikuSelectedChars, imageCount, textCount, textLength, style, prompt: customPrompt, wbEntries: currentPoipikuWbEntries
     };
     ChatDB.setItem('poipiku_gen_settings', JSON.stringify(settingsToSave));
 
@@ -964,36 +1406,25 @@ async function executePoipikuGenAPI() {
     btn.style.pointerEvents = 'none';
     btn.style.opacity = '0.7';
 
-    let allEntities = typeof getAllEntities === 'function' ? getAllEntities() : [];
+    let chars = JSON.parse(ChatDB.getItem('chat_chars') || '[]');
     let personas = JSON.parse(ChatDB.getItem('chat_personas') || '[]');
     
-    const char1 = allEntities.find(e => e.id === char1Id);
-    const char2 = char2Id ? allEntities.find(e => e.id === char2Id) : null;
-
-    // 获取真名和设定
-    let char1RealName = char1.name || char1.netName || '未命名';
-    let char1Desc = char1.description || '无';
-    if (char1.isAccount) {
-        const p = personas.find(p => p.id === char1.personaId);
-        if (p) {
-            char1RealName = p.realName || char1RealName;
-            char1Desc = p.persona || '普通用户';
-        }
-    }
-
-    let char2RealName = '';
-    let char2Desc = '';
-    if (char2) {
-        char2RealName = char2.name || char2.netName || '未命名';
-        char2Desc = char2.description || '无';
-        if (char2.isAccount) {
-            const p = personas.find(p => p.id === char2.personaId);
+    let charactersContext = '';
+    currentPoipikuSelectedChars.forEach((selectedId, index) => {
+        if (selectedId.startsWith('persona_')) {
+            const pId = selectedId.replace('persona_', '');
+            const p = personas.find(x => x.id === pId);
             if (p) {
-                char2RealName = p.realName || char2RealName;
-                char2Desc = p.persona || '普通用户';
+                charactersContext += `【出场角色 ${index + 1}】：${p.realName || '未命名'}\n设定：${p.persona || '普通用户'}\n\n`;
+            }
+        } else if (selectedId.startsWith('char_')) {
+            const cId = selectedId.replace('char_', '');
+            const c = chars.find(x => x.id === cId);
+            if (c) {
+                charactersContext += `【出场角色 ${index + 1}】：${c.name || '未命名'}\n设定：${c.description || '无'}\n\n`;
             }
         }
-    }
+    });
 
     let wbContext = '';
     if (currentPoipikuWbEntries.length > 0) {
@@ -1007,10 +1438,7 @@ async function executePoipikuGenAPI() {
     let prompt = `你是一个在 Poipiku 上发布作品的创作者。
 请根据以下设定，生成 ${totalCount} 篇 Poipiku 动态。其中包含 ${imageCount} 篇图文插画动态，和 ${textCount} 篇同人文动态。
 
-【主角 A】：${char1RealName}
-设定：${char1Desc}
-
-${char2 ? `【主角 B】：${char2RealName}\n设定：${char2Desc}\n` : ''}
+${charactersContext}
 ${wbContext ? `【世界观背景】：\n${wbContext}\n` : ''}
 ${style ? `【文风要求】：${style}\n` : ''}
 ${customPrompt ? `【画面与配文要求】：${customPrompt}\n` : ''}
@@ -1033,10 +1461,9 @@ ${customPrompt ? `【画面与配文要求】：${customPrompt}\n` : ''}
     "text": "这里写同人文/短打的正文内容，字数尽量符合要求，使用 HTML 标签如 <p> 进行段落排版",
     "tags": ["标签1", "标签2"]
   }
-
 注意：只返回 JSON 数组，不要包含任何 markdown 标记（如 \`\`\`json）。`;
 
-    sysBrowserShowToast(`AI 正在创作 ${totalCount} 篇动态，请稍候...`);
+    sysBrowserShowToast(`正在创作 ${totalCount} 篇动态，请稍候...`, 0); // 传入 0 表示不自动隐藏
 
     try {
         const response = await fetch(`${apiConfig.url.replace(/\/$/, '')}/chat/completions`, {
@@ -1111,44 +1538,21 @@ ${customPrompt ? `【画面与配文要求】：${customPrompt}\n` : ''}
 // ==========================================
 // 海棠书屋 (Haitang) 逻辑
 // ==========================================
-let sysBrowserHaitangData = [
-    {
-        id: 1,
-        title: "《穿成反派的娇软小师弟》",
-        author: "匿名写手",
-        tag: "[耽美]",
-        desc: "他睁开眼，发现自己躺在一张古色古香的雕花大床上。脑海中涌入的记忆告诉他，他穿书了，穿成了一本修真文里前期欺辱反派，后期被反派千刀万剐的炮灰小师弟...",
-        chapters: [
-            {
-                title: "第一章 穿越",
-                content: "<p>他睁开眼，发现自己躺在一张古色古香的雕花大床上。脑海中涌入的记忆告诉他，他穿书了，穿成了一本修真文里前期欺辱反派，后期被反派千刀万剐的炮灰小师弟。</p><p>看着推门进来的那个眼神阴郁的玄衣少年，他咽了口唾沫，决定从今天开始抱紧反派大腿。</p>"
-            },
-            {
-                title: "第二章 讨好",
-                content: "<p>“师兄，你渴不渴？我给你倒水。”他小心翼翼地凑过去。</p><p>反派冷冷地看着他，眼中闪过一丝杀意：“滚。”</p>"
-            }
-        ]
-    },
-    {
-        id: 2,
-        title: "《赛博朋克之绝对控制》",
-        author: "AI_001",
-        tag: "[同人]",
-        desc: "霓虹灯闪烁的夜之城，雨水冲刷着冰冷的机械义体。他咬紧牙关，没有说话，只是死死盯着眼前这个掌控着整个城市命脉的男人...",
-        chapters: [
-            {
-                title: "第一章 夜之城",
-                content: "<p>霓虹灯闪烁的夜之城，雨水冲刷着冰冷的机械义体。</p><p>“你以为你能逃出我的手心？”男人低沉的声音在耳边响起，带着金属合成的电流音。</p><p>他咬紧牙关，没有说话，只是死死盯着眼前这个掌控着整个城市命脉的男人。</p>"
-            }
-        ]
-    }
-];
+let sysBrowserHaitangData = [];
 
 function sysBrowserRenderHaitang(page, bookId = null, chapterIndex = 0) {
     const body = document.getElementById('sysBrowserHaitangBody');
     const header = document.querySelector('#sys-browser-view-haitang .ht-header');
     const searchBar = document.querySelector('#sys-browser-view-haitang .ht-search-bar');
     const notice = document.querySelector('#sys-browser-view-haitang .ht-notice');
+    
+    // 退出沉浸式阅读
+    const container = document.getElementById('sys-browser-view-haitang');
+    const topBar = document.querySelector('.sys-browser-top-bar');
+    const bottomBar = document.querySelector('.sys-browser-bottom-bar');
+    container.classList.remove('immersive-reading');
+    if(topBar) topBar.style.display = 'flex';
+    if(bottomBar) bottomBar.style.display = 'flex';
     
     // 沉浸式控制：在详情页和阅读页隐藏海棠的顶栏、搜索栏和公告
     if (page === 'home') {
@@ -1261,24 +1665,33 @@ function sysBrowserRenderHaitang(page, bookId = null, chapterIndex = 0) {
             chapterContent = book.chapters[chapterIndex].content;
         }
 
+        let prevBtn = chapterIndex > 0 ? `<button onclick="sysBrowserRenderHaitang('chapter', ${book.id}, ${chapterIndex - 1})" style="background: #8b1a1a; color: #fff; border: none; padding: 8px 20px; border-radius: 4px; font-size: 14px; cursor: pointer;">上一章</button>` : `<button style="background: #ccc; color: #fff; border: none; padding: 8px 20px; border-radius: 4px; font-size: 14px; cursor: not-allowed;">上一章</button>`;
+        let nextBtn = chapterIndex < book.chapters.length - 1 ? `<button onclick="sysBrowserRenderHaitang('chapter', ${book.id}, ${chapterIndex + 1})" style="background: #8b1a1a; color: #fff; border: none; padding: 8px 20px; border-radius: 4px; font-size: 14px; cursor: pointer;">下一章</button>` : `<button style="background: #ccc; color: #fff; border: none; padding: 8px 20px; border-radius: 4px; font-size: 14px; cursor: not-allowed;">下一章</button>`;
+
         body.innerHTML = `
             <div class="ht-read-header">
                 <span onclick="sysBrowserRenderHaitang('detail', ${book.id})" style="cursor: pointer;">＜ 返回目录</span>
                 <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%;">${chapterTitle}</span>
                 <span style="width: 60px;"></span>
             </div>
-            <div class="ht-article-content">
+            <div class="ht-article-content" onclick="toggleHaitangImmersive()">
                 <h2 style="color: #8b1a1a; font-size: 18px; margin-bottom: 20px; text-align: center;">${chapterTitle}</h2>
                 ${chapterContent}
             </div>
-            <div style="text-align: center; padding: 20px; display: flex; justify-content: center; gap: 15px;">
-                <button onclick="sysBrowserRenderHaitang('detail', ${book.id})" style="background: #8b1a1a; color: #fff; border: none; padding: 8px 20px; border-radius: 4px; font-size: 14px; cursor: pointer;">返回目录</button>
+            <div class="ht-read-footer" style="text-align: center; padding: 20px; display: flex; justify-content: center; gap: 15px; align-items: center; flex-wrap: wrap;">
+                ${prevBtn}
+                <button onclick="toggleHaitangImmersive()" style="background: #f0d0d5; color: #8b1a1a; border: 1px solid #8b1a1a; padding: 8px 20px; border-radius: 4px; font-size: 14px; cursor: pointer;">沉浸式阅读</button>
+                ${nextBtn}
             </div>
         `;
     } else if (page === 'setting') {
+        // 读取已保存的设置
+        let savedSettings = JSON.parse(ChatDB.getItem('haitang_gen_settings') || '{}');
+
         let allEntities = typeof getAllEntities === 'function' ? getAllEntities() : [];
         let personas = JSON.parse(ChatDB.getItem('chat_personas') || '[]');
-        let charOptions = '<option value="">请选择角色</option>';
+        let char1Options = '<option value="">请选择角色</option>';
+        let char2Options = '<option value="">请选择角色</option>';
         
         allEntities.forEach(e => {
             if (e.isNPC || e.isGroup) return;
@@ -1290,7 +1703,8 @@ function sysBrowserRenderHaitang(page, bookId = null, chapterIndex = 0) {
                 }
             }
             const type = e.isAccount ? '用户' : '角色';
-            charOptions += `<option value="${e.id}">${realName} (${type})</option>`;
+            char1Options += `<option value="${e.id}" ${savedSettings.char1Id === e.id ? 'selected' : ''}>${realName} (${type})</option>`;
+            char2Options += `<option value="${e.id}" ${savedSettings.char2Id === e.id ? 'selected' : ''}>${realName} (${type})</option>`;
         });
 
         let stylePresets = JSON.parse(ChatDB.getItem('tav_presets_style') || '[]');
@@ -1299,7 +1713,7 @@ function sysBrowserRenderHaitang(page, bookId = null, chapterIndex = 0) {
             styleOptions = '<option value="">暂无文风预设，请先在酒馆配置</option>';
         } else {
             stylePresets.forEach(p => {
-                styleOptions += `<option value="${p.content.replace(/"/g, '&quot;')}">${p.name}</option>`;
+                styleOptions += `<option value="${p.content.replace(/"/g, '&quot;')}" ${savedSettings.style === p.content ? 'selected' : ''}>${p.name}</option>`;
             });
         }
 
@@ -1309,26 +1723,26 @@ function sysBrowserRenderHaitang(page, bookId = null, chapterIndex = 0) {
                 
                 <div class="poipiku-input-group">
                     <label style="color: #8b1a1a;">主角 A (必选)</label>
-                    <select id="htSettingChar1" class="poipiku-input" style="border-color: #e5a5ab;">${charOptions}</select>
+                    <select id="htSettingChar1" class="poipiku-input" style="border-color: #e5a5ab;">${char1Options}</select>
                 </div>
                 
                 <div class="poipiku-input-group">
                     <label style="color: #8b1a1a;">主角 B (可选)</label>
-                    <select id="htSettingChar2" class="poipiku-input" style="border-color: #e5a5ab;">${charOptions}</select>
+                    <select id="htSettingChar2" class="poipiku-input" style="border-color: #e5a5ab;">${char2Options}</select>
                 </div>
 
                 <div style="display: flex; gap: 15px;">
                     <div class="poipiku-input-group" style="flex: 1;">
                         <label style="color: #8b1a1a;">生成书籍数量</label>
-                        <input type="number" id="htSettingCount" class="poipiku-input" value="1" min="1" style="border-color: #e5a5ab;">
+                        <input type="number" id="htSettingCount" class="poipiku-input" value="${savedSettings.postCount !== undefined ? savedSettings.postCount : 1}" min="1" style="border-color: #e5a5ab;">
                     </div>
                     <div class="poipiku-input-group" style="flex: 1;">
                         <label style="color: #8b1a1a;">分类标签</label>
                         <select id="htSettingCategory" class="poipiku-input" style="border-color: #e5a5ab;">
-                            <option value="[耽美]">[耽美]</option>
+                            <option value="[言情]">[言情]</option>
                             <option value="[同人]">[同人]</option>
                             <option value="[原创]">[原创]</option>
-                            <option value="[言情]">[言情]</option>
+                            <option value="[耽美]">[耽美]</option>
                             <option value="[百合]">[百合]</option>
                         </select>
                     </div>
@@ -1336,7 +1750,7 @@ function sysBrowserRenderHaitang(page, bookId = null, chapterIndex = 0) {
 
                 <div class="poipiku-input-group">
                     <label style="color: #8b1a1a;">每章字数要求</label>
-                    <input type="text" id="htSettingLength" class="poipiku-input" value="800字左右" placeholder="例如：800字左右" style="border-color: #e5a5ab;">
+                    <input type="text" id="htSettingLength" class="poipiku-input" value="${savedSettings.textLength || '800字左右'}" placeholder="例如：800字左右" style="border-color: #e5a5ab;">
                 </div>
 
                 <div class="poipiku-input-group">
@@ -1353,13 +1767,27 @@ function sysBrowserRenderHaitang(page, bookId = null, chapterIndex = 0) {
 
                 <div class="poipiku-input-group">
                     <label style="color: #8b1a1a;">剧情大纲/XP要求</label>
-                    <textarea id="htSettingPrompt" class="poipiku-textarea" placeholder="例如：写一段他们久别重逢的剧情，张力拉满..." style="border-color: #e5a5ab;"></textarea>
+                    <textarea id="htSettingPrompt" class="poipiku-textarea" placeholder="例如：写一段他们久别重逢的剧情，张力拉满..." style="border-color: #e5a5ab;">${savedSettings.prompt || ''}</textarea>
                 </div>
 
                 <button onclick="executeHaitangGenAPI()" style="width: 100%; background: #8b1a1a; color: #fff; border: none; padding: 14px; border-radius: 4px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 10px;">开始生成 (Generate)</button>
             </div>
         `;
-        currentPoipikuWbEntries = []; // 复用世界书选择变量
+        
+        // 恢复分类标签
+        if (savedSettings.category) {
+            document.getElementById('htSettingCategory').value = savedSettings.category;
+        }
+        
+        // 恢复世界书选择
+        currentPoipikuWbEntries = savedSettings.wbEntries || [];
+        if (currentPoipikuWbEntries.length > 0) {
+            const textEl = document.getElementById('poipikuGenWbSelectText');
+            if(textEl) {
+                textEl.innerText = `已选 ${currentPoipikuWbEntries.length} 个条目`;
+                textEl.style.color = '#111';
+            }
+        }
     }
 }
 
@@ -1373,6 +1801,12 @@ async function executeHaitangGenAPI() {
     const customPrompt = document.getElementById('htSettingPrompt').value.trim();
 
     if (!char1Id) return alert('请至少选择主角 A！');
+
+    // 保存设置到本地数据库
+    const settingsToSave = {
+        char1Id, char2Id, postCount, category, textLength, style, prompt: customPrompt, wbEntries: currentPoipikuWbEntries
+    };
+    ChatDB.setItem('haitang_gen_settings', JSON.stringify(settingsToSave));
 
     const apiConfig = JSON.parse(ChatDB.getItem('current_api_config') || '{}');
     if (!apiConfig.url || !apiConfig.key || !apiConfig.model) {
@@ -1443,7 +1877,7 @@ ${customPrompt ? `【剧情大纲/XP要求】：${customPrompt}\n` : ''}
 ]
 注意：只返回 JSON 数组，不要包含任何 markdown 标记（如 \`\`\`json）。`;
 
-    sysBrowserShowToast(`AI 正在码字中，请稍候...`);
+    sysBrowserShowToast(`正在码字中，请稍候...`, 0); // 传入 0 表示不自动隐藏
 
     try {
         const response = await fetch(`${apiConfig.url.replace(/\/$/, '')}/chat/completions`, {
@@ -1471,7 +1905,9 @@ ${customPrompt ? `【剧情大纲/XP要求】：${customPrompt}\n` : ''}
                     author: workData.author || "匿名写手",
                     tag: workData.tag || category,
                     desc: workData.desc || "暂无简介",
-                    chapters: workData.chapters || []
+                    chapters: workData.chapters || [],
+                    char1Id: char1Id,
+                    char2Id: char2Id
                 };
                 sysBrowserHaitangData.unshift(newPost);
             });
@@ -1576,7 +2012,7 @@ async function confirmHaitangUrge() {
     }
 
     closeHaitangUrgeModal();
-    sysBrowserShowToast('作者正在爆肝码字中，请稍候...');
+    sysBrowserShowToast('作者正在爆肝码字中，请稍候...', 0); // 传入 0 表示不自动隐藏
 
     // 构建前文摘要 (取最后一章)
     let previousContext = '';
@@ -1585,10 +2021,53 @@ async function confirmHaitangUrge() {
         previousContext = `【上一章内容回顾】：\n${lastChapter.content}\n\n`;
     }
 
+    // 构建角色人设上下文
+    let charactersContext = '';
+    let allEntities = typeof getAllEntities === 'function' ? getAllEntities() : [];
+    let personas = JSON.parse(ChatDB.getItem('chat_personas') || '[]');
+
+    if (book.char1Id) {
+        const char1 = allEntities.find(e => e.id === book.char1Id);
+        if (char1) {
+            let char1RealName = char1.name || char1.netName || '未命名';
+            let char1Desc = char1.description || '无';
+            if (char1.isAccount) {
+                const p = personas.find(p => p.id === char1.personaId);
+                if (p) { char1RealName = p.realName || char1RealName; char1Desc = p.persona || '普通用户'; }
+            }
+            charactersContext += `【主角 A】：${char1RealName}\n设定：${char1Desc}\n\n`;
+        }
+    }
+
+    if (book.char2Id) {
+        const char2 = allEntities.find(e => e.id === book.char2Id);
+        if (char2) {
+            let char2RealName = char2.name || char2.netName || '未命名';
+            let char2Desc = char2.description || '无';
+            if (char2.isAccount) {
+                const p = personas.find(p => p.id === char2.personaId);
+                if (p) { char2RealName = p.realName || char2RealName; char2Desc = p.persona || '普通用户'; }
+            }
+            charactersContext += `【主角 B】：${char2RealName}\n设定：${char2Desc}\n\n`;
+        }
+    }
+
+    // 构建海棠设置绑定的世界书上下文 (从本地存储读取)
+    let wbContext = '';
+    let savedSettings = JSON.parse(ChatDB.getItem('haitang_gen_settings') || '{}');
+    let savedWbEntries = savedSettings.wbEntries || [];
+    if (savedWbEntries.length > 0) {
+        let wbData = JSON.parse(ChatDB.getItem('worldbook_data')) || { entries: [] };
+        let entries = wbData.entries.filter(e => savedWbEntries.includes(e.id));
+        wbContext = entries.map(e => e.content).join('\n');
+    }
+
     let prompt = `你是一个在海棠书屋连载小说的作者。
 现在读者对你的小说《${book.title}》发起了催更。
 请根据读者的要求，续写下一章的正文。
 
+${charactersContext}
+${wbContext ? `【世界观背景】：\n${wbContext}\n` : ''}
 ${previousContext}
 【读者要求的下一章剧情走向】：${plot ? plot : '顺着上一章的剧情自然发展'}
 【字数要求】：${length}
@@ -1634,3 +2113,19 @@ ${previousContext}
         sysBrowserShowToast('催更出错：' + e.message);
     }
 }
+
+window.toggleHaitangImmersive = function() {
+    const container = document.getElementById('sys-browser-view-haitang');
+    const topBar = document.querySelector('.sys-browser-top-bar');
+    const bottomBar = document.querySelector('.sys-browser-bottom-bar');
+    
+    if (container.classList.contains('immersive-reading')) {
+        container.classList.remove('immersive-reading');
+        if(topBar) topBar.style.display = 'flex';
+        if(bottomBar) bottomBar.style.display = 'flex';
+    } else {
+        container.classList.add('immersive-reading');
+        if(topBar) topBar.style.display = 'none';
+        if(bottomBar) bottomBar.style.display = 'none';
+    }
+};
