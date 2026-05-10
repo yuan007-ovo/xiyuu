@@ -1027,6 +1027,7 @@ async function triggerDayDiaryCharReply() {
         // 模式 1：User 视角 -> Char 来批改回复
         // ==========================================
         indicator.innerText = 'Ta 正在写字... ✏️';
+        showToast('正在生成日记...', 'loading');
         
         const prompt = `你现在扮演角色：${char ? char.name : 'Char'}。
 【你的设定】：${char ? char.description : '无'}
@@ -1061,6 +1062,7 @@ ${diaryContent}
                 const replyData = JSON.parse(replyRaw);
 
                 indicator.style.display = 'none';
+                showToast('生成成功', 'success', 2000);
 
                 // 1. 高光或涂改
                 if (replyData.action && replyData.action !== 'none' && replyData.targetText) {
@@ -1147,11 +1149,13 @@ ${diaryContent}
                 }
 
             } else {
+                showToast('生成失败', 'error', 2000);
                 throw new Error('API 请求失败');
             }
         } catch (e) {
             indicator.style.display = 'none';
             dayDiaryIsReplying = false;
+            showToast('生成失败', 'error', 2000);
             alert('生成失败: ' + e.message);
         }
 
@@ -1160,6 +1164,7 @@ ${diaryContent}
         // 模式 2：Char 视角 -> AI 自动生成 Char 的日记
         // ==========================================
         indicator.innerText = 'Ta 正在构思日记... ✏️';
+        showToast('正在生成日记...', 'loading');
         
         const dateStr = getDayDateStr(daySelectedDate);
         let charSchedules = JSON.parse(ChatDB.getItem(`day_schedule_char_${targetCharId}`) || '[]').filter(s => s.date === dateStr);
@@ -1200,6 +1205,7 @@ ${diaryContent}
                 const replyData = JSON.parse(replyRaw);
 
                 indicator.style.display = 'none';
+                showToast('生成成功', 'success', 2000);
 
                 if (replyData.html) {
                     // 如果编辑器原本有内容，追加在后面；如果为空，直接替换
@@ -1233,17 +1239,20 @@ ${diaryContent}
                     
                     dayDiaryIsReplying = false;
                     saveDayDiary();
-                    showToast('日记生成成功，你可以用画笔批改了！', 'success', 2000);
+                    showToast('生成成功', 'success', 2000);
                 } else {
                     dayDiaryIsReplying = false;
                     saveDayDiary();
+                    showToast('生成成功', 'success', 2000);
                 }
             } else {
+                showToast('生成失败', 'error', 2000);
                 throw new Error('API 请求失败');
             }
         } catch (e) {
             indicator.style.display = 'none';
             dayDiaryIsReplying = false;
+            showToast('生成失败', 'error', 2000);
             alert('生成失败: ' + e.message);
         }
     }

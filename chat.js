@@ -2066,6 +2066,12 @@ function actionDeleteSession() {
         let sessions = JSON.parse(ChatDB.getItem(`chat_sessions_${currentLoginId}`) || '[]');
         sessions = sessions.filter(id => id !== currentActionSessionId);
         ChatDB.setItem(`chat_sessions_${currentLoginId}`, JSON.stringify(sessions));
+        
+        // 双向同步删除会话
+        let targetSessions = JSON.parse(ChatDB.getItem(`chat_sessions_${currentActionSessionId}`) || '[]');
+        targetSessions = targetSessions.filter(id => id !== currentLoginId);
+        ChatDB.setItem(`chat_sessions_${currentActionSessionId}`, JSON.stringify(targetSessions));
+        
         renderChatList();
         closeSessionMenu();
     }
@@ -4011,6 +4017,7 @@ function clearChatHistory() {
 
     if (confirm('确定要清空与该角色的所有聊天记录吗？此操作不可恢复。')) {
         ChatDB.setItem(`chat_history_${currentLoginId}_${currentProfileCharId}`, JSON.stringify([]));
+        ChatDB.setItem(`chat_history_${currentProfileCharId}_${currentLoginId}`, JSON.stringify([]));
         alert('聊天记录已清空！');
         if (typeof renderChatList === 'function') renderChatList(); // 刷新外层聊天列表
     }
@@ -4780,6 +4787,7 @@ function executeRollRedo() {
     if (!currentLoginId || !currentChatRoomCharId) return;
 
     let history = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${currentChatRoomCharId}`) || '[]');
+    let targetHistory = JSON.parse(ChatDB.getItem(`chat_history_${currentChatRoomCharId}_${currentLoginId}`) || '[]');
     
     // 从后往前找，找到最后一条 user 发送的消息
     let lastUserIndex = -1;
@@ -4791,9 +4799,19 @@ function executeRollRedo() {
     }
 
     if (lastUserIndex !== -1) {
+        const lastUserMsg = history[lastUserIndex];
+        
         // 截断历史记录，保留到最后一条 user 消息
         history = history.slice(0, lastUserIndex + 1);
         ChatDB.setItem(`chat_history_${currentLoginId}_${currentChatRoomCharId}`, JSON.stringify(history));
+        
+        // 双向同步截断
+        const targetIndex = targetHistory.findIndex(m => m.timestamp === lastUserMsg.timestamp && m.content === lastUserMsg.content);
+        if (targetIndex !== -1) {
+            targetHistory = targetHistory.slice(0, targetIndex + 1);
+            ChatDB.setItem(`chat_history_${currentChatRoomCharId}_${currentLoginId}`, JSON.stringify(targetHistory));
+        }
+        
         renderChatHistory(currentChatRoomCharId);
         
         // 触发重新生成
@@ -7846,8 +7864,20 @@ function actionDeleteMessage() {
     if (confirm('确定删除这条消息吗？')) {
         const currentLoginId = ChatDB.getItem('current_login_account');
         let history = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${currentChatRoomCharId}`) || '[]');
+        
+        const msgToDelete = history[currentActionMsgIndex];
         history.splice(currentActionMsgIndex, 1);
         ChatDB.setItem(`chat_history_${currentLoginId}_${currentChatRoomCharId}`, JSON.stringify(history));
+        
+        if (msgToDelete) {
+            let targetHistory = JSON.parse(ChatDB.getItem(`chat_history_${currentChatRoomCharId}_${currentLoginId}`) || '[]');
+            const targetIndex = targetHistory.findIndex(m => m.timestamp === msgToDelete.timestamp && m.content === msgToDelete.content);
+            if (targetIndex !== -1) {
+                targetHistory.splice(targetIndex, 1);
+                ChatDB.setItem(`chat_history_${currentChatRoomCharId}_${currentLoginId}`, JSON.stringify(targetHistory));
+            }
+        }
+        
         renderChatHistory(currentChatRoomCharId);
     }
 }
@@ -7928,13 +7958,23 @@ function batchDeleteMessages() {
     if (confirm(`确定删除选中的 ${selectedMsgIndices.length} 条消息吗？`)) {
         const currentLoginId = ChatDB.getItem('current_login_account');
         let history = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${currentChatRoomCharId}`) || '[]');
+        let targetHistory = JSON.parse(ChatDB.getItem(`chat_history_${currentChatRoomCharId}_${currentLoginId}`) || '[]');
         
         // 从大到小排序删除，防止索引错乱
         selectedMsgIndices.sort((a, b) => b - a).forEach(idx => {
+            const msgToDelete = history[idx];
+            if (msgToDelete) {
+                const targetIndex = targetHistory.findIndex(m => m.timestamp === msgToDelete.timestamp && m.content === msgToDelete.content);
+                if (targetIndex !== -1) {
+                    targetHistory.splice(targetIndex, 1);
+                }
+            }
             history.splice(idx, 1);
         });
         
         ChatDB.setItem(`chat_history_${currentLoginId}_${currentChatRoomCharId}`, JSON.stringify(history));
+        ChatDB.setItem(`chat_history_${currentChatRoomCharId}_${currentLoginId}`, JSON.stringify(targetHistory));
+        
         exitMultiSelectMode();
         renderChatHistory(currentChatRoomCharId);
     }
