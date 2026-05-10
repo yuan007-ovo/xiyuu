@@ -2785,9 +2785,11 @@ window.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('globalMusicCapsuleContainer');
     if (savedState === 'true' && container) {
         isCapsuleVisible = true;
-        container.style.display = 'flex';
-        // 移除 setTimeout 延迟，直接更新 UI，解决加载时卡顿闪烁的问题
-        updateCapsuleUI();
+        // 增加 setTimeout 延迟，让出主线程，避免页面首屏加载时被胶囊渲染卡住
+        setTimeout(() => {
+            container.style.display = 'flex';
+            updateCapsuleUI();
+        }, 300);
     } else if (container) {
         isCapsuleVisible = false;
         container.style.display = 'none';

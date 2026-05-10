@@ -882,6 +882,7 @@ function switchWechatTab(tabName) {
     } else if (tabName === 'moment') { 
         navItems[2].classList.add('active'); 
         title = 'Moment'; 
+        if (typeof renderMoments === 'function') renderMoments(); // 新增：每次切回朋友圈强制刷新
     } else if (tabName === 'me') { 
         navItems[3].classList.add('active'); 
         title = 'Me'; 
@@ -1575,9 +1576,10 @@ function renderChatList() {
     }
 
     let sessions = JSON.parse(ChatDB.getItem(`chat_sessions_${currentLoginId}`) || '[]');
+    let linkedAccounts = JSON.parse(ChatDB.getItem(`linked_accounts_${currentLoginId}`) || '[]');
     
     // 动态注入关联账号虚拟会话
-    const isLinkedEnabled = ChatDB.getItem(`linked_account_enabled_${currentLoginId}`) === 'true';
+    const isLinkedEnabled = ChatDB.getItem(`linked_account_enabled_${currentLoginId}`) !== 'false' && linkedAccounts.length > 0;
     if (isLinkedEnabled && !sessions.includes('linked_account_virtual_id')) {
         sessions.push('linked_account_virtual_id');
     } else if (!isLinkedEnabled && sessions.includes('linked_account_virtual_id')) {
@@ -5004,10 +5006,11 @@ function openChatSettingsPanel() {
     renderChatBgLibrary();
     renderChatCssPresets();
     
-    const currentCss = ChatDB.getItem('chat_current_css') || '';
+    const currentLoginId = ChatDB.getItem('current_login_account');
+    // 核心修改：读取当前角色的专属 CSS
+    const currentCss = ChatDB.getItem(`chat_current_css_${currentLoginId}_${currentChatRoomCharId}`) || '';
     document.getElementById('chatCustomCssInput').value = currentCss;
 
-    const currentLoginId = ChatDB.getItem('current_login_account');
     let allEntities = getAllEntities();
     const me = allEntities.find(a => a.id === currentLoginId);
     const char = allEntities.find(c => c.id === currentChatRoomCharId);
@@ -5759,7 +5762,9 @@ function renderChatBgLibrary() {
     const grid = document.getElementById('chatBgLibraryGrid');
     grid.innerHTML = '';
     let bgs = JSON.parse(ChatDB.getItem('chat_backgrounds') || '[]');
-    const currentBg = ChatDB.getItem('chat_current_bg') || '';
+    const currentLoginId = ChatDB.getItem('current_login_account');
+    // 核心修改：读取当前角色的专属背景
+    const currentBg = ChatDB.getItem(`chat_current_bg_${currentLoginId}_${currentChatRoomCharId}`) || '';
 
     // 默认无背景选项
     const defaultItem = document.createElement('div');
@@ -5786,7 +5791,9 @@ function renderChatBgLibrary() {
 }
 
 function applyChatBg(bgUrl) {
-    ChatDB.setItem('chat_current_bg', bgUrl);
+    const currentLoginId = ChatDB.getItem('current_login_account');
+    // 核心修改：保存为当前角色的专属背景
+    ChatDB.setItem(`chat_current_bg_${currentLoginId}_${currentChatRoomCharId}`, bgUrl);
     renderChatBgLibrary();
     updateChatRoomAppearance();
 }
@@ -5798,7 +5805,9 @@ function deleteChatBg(index) {
         bgs.splice(index, 1);
         ChatDB.setItem('chat_backgrounds', JSON.stringify(bgs));
         
-        if (ChatDB.getItem('chat_current_bg') === deletingBg) {
+        const currentLoginId = ChatDB.getItem('current_login_account');
+        // 核心修改：判断删除的是否为当前角色的专属背景
+        if (ChatDB.getItem(`chat_current_bg_${currentLoginId}_${currentChatRoomCharId}`) === deletingBg) {
             applyChatBg(''); // 如果删除的是当前背景，恢复默认
         } else {
             renderChatBgLibrary();
@@ -5808,10 +5817,72 @@ function deleteChatBg(index) {
 
 // --- 自定义 CSS 逻辑 ---
 function applyChatCustomCss() {
+    const currentLoginId = ChatDB.getItem('current_login_account');
     const css = document.getElementById('chatCustomCssInput').value;
-    ChatDB.setItem('chat_current_css', css);
+    // 核心修改：保存为当前角色的专属 CSS
+    ChatDB.setItem(`chat_current_css_${currentLoginId}_${currentChatRoomCharId}`, css);
     updateChatRoomAppearance();
     alert('CSS 已应用！');
+}
+
+function importChatCustomCss() {
+    document.getElementById('chatCssImportInput').click();
+}
+
+async function handleChatCssImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const fileName = file.name.toLowerCase();
+    try {
+        if (fileName.endsWith('.txt')) {
+            const text = await file.text();
+            document.getElementById('chatCustomCssInput').value = text;
+            applyChatCustomCss();
+        } else if (fileName.endsWith('.docx')) {
+            if (typeof mammoth === 'undefined') {
+                alert('缺少 docx 解析库，请检查网络连接！');
+                return;
+            }
+            const arrayBuffer = await file.arrayBuffer();
+            const result = await mammoth.extractRawText({arrayBuffer: arrayBuffer});
+            document.getElementById('chatCustomCssInput').value = result.value;
+            applyChatCustomCss();
+        } else {
+            alert('不支持的文件格式，请上传 .txt 或 .docx 文件！');
+        }
+    } catch (e) {
+        console.error("CSS 导入失败:", e);
+        alert('导入出错: ' + e.message);
+    }
+    event.target.value = ''; 
+}
+
+function exportChatCustomCss() {
+    const cssContent = document.getElementById('chatCustomCssInput').value.trim();
+    if (!cssContent) {
+        return alert('CSS 内容为空，无法导出！');
+    }
+    
+    openGlobalPrompt('导出 CSS', '请输入导出的文件名称', '例如：我的专属主题', (fileName) => {
+        if (fileName && fileName.trim() !== '') {
+            let safeName = fileName.trim();
+            // 自动补全 .txt 后缀
+            if (!safeName.toLowerCase().endsWith('.txt')) {
+                safeName += '.txt';
+            }
+            
+            const blob = new Blob([cssContent], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = safeName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    });
 }
 
 function saveChatCssPreset() {
@@ -5879,8 +5950,10 @@ function deleteChatCssPreset(id) {
 
 // --- 统一更新聊天室外观 ---
 function updateChatRoomAppearance() {
-    // 1. 更新背景
-    const bgUrl = ChatDB.getItem('chat_current_bg') || '';
+    const currentLoginId = ChatDB.getItem('current_login_account');
+    
+    // 1. 更新背景 (按角色独立)
+    const bgUrl = (currentLoginId && currentChatRoomCharId) ? (ChatDB.getItem(`chat_current_bg_${currentLoginId}_${currentChatRoomCharId}`) || '') : '';
     const historyEl = document.getElementById('chatRoomHistory');
     if (historyEl) {
         if (bgUrl) {
@@ -5895,8 +5968,8 @@ function updateChatRoomAppearance() {
         }
     }
 
-    // 2. 更新 CSS (利用 CSS Nesting 防止全局污染)
-    const rawCss = ChatDB.getItem('chat_current_css') || '';
+    // 2. 更新 CSS (按角色独立，利用 CSS Nesting 防止全局污染)
+    const rawCss = (currentLoginId && currentChatRoomCharId) ? (ChatDB.getItem(`chat_current_css_${currentLoginId}_${currentChatRoomCharId}`) || '') : '';
     let styleTag = document.getElementById('customChatCssTag');
     if (!styleTag) {
         styleTag = document.createElement('style');
@@ -6441,7 +6514,7 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
     let otherLinkedMsgContext = ""; 
     let charUnreadContext = "";     
     
-    if (isLinkedEnabled && linkedAccounts.length > 0) {
+    if (isLinkedEnabled && linkedAccounts.length > 0 && linkedAccounts.includes(targetCharId)) {
         linkedAccounts.forEach(accId => {
             if (accId === targetCharId) return; 
             const accEntity = allEntities.find(e => e.id === accId);
@@ -7397,7 +7470,10 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
             }
 
             // 【恢复：触发分块自动总结】
-            const currentTurns = Math.floor(fullHistory.length / 2) + 1; 
+            let latestHistoryForAuto = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${targetCharId}`) || '[]');
+            let validMsgsForAuto = latestHistoryForAuto.filter(m => m.type !== 'system' && m.type !== 'hidden_system');
+            const currentTurns = Math.floor(validMsgsForAuto.length / 2); 
+            
             let charMemoryForAuto = JSON.parse(ChatDB.getItem(`char_memory_${currentPersonaId}_${targetCharId}`) || 'null');
             
             if (charMemoryForAuto && charMemoryForAuto.settings && charMemoryForAuto.settings.autoSummarize) {
@@ -8912,7 +8988,7 @@ function openChatAppSettingsPanel() {
     }
     
     // 同步关联账号开关状态
-    const linkedEnabled = ChatDB.getItem(`linked_account_enabled_${currentLoginId}`) === 'true';
+    const linkedEnabled = ChatDB.getItem(`linked_account_enabled_${currentLoginId}`) !== 'false';
     const toggle = document.getElementById('toggleLinkedAccount');
     if (toggle) toggle.checked = linkedEnabled;
 
@@ -10563,7 +10639,7 @@ function deletePersonaFromManager(id) {
 // ==========================================
 // 全局通用输入弹窗逻辑 (复刻主题APP预设弹窗)
 // ==========================================
-let globalPromptCallback = null;
+window.globalPromptCallback = null;
 
 function openGlobalPrompt(title, desc, placeholder, callback, defaultValue = '') {
     document.getElementById('globalPromptTitle').innerText = title;
@@ -10571,11 +10647,11 @@ function openGlobalPrompt(title, desc, placeholder, callback, defaultValue = '')
     const inputEl = document.getElementById('globalPromptInput');
     inputEl.placeholder = placeholder || '⸝⸝⸝ ╸▵╺⸝⸝⸝';
     inputEl.value = defaultValue;
-    globalPromptCallback = callback;
+    window.globalPromptCallback = callback;
     
     document.getElementById('globalPromptConfirmBtn').onclick = () => {
         const val = inputEl.value;
-        const cb = globalPromptCallback; // 核心修复：先将回调函数保存下来
+        const cb = window.globalPromptCallback; // 核心修复：先将回调函数保存下来
         closeGlobalPrompt();             // 关闭弹窗（这步会清空 globalPromptCallback）
         if (cb) cb(val);                 // 执行刚刚保存的回调函数，完成数据储存
     };
@@ -10586,7 +10662,7 @@ function openGlobalPrompt(title, desc, placeholder, callback, defaultValue = '')
 
 function closeGlobalPrompt() {
     document.getElementById('globalPromptModalOverlay').classList.remove('show');
-    globalPromptCallback = null;
+    window.globalPromptCallback = null;
 }
 // ==========================================
 // 关联账号 (Linked Accounts) 核心逻辑
@@ -10956,9 +11032,20 @@ async function executeSilentAutoSummary(charId, currentTurns, autoTurns) {
     const apiConfig = JSON.parse(ChatDB.getItem('current_api_config') || '{}');
     if (!apiConfig.url || !apiConfig.key || !apiConfig.model) return;
 
+    // 新增：悬浮胶囊提示
+    if (typeof showToast === 'function') {
+        showToast('正在自动总结当前记忆...', 'loading');
+    }
+
     let history = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${charId}`) || '[]');
-    const targetHistory = history.slice(-(autoTurns * 2));
-    if (targetHistory.length === 0) return;
+    // 过滤掉系统消息，确保提取的是真实对话
+    let validHistory = history.filter(m => m.type !== 'system' && m.type !== 'hidden_system');
+    const targetHistory = validHistory.slice(-(autoTurns * 2));
+    
+    if (targetHistory.length === 0) {
+        if (typeof hideToast === 'function') hideToast();
+        return;
+    }
     
     let chatText = targetHistory.map(m => `${m.role === 'user' ? 'User' : 'Char'}: ${m.content}`).join('\n');
 
@@ -11020,12 +11107,21 @@ ${customPrompt}
                 ChatDB.setItem(`char_memory_${personaId}_${charId}`, JSON.stringify(memory));
                 console.log(`[记忆系统] 角色 ${charId} 的第 ${currentTurns} 轮自动总结已完成，提取标签:`, tags);
                 
+                // 新增：成功提示
+                if (typeof showToast === 'function') {
+                    showToast('记忆自动总结完成', 'success', 2000);
+                }
+                
             } catch (parseErr) {
                 console.error("[记忆系统] 自动总结 JSON 解析失败:", parseErr);
+                if (typeof hideToast === 'function') hideToast();
             }
+        } else {
+            if (typeof hideToast === 'function') hideToast();
         }
     } catch (e) {
         console.error("[记忆系统] 自动总结请求失败:", e);
+        if (typeof hideToast === 'function') hideToast();
     }
 }
 

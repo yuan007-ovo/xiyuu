@@ -2205,13 +2205,91 @@ function closePhoneIcity() {
     document.getElementById('phoneIcityApp').classList.remove('show');
 }
 
+// icity 弹窗控制逻辑
+function openIcityGenModal() {
+    document.getElementById('icityGenModalOverlay').classList.add('show');
+}
+
+function closeIcityGenModal() {
+    document.getElementById('icityGenModalOverlay').classList.remove('show');
+}
+
+function confirmIcityGen() {
+    const count = parseInt(document.getElementById('icityGenCount').value) || 1;
+    closeIcityGenModal();
+    generatePhoneIcityAPI(count);
+}
+
 // 渲染 icity 数据
 function renderPhoneIcity() {
     const dataStr = ChatDB.getItem(`phone_icity_${currentChatRoomCharId}`);
+    const container = document.querySelector('.icity-content-area');
+    if (!container) return;
+    
     if (dataStr) {
-        const data = JSON.parse(dataStr);
-        document.getElementById('icityText').innerText = data.content || '暂无内容';
-        document.getElementById('icityTimeText').innerText = data.time || '----/--/-- --:--';
+        let data = JSON.parse(dataStr);
+        if (!Array.isArray(data)) {
+            data = [data]; // 兼容旧数据和一键生成的数据
+        }
+        
+        container.innerHTML = '';
+        
+        let chars = JSON.parse(ChatDB.getItem('chat_chars') || '[]');
+        const char = chars.find(c => c.id === currentChatRoomCharId);
+        const avatarUrl = char ? (char.avatarUrl || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=100&auto=format&fit=crop') : '';
+        const charName = char ? (char.netName || char.name || 'User') : 'User';
+
+        data.forEach((item, index) => {
+            const card = document.createElement('div');
+            card.className = 'icity-card';
+            card.style.marginBottom = '15px';
+            card.innerHTML = `
+                <div class="icity-card-header">
+                    <div class="icity-avatar" style="background-image: url('${avatarUrl}')"></div>
+                    <div class="icity-user-info">
+                        <svg class="icity-bottle-icon" viewBox="0 0 24 24">
+                            <path d="M8 2h8v3H8zM7 5h10v2l-2 2v11a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2V9L7 7z"/>
+                        </svg>
+                        <div class="icity-handle">@${charName}</div>
+                    </div>
+                </div>
+                <div class="icity-text">${item.content || '暂无内容'}</div>
+                <div class="icity-time-row">
+                    <svg class="icity-time-icon" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                    <span class="icity-time-text">${item.time || '----/--/-- --:--'}</span>
+                </div>
+                <div class="icity-actions">
+                    <div class="icity-action-btn">
+                        <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                        喜欢
+                    </div>
+                    <div class="icity-divider"></div>
+                    <div class="icity-action-btn" onclick="shareToChar('icity', ${index})">
+                        <svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path><line x1="12" y1="7" x2="12" y2="13"></line><line x1="9" y1="10" x2="15" y2="10"></line></svg>
+                        小纸条
+                    </div>
+                    <div class="icity-divider"></div>
+                    <div class="icity-action-btn">
+                        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        存为图片
+                    </div>
+                    <div class="icity-divider"></div>
+                    <div class="icity-action-btn icity-action-more">
+                        <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="5" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle></svg>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    } else {
+        container.innerHTML = `
+            <div class="icity-card">
+                <div class="icity-text" style="text-align:center; color:#888;">点击右上角按钮生成日记内容...</div>
+            </div>
+        `;
     }
 }
 
@@ -2223,7 +2301,7 @@ openPhoneIcity = function() {
 };
 
 // 调用 API 生成 icity 日记数据
-async function generatePhoneIcityAPI() {
+async function generatePhoneIcityAPI(count = 1) {
     if (!currentChatRoomCharId) return;
     const apiConfig = JSON.parse(ChatDB.getItem('current_api_config') || '{}');
     if (!apiConfig.url || !apiConfig.key || !apiConfig.model) return alert('请先配置 API！');
@@ -2267,15 +2345,17 @@ async function generatePhoneIcityAPI() {
         prompt += `【最近的聊天记录参考】：\n${recentHistory}\n`;
     }
 
-    prompt += `\n请基于你的人设、当前生活状态，以及我们最近的聊天上下文，生成一篇你写在 "icity" (一个私密日记APP) 里的日记。
+    prompt += `\n请基于你的人设、当前生活状态，以及我们最近的聊天上下文，生成 ${count} 篇你写在 "icity" (一个私密日记APP) 里的日记。
 日记的内容应该非常私密、真实，反映你此刻最真实的内心活动、情绪波动，或者对 ${userRealName} 的看法、纠结、暗恋等。
 语气要符合你的人设，不要像机器生成的，要像一个活人在深夜写下的碎碎念。
 
-必须返回合法的 JSON 对象，结构如下：
-{
-  "content": "日记的具体内容，可以包含换行符\\n，字数必须在100字以上，禁止少于100字",
-  "time": "写下这篇日记的时间，格式如：2025-11-14 21:52"
-}`;
+必须返回合法的 JSON 数组，结构如下：
+[
+  {
+    "content": "日记的具体内容，可以包含换行符\\n，字数必须在200字以上，禁止少于100字",
+    "time": "写下这篇日记的时间，格式如：2025-11-14 21:52"
+  }
+]`;
 
     showToast('正在生成日记...', 'loading');
 
@@ -2407,8 +2487,8 @@ async function generateAllPhoneDataAPI(selectedApps) {
     }
 
     if (selectedApps.includes('icity')) {
-        prompt += `6. icity (私密日记):\n日记的内容应该非常私密、真实，反映你此刻最真实的内心活动、情绪波动，或者对 ${userRealName} 的看法、纠结、暗恋等。\n语气要符合你的人设，不要像机器生成的，要像一个活人在深夜写下的碎碎念。\n字数必须在100字以上，禁止少于100字。\n\n`;
-        structureParts.push(`  "icity": {\n    "content": "日记的具体内容，可以包含换行符\\\\n，字数必须在100字以上，禁止少于100字",\n    "time": "写下这篇日记的时间，格式如：2025-11-14 21:52"\n  }`);
+        prompt += `6. icity (私密日记):\n日记的内容应该非常私密、真实，反映你此刻最真实的内心活动、情绪波动，或者对 ${userRealName} 的看法、纠结、暗恋等。\n语气要符合你的人设，不要像机器生成的，要像一个活人在深夜写下的碎碎念。\n字数必须在200字以上，禁止少于100字。\n\n`;
+        structureParts.push(`  "icity": {\n    "content": "日记的具体内容，可以包含换行符\\\\n，字数必须在200字以上，禁止少于100字",\n    "time": "写下这篇日记的时间，格式如：2025-11-14 21:52"\n  }`);
     }
 
     if (selectedApps.includes('doubao')) {
@@ -2690,7 +2770,20 @@ function confirmUniversalShare(targetCharId) {
     } else if (currentShareType === 'icity') {
         appName = 'icity';
         shareTitle = '我的日记';
-        let rawContent = document.getElementById('icityText')?.innerText || '';
+        
+        let rawContent = '';
+        const dataStr = ChatDB.getItem(`phone_icity_${currentChatRoomCharId}`);
+        if (dataStr) {
+            let data = JSON.parse(dataStr);
+            if (!Array.isArray(data)) data = [data];
+            if (data[currentShareExtraData]) {
+                rawContent = data[currentShareExtraData].content;
+            }
+        }
+        if (!rawContent) {
+            rawContent = document.getElementById('icityText')?.innerText || '';
+        }
+        
         shareDesc = rawContent.substring(0, 40) + '...';
         shareContent = `<div style="font-size: 15px; line-height: 1.8; text-align: justify; color: #444;">${rawContent}</div>`;
     } else if (currentShareType === 'gallery_image') {

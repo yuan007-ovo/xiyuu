@@ -905,19 +905,6 @@
             </div>
         </div>
 
-        <!-- 导出命名弹窗 -->
-        <div class="preset-modal-overlay" id="exportModalOverlay">
-            <div class="preset-modal">
-                <div class="preset-modal-title">导出数据</div>
-                <div class="preset-modal-desc">请输入导出文件的名称。</div>
-                <input type="text" class="preset-modal-input" id="exportNameInput" placeholder="例如：我的备份" maxlength="20">
-                <div class="preset-modal-actions">
-                    <div class="preset-btn-cancel" onclick="hideExportModal()">取消</div>
-                    <div class="preset-btn-confirm" onclick="confirmExport()">导出</div>
-                </div>
-            </div>
-        </div>
-
         <!-- 数据储存分析弹窗 -->
         <div class="preset-modal-overlay" id="storageModalOverlay">
             <div class="preset-modal" style="width: 280px;">
@@ -933,6 +920,19 @@
             </div>
         </div>
     </div>
+    </div>
+
+    <!-- 导出命名弹窗 (移到外层并提高层级) -->
+    <div class="preset-modal-overlay" id="exportModalOverlay" style="z-index: 9999;">
+        <div class="preset-modal">
+            <div class="preset-modal-title">导出数据</div>
+            <div class="preset-modal-desc">请输入导出文件的名称。</div>
+            <input type="text" class="preset-modal-input" id="exportNameInput" placeholder="例如：我的备份" maxlength="20">
+            <div class="preset-modal-actions">
+                <div class="preset-btn-cancel" onclick="hideExportModal()">取消</div>
+                <div class="preset-btn-confirm" onclick="confirmExport()">导出</div>
+            </div>
+        </div>
     </div>
 
         <!-- =========================================
@@ -3050,7 +3050,12 @@
                 </div>
                 <div class="cs-journal-sec-content">
                     <textarea id="chatCustomCssInput" class="cs-journal-textarea" placeholder="输入 CSS 代码...&#10;点击左上角的★打开预设库////"></textarea>
-                    <div onclick="applyChatCustomCss()" class="cs-journal-btn">应用 CSS</div>
+                    <div style="display: flex; gap: 10px; margin-top: 5px;">
+                        <div onclick="applyChatCustomCss()" class="cs-journal-btn" style="flex: 1; margin-top: 0;">应用 CSS</div>
+                        <div onclick="importChatCustomCss()" class="cs-journal-btn" style="flex: 1; margin-top: 0;">导入 CSS</div>
+                        <div onclick="exportChatCustomCss()" class="cs-journal-btn" style="flex: 1; margin-top: 0;">导出 CSS</div>
+                    </div>
+                    <input type="file" id="chatCssImportInput" accept=".txt,.docx" style="display: none;" onchange="handleChatCssImport(event)">
                     
                     <div style="font-size: 12px; color: #888; margin: 15px 0 5px 15px;">· 气泡预览 (左侧为对方，右侧为自己)</div>
                     <div class="cs-css-preview-box">
@@ -4648,7 +4653,7 @@
                             <div class="icity-top-left" onclick="closePhoneIcity()">
                                 <span class="icity-logo">icity</span><span class="icity-sub">· 我的日记</span>
                             </div>
-                            <div class="icity-top-right" onclick="generatePhoneIcityAPI()" title="生成日记">
+                            <div class="icity-top-right" onclick="openIcityGenModal()" title="生成日记">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
                             </div>
                         </div>
@@ -5577,6 +5582,23 @@
             <div style="display: flex; width: 100%; gap: 10px; margin-top: 20px;">
                 <div class="icon-modal-close" style="flex: 1; margin-top: 0; text-align: center;" onclick="closeIconModal()">取消</div>
                 <div class="icon-modal-close" style="flex: 1; margin-top: 0; text-align: center; background: #111; color: #fff;" onclick="saveIconChanges()">保存</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- icity 日记生成设置弹窗 -->
+    <div class="preset-modal-overlay" id="icityGenModalOverlay" style="z-index: 10000;">
+        <div class="preset-modal" style="width: 280px;">
+            <div class="preset-modal-title">生成日记</div>
+            <div style="width: 100%; padding: 15px 20px; display: flex; flex-direction: column; gap: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 13px; color: #333; font-weight: bold;">生成日记数量</span>
+                    <input type="number" id="icityGenCount" value="1" min="1" max="10" style="width: 60px; text-align: center; border: 1px solid #eee; border-radius: 6px; padding: 4px; outline: none;">
+                </div>
+            </div>
+            <div class="preset-modal-actions">
+                <div class="preset-btn-cancel" onclick="closeIcityGenModal()">取消</div>
+                <div class="preset-btn-confirm" onclick="confirmIcityGen()">生成</div>
             </div>
         </div>
     </div>
