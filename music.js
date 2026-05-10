@@ -147,6 +147,35 @@ function handleMusicMeBgUpload(event) {
     event.target.value = '';
 }
 
+// 【新增】：音乐主页装扮弹窗逻辑
+function openMusicDressUpModal() {
+    const sigEl = document.getElementById('musicMeSignature');
+    const inputEl = document.getElementById('musicSignatureInput');
+    if (sigEl && inputEl) {
+        inputEl.value = sigEl.innerText === '这个人很懒，什么都没写~' ? '' : sigEl.innerText;
+    }
+    document.getElementById('musicDressUpModal').classList.add('show');
+}
+
+function saveMusicDressUp() {
+    const sigEl = document.getElementById('musicMeSignature');
+    const inputEl = document.getElementById('musicSignatureInput');
+    if (sigEl && inputEl) {
+        sigEl.innerText = inputEl.value.trim() || '这个人很懒，什么都没写~';
+        localStorage.setItem('music_me_signature', sigEl.innerText);
+    }
+    document.getElementById('musicDressUpModal').classList.remove('show');
+}
+
+// 页面加载时恢复签名
+window.addEventListener('DOMContentLoaded', () => {
+    const savedSig = localStorage.getItem('music_me_signature');
+    if (savedSig) {
+        const sigEl = document.getElementById('musicMeSignature');
+        if (sigEl) sigEl.innerText = savedSig;
+    }
+});
+
 function renderMusicAccountList() {
     const listEl = document.getElementById('musicAccountSelectList');
     listEl.innerHTML = '';
@@ -2757,8 +2786,8 @@ window.addEventListener('DOMContentLoaded', () => {
     if (savedState === 'true' && container) {
         isCapsuleVisible = true;
         container.style.display = 'flex';
-        // 延迟更新UI，等待DOM完全就绪
-        setTimeout(() => updateCapsuleUI(), 500);
+        // 移除 setTimeout 延迟，直接更新 UI，解决加载时卡顿闪烁的问题
+        updateCapsuleUI();
     } else if (container) {
         isCapsuleVisible = false;
         container.style.display = 'none';
