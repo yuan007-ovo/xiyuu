@@ -9808,40 +9808,55 @@ async function executeManualSummary() {
     const endIndex = end * 2;
     const targetHistory = validHistory.slice(startIndex, endIndex);
     
-    let chatText = targetHistory.map(m => `${m.role === 'user' ? 'User' : 'Char'}: ${m.content}`).join('\n');
-
     const personaId = getCurrentPersonaIdForMemory();
     let memory = JSON.parse(ChatDB.getItem(`char_memory_${personaId}_${currentProfileCharId}`) || '{}');
     if (!memory.summary) memory.summary = [];
-    
-    // 修复：将默认的第三人称限制移到默认提示词中，如果用户有自定义，则完全使用用户的
-    let customPrompt = (memory.settings && memory.settings.customPrompt) 
-        ? memory.settings.customPrompt 
-        : "用第三人称简短概括这段对话中发生的主要事件（50字以内），保持客观、简短，不要输出多余的废话。";
 
-    let chars = JSON.parse(ChatDB.getItem('chat_chars') || '[]');
-    const char = chars.find(c => c.id === currentProfileCharId);
-    const charDesc = char ? (char.description || '无') : '无';
+    // 核心修复：调用 getAllEntities 获取双方实体，确保读取的是真名 (name)
+    let allEntities = getAllEntities();
+    const charEntity = allEntities.find(e => e.id === currentProfileCharId);
+    const userEntity = allEntities.find(e => e.id === currentLoginId);
 
-    let accounts = JSON.parse(ChatDB.getItem('chat_accounts') || '[]');
-    const account = accounts.find(a => a.id === currentLoginId);
+    // 变量名改回 charName，但值依然是真名 charEntity.name
+    const charName = charEntity ? (charEntity.name || 'Char') : 'Char';
+    const userRealName = userEntity ? (userEntity.name || 'User') : 'User';
+    const charDesc = charEntity ? (charEntity.description || '无') : '无';
+
+    // 获取 User 的人设 (persona)
     let personas = JSON.parse(ChatDB.getItem('chat_personas') || '[]');
-    const persona = personas.find(p => p.id === (account ? account.personaId : null));
+    const persona = personas.find(p => p.id === (userEntity ? userEntity.personaId : null));
     const userDesc = persona ? (persona.persona || '无') : '无';
 
-    const summaryPrompt = `你是一个专业的角色扮演记忆整理助手。请根据以下最新的聊天记录，提取记忆。
-要求输出两部分：
-1. 【故事梗概】：根据下方的【附加要求】对聊天记录进行总结。
-2. 【事实标签】：提取出对话中暴露的永久性事实、设定、重要物品或关系变化，以标签形式列出（如：[User对海鲜过敏]、[Char送了User一条项链]）。
+    // 使用真名拼接聊天记录
+    let chatText = targetHistory.map(m => `${m.role === 'user' ? userRealName : charName}: ${m.content}`).join('\n');
 
+    // 核心修复：如果用户有自定义提示词，彻底放弃系统默认格式，完全听从用户的
+    let summaryPrompt = "";
+    if (memory.settings && memory.settings.customPrompt && memory.settings.customPrompt.trim() !== "") {
+        summaryPrompt = `你是一个专业的角色扮演记忆整理助手。
 【角色设定参考】：
-${charDesc}
+${charName}的设定：${charDesc}
+${userRealName}的设定：${userDesc}
 
 【最新的聊天记录】：
 ${chatText}
 
-【附加要求 (最高优先级)】：
-${customPrompt}
+【你的任务 (最高指令)】：
+${memory.settings.customPrompt}
+
+(请直接输出结果，完全按照上述任务要求的格式、长度和人称来写，不要包含任何多余的解释或系统回复)`;
+    } else {
+        summaryPrompt = `你是一个专业的角色扮演记忆整理助手。请根据以下最新的聊天记录，提取记忆。
+要求输出两部分：
+1. 【故事梗概】：用第三人称简短概括这段对话中发生的主要事件（50字以内），保持客观、简短。
+2. 【事实标签】：提取出对话中暴露的永久性事实、设定、重要物品或关系变化，以标签形式列出（如：[${userRealName}对海鲜过敏]、[${charName}送了${userRealName}一条项链]）。
+
+【角色设定参考】：
+${charName}的设定：${charDesc}
+${userRealName}的设定：${userDesc}
+
+【最新的聊天记录】：
+${chatText}
 
 请严格按照以下格式输出：
 【故事梗概】：
@@ -9849,6 +9864,7 @@ ${customPrompt}
 【事实标签】：
 - [事实1]
 - [事实2]`;
+    }
 
     document.getElementById('memorySettingsModalOverlay').classList.remove('show');
     showToast('正在生成记忆总结...', 'loading');
@@ -9878,7 +9894,6 @@ ${customPrompt}
             const currentLayer = Math.ceil(history.length / 2);
             const finalText = `[当前聊天层数: ${currentLayer} 轮 (共 ${history.length} 条消息)]\n${newSummaryText}`;
             
-            // 【修复】：使用 push 追加到数组末尾，保留历史 Step 记录，而不是直接覆盖清空
             memory.summary.push({ id: Date.now().toString(), content: finalText });
             ChatDB.setItem(`char_memory_${personaId}_${currentProfileCharId}`, JSON.stringify(memory));
             
@@ -11184,13 +11199,11 @@ async function executeSilentAutoSummary(charId, currentTurns, turnsToSummarize) 
     const apiConfig = JSON.parse(ChatDB.getItem('current_api_config') || '{}');
     if (!apiConfig.url || !apiConfig.key || !apiConfig.model) return;
 
-    // 新增：悬浮胶囊提示
     if (typeof showToast === 'function') {
         showToast('正在自动总结当前记忆...', 'loading');
     }
 
     let history = JSON.parse(ChatDB.getItem(`chat_history_${currentLoginId}_${charId}`) || '[]');
-    // 过滤掉系统消息，确保提取的是真实对话
     let validHistory = history.filter(m => m.type !== 'system' && m.type !== 'hidden_system');
     const targetHistory = validHistory.slice(-(turnsToSummarize * 2));
     
@@ -11198,29 +11211,59 @@ async function executeSilentAutoSummary(charId, currentTurns, turnsToSummarize) 
         if (typeof hideToast === 'function') hideToast();
         return;
     }
-    
-    let chatText = targetHistory.map(m => `${m.role === 'user' ? 'User' : 'Char'}: ${m.content}`).join('\n');
+
+    let allEntities = getAllEntities();
+    const charEntity = allEntities.find(e => e.id === charId);
+    const userEntity = allEntities.find(e => e.id === currentLoginId);
+
+    const charName = charEntity ? (charEntity.name || 'Char') : 'Char';
+    const userRealName = userEntity ? (userEntity.name || 'User') : 'User';
+    const charDesc = charEntity ? (charEntity.description || '无') : '无';
+
+    let personas = JSON.parse(ChatDB.getItem('chat_personas') || '[]');
+    const persona = personas.find(p => p.id === (userEntity ? userEntity.personaId : null));
+    const userDesc = persona ? (persona.persona || '无') : '无';
+
+    let chatText = targetHistory.map(m => `${m.role === 'user' ? userRealName : charName}: ${m.content}`).join('\n');
 
     const personaId = getCurrentPersonaIdForMemory();
     let memory = JSON.parse(ChatDB.getItem(`char_memory_${personaId}_${charId}`) || '{}');
     
-    // 修复：将默认的第三人称限制移到默认提示词中，如果用户有自定义，则完全使用用户的
-    let customPrompt = (memory.settings && memory.settings.customPrompt) 
-        ? memory.settings.customPrompt 
-        : "用第三人称简短概括这段对话中发生的主要事件，保持客观、简短。";
+    // 核心修改：完全采用手动总结的提示词，不再强制要求 JSON
+    let summaryPrompt = "";
+    if (memory.settings && memory.settings.customPrompt && memory.settings.customPrompt.trim() !== "") {
+        summaryPrompt = `你是一个专业的角色扮演记忆整理助手。
+【角色设定参考】：
+${charName}的设定：${charDesc}
+${userRealName}的设定：${userDesc}
 
-    const summaryPrompt = `你是一个专业的角色扮演记忆整理助手。请根据以下最新的聊天记录，提取记忆。
 【最新的聊天记录】：
 ${chatText}
 
-【附加要求 (最高优先级)】：
-${customPrompt}
+【你的任务 (最高指令)】：
+${memory.settings.customPrompt}
 
-请严格按照 JSON 格式输出，包含以下两个字段：
-{
-  "summary": "根据附加要求生成的总结内容",
-  "tags": ["事实标签1", "事实标签2", "提取出对话中暴露的永久性事实、设定或物品"]
-}`;
+(请直接输出结果，完全按照上述任务要求的格式、长度和人称来写，不要包含任何多余的解释或系统回复)`;
+    } else {
+        summaryPrompt = `你是一个专业的角色扮演记忆整理助手。请根据以下最新的聊天记录，提取记忆。
+要求输出两部分：
+1. 【故事梗概】：用第三人称简短概括这段对话中发生的主要事件，保持客观、简短。
+2. 【事实标签】：提取出对话中暴露的永久性事实、设定、重要物品或关系变化，以标签形式列出（如：[${userRealName}对海鲜过敏]、[${charName}送了${userRealName}一条项链]）。
+
+【角色设定参考】：
+${charName}的设定：${charDesc}
+${userRealName}的设定：${userDesc}
+
+【最新的聊天记录】：
+${chatText}
+
+请严格按照以下格式输出：
+【故事梗概】：
+(你的概括)
+【事实标签】：
+- [事实1]
+- [事实2]`;
+    }
 
     try {
         const response = await fetch(`${apiConfig.url.replace(/\/$/, '')}/chat/completions`, {
@@ -11229,7 +11272,7 @@ ${customPrompt}
             body: JSON.stringify({
                 model: apiConfig.model,
                 messages: [{ role: 'user', content: summaryPrompt }],
-                temperature: 0.3
+                temperature: 0.5
             })
         });
 
@@ -11241,37 +11284,35 @@ ${customPrompt}
                 recordApiLog('后台自动总结', apiConfig.model, usage.total_tokens || 0, false);
             } catch (e) {}
 
-            let replyRaw = data.choices[0].message.content.trim();
-            replyRaw = replyRaw.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
+            // 核心修改：直接读取纯文本，不再使用 JSON.parse
+            const newSummaryText = data.choices[0].message.content.trim();
             
-            try {
-                const parsed = JSON.parse(replyRaw);
-                const finalText = `[第 ${currentTurns - turnsToSummarize + 1} ~ ${currentTurns} 轮记忆]\n${parsed.summary || '无总结内容'}`;
-                const tags = Array.isArray(parsed.tags) ? parsed.tags : [];
-                
-                memory = JSON.parse(ChatDB.getItem(`char_memory_${personaId}_${charId}`) || '{}');
-                if (!memory.summary) memory.summary = [];
-                
-                // 存入记忆库，自动带上标签，并赋予默认权重 5
-                memory.summary.push({ 
-                    id: Date.now().toString(), 
-                    content: finalText,
-                    tags: tags,
-                    weight: 5
-                });
-                
-                ChatDB.setItem(`char_memory_${personaId}_${charId}`, JSON.stringify(memory));
-                console.log(`[记忆系统] 角色 ${charId} 的第 ${currentTurns} 轮自动总结已完成，提取标签:`, tags);
-                
-                // 新增：成功提示
-                if (typeof showToast === 'function') {
-                    showToast('记忆自动总结完成', 'success', 2000);
-                }
-                
-            } catch (parseErr) {
-                console.error("[记忆系统] 自动总结 JSON 解析失败:", parseErr);
-                if (typeof hideToast === 'function') hideToast();
+            // 尝试用正则从纯文本中提取中括号里的标签，用于后续检索
+            let tags = [];
+            const tagMatch = newSummaryText.match(/$$(.*?)$$/g);
+            if (tagMatch) {
+                tags = tagMatch.map(t => t.replace(/$$|$$/g, ''));
             }
+            
+            const finalText = `[第 ${currentTurns - turnsToSummarize + 1} ~ ${currentTurns} 轮记忆]\n${newSummaryText}`;
+            
+            memory = JSON.parse(ChatDB.getItem(`char_memory_${personaId}_${charId}`) || '{}');
+            if (!memory.summary) memory.summary = [];
+            
+            memory.summary.push({ 
+                id: Date.now().toString(), 
+                content: finalText,
+                tags: tags,
+                weight: 5
+            });
+            
+            ChatDB.setItem(`char_memory_${personaId}_${charId}`, JSON.stringify(memory));
+            console.log(`[记忆系统] 角色 ${charId} 的第 ${currentTurns} 轮自动总结已完成，提取标签:`, tags);
+            
+            if (typeof showToast === 'function') {
+                showToast('记忆自动总结完成', 'success', 2000);
+            }
+            
         } else {
             if (typeof hideToast === 'function') hideToast();
         }
