@@ -9890,11 +9890,23 @@ ${chatText}
 
             const newSummaryText = data.choices[0].message.content.trim();
             
-            // 计算当前聊天层数（轮数）并拼接到总结内容开头
-            const currentLayer = Math.ceil(history.length / 2);
-            const finalText = `[当前聊天层数: ${currentLayer} 轮 (共 ${history.length} 条消息)]\n${newSummaryText}`;
+            // 尝试用正则从纯文本中提取中括号里的标签，用于后续检索
+            let tags = [];
+            const tagMatch = newSummaryText.match(/\[(.*?)\]/g);
+            if (tagMatch) {
+                tags = tagMatch.map(t => t.replace(/\[|\]/g, ''));
+            }
             
-            memory.summary.push({ id: Date.now().toString(), content: finalText });
+            // 核心修改：将标题格式改为和自动总结一样的 [第 start ~ end 轮记忆]
+            const finalText = `[第 ${start} ~ ${end} 轮记忆]\n${newSummaryText}`;
+            
+            // 存入记忆库，带上提取的标签和默认权重
+            memory.summary.push({ 
+                id: Date.now().toString(), 
+                content: finalText,
+                tags: tags,
+                weight: 5
+            });
             ChatDB.setItem(`char_memory_${personaId}_${currentProfileCharId}`, JSON.stringify(memory));
             
             hideToast();
@@ -9911,6 +9923,7 @@ ${chatText}
         showApiErrorModal(e.message || '网络请求失败，请检查 API 地址或网络连接。');
     }
 }
+
 // ==========================================
 // 全局 UI 辅助函数 (Toast & Error Modal)
 // ==========================================
