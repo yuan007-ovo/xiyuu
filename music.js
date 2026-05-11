@@ -378,11 +378,12 @@ function logoutMusicApp() {
         window.currentPlayingLyric = "";
         
         // 👇 新增：清空本地缓存的播放状态，防止换号后幽灵播放
-        localStorage.removeItem('music_current_song');
-        localStorage.removeItem('music_song_url');
-        localStorage.removeItem('music_parsed_lyrics');
-        localStorage.removeItem('music_current_time');
-        localStorage.removeItem('music_duration');
+        ChatDB.removeItem('music_current_song');
+        ChatDB.removeItem('music_song_url');
+        ChatDB.removeItem('music_parsed_lyrics');
+        ChatDB.removeItem('music_current_time');
+        ChatDB.removeItem('music_duration');
+        ChatDB.removeItem('music_current_playlist');
         // 👆 新增结束
         
         // 2. 隐藏并重置悬浮胶囊和迷你播放器
@@ -604,9 +605,9 @@ async function musicPlaySong(id, title, artist, cover) {
             audioPlayer.src = songUrl;
             
             // 👇 新增：保存当前播放状态到本地，供刷新后恢复
-            localStorage.setItem('music_current_song', JSON.stringify(currentPlayingSong));
-            localStorage.setItem('music_song_url', songUrl);
-            localStorage.setItem('music_parsed_lyrics', JSON.stringify(window.parsedLyrics || []));
+            ChatDB.setItem('music_current_song', JSON.stringify(currentPlayingSong));
+            ChatDB.setItem('music_song_url', songUrl);
+            ChatDB.setItem('music_parsed_lyrics', JSON.stringify(window.parsedLyrics || []));
             // 👆 新增结束
 
             const playPromise = audioPlayer.play();
@@ -1447,8 +1448,8 @@ audioPlayer.addEventListener('timeupdate', () => {
     const duration = audioPlayer.duration;
 
     // 👇 新增：实时保存播放进度
-    localStorage.setItem('music_current_time', currentTime);
-    if (!isNaN(duration)) localStorage.setItem('music_duration', duration);
+    ChatDB.setItem('music_current_time', currentTime.toString());
+    if (!isNaN(duration)) ChatDB.setItem('music_duration', duration.toString());
     // 👆 新增结束
 
     // 1. 滚动歌词逻辑
@@ -2032,9 +2033,9 @@ function playLocalSong(song) {
     currentPlayingSong = song;
 
     // 👇 新增：保存当前播放状态到本地，供刷新后恢复
-    localStorage.setItem('music_current_song', JSON.stringify(currentPlayingSong));
-    localStorage.setItem('music_song_url', song.url);
-    localStorage.setItem('music_parsed_lyrics', JSON.stringify(window.parsedLyrics || []));
+    ChatDB.setItem('music_current_song', JSON.stringify(currentPlayingSong));
+    ChatDB.setItem('music_song_url', song.url);
+    ChatDB.setItem('music_parsed_lyrics', JSON.stringify(window.parsedLyrics || []));
     // 👆 新增结束
 
     audioPlayer.src = song.url;
@@ -2445,8 +2446,8 @@ ${existingSongs}
 window.currentPlaylistTracks = [];
 
 function renderMpPlaylist() {
-    // 保存当前播放列表到本地，防止退出后台/刷新后丢失
-    localStorage.setItem('music_current_playlist', JSON.stringify(window.currentPlaylistTracks || []));
+    // 保存当前播放列表到本地，防止退出后台/刷新后丢失 (使用 ChatDB 突破 5MB 限制)
+    ChatDB.setItem('music_current_playlist', JSON.stringify(window.currentPlaylistTracks || []));
     
     const contentEl = document.getElementById('mpPlaylistContent');
     if (!contentEl) return;
@@ -2858,22 +2859,22 @@ function triggerMusicChatAI() {
 let isCapsuleVisible = false;
 let isMiniPlayerExpanded = false;
 
-// 页面加载时读取胶囊状态与播放列表
-window.addEventListener('DOMContentLoaded', () => {
+// 页面加载时读取胶囊状态与播放列表 (改为监听 ChatDBReady 确保数据库已加载)
+window.addEventListener('ChatDBReady', () => {
     // 恢复播放列表
-    const savedPlaylist = localStorage.getItem('music_current_playlist');
+    const savedPlaylist = ChatDB.getItem('music_current_playlist');
     if (savedPlaylist) {
         try { window.currentPlaylistTracks = JSON.parse(savedPlaylist); } catch(e){}
     }
     
     // 👇 新增：恢复上一首未播完的歌及进度
-    const savedSong = localStorage.getItem('music_current_song');
+    const savedSong = ChatDB.getItem('music_current_song');
     if (savedSong) {
         try {
             currentPlayingSong = JSON.parse(savedSong);
-            const savedUrl = localStorage.getItem('music_song_url');
-            const savedTime = parseFloat(localStorage.getItem('music_current_time') || 0);
-            const savedLyrics = localStorage.getItem('music_parsed_lyrics');
+            const savedUrl = ChatDB.getItem('music_song_url');
+            const savedTime = parseFloat(ChatDB.getItem('music_current_time') || 0);
+            const savedLyrics = ChatDB.getItem('music_parsed_lyrics');
             
             if (savedLyrics) {
                 window.parsedLyrics = JSON.parse(savedLyrics);
@@ -2914,7 +2915,7 @@ window.addEventListener('DOMContentLoaded', () => {
             if (desktopArtist) desktopArtist.innerText = currentPlayingSong.artist;
 
             // 恢复进度条 UI
-            const duration = parseFloat(localStorage.getItem('music_duration') || 0);
+            const duration = parseFloat(ChatDB.getItem('music_duration') || 0);
             if (duration > 0) {
                 const progressPercent = (savedTime / duration) * 100;
                 const fill = document.getElementById('mpProgressFill');

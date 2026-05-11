@@ -592,8 +592,11 @@ async function confirmExport() {
     if (!fileName.endsWith('.json')) fileName += '.json';
 
     if (currentExportType === 'theme') {
+        silentSaveDesktopOrder(); // 强制保存最新桌面布局
         const state = await getGlobalStateFromDB() || captureFullState();
-        const dataStr = JSON.stringify(state, null, 2);
+        const desktopOrder = ChatDB.getItem('desktop_order');
+        const importedWidgets = localStorage.getItem('imported_widgets');
+        const dataStr = JSON.stringify({ state, desktopOrder, importedWidgets }, null, 2);
         downloadJson(dataStr, fileName);
     } else if (currentExportType === 'all') {
         silentSaveDesktopOrder(); // 强制保存最新桌面布局
@@ -630,9 +633,19 @@ function importThemeData(e) {
     if(e) e.stopPropagation();
     uploadJson(async (data) => {
         if (data && typeof data === 'object' && !data.apiConfig) {
-            applyFullState(data);
-            await saveGlobalStateToDB(data);
-            alert('桌面美化数据导入成功！');
+            const state = data.state || data; // 兼容老版本
+            applyFullState(state);
+            await saveGlobalStateToDB(state);
+            
+            if (data.desktopOrder) {
+                ChatDB.setItem('desktop_order', data.desktopOrder);
+            }
+            if (data.importedWidgets) {
+                localStorage.setItem('imported_widgets', data.importedWidgets);
+            }
+            
+            alert('桌面美化数据导入成功！即将刷新页面...');
+            location.reload();
         } else {
             alert('无效的数据格式，请确保导入的是桌面美化数据');
         }
@@ -1006,7 +1019,9 @@ const iphoneContainer = document.getElementById('iphone-container');
 const statusBar = document.querySelector('.status-bar');
 
 // 监听数据库就绪事件，确保能读到数据后再恢复开关状态
+window.isChatDBReady = false;
 window.addEventListener('ChatDBReady', () => {
+    window.isChatDBReady = true;
     if (ChatDB.getItem('ios_immersive_mode') === 'true') {
         if (fsToggle) fsToggle.checked = true;
         if (iphoneContainer) iphoneContainer.classList.add('immersive-mode');
@@ -2503,6 +2518,7 @@ function triggerAutoSave() {
 
 // 新增：静默保存桌面布局的 HTML 结构
 function silentSaveDesktopOrder() {
+    if (!window.isChatDBReady) return; // 核心修复：防止在恢复布局前被自动保存覆盖，导致恢复成默认布局
     const order = [];
     ['homeScreen', 'homeScreen2'].forEach(pageId => {
         const page = document.getElementById(pageId);
@@ -3142,17 +3158,18 @@ function deleteDesktopWidget(btn) {
         }
         
         // 核心修复：删除小组件时，在原位置精准插入占位符，绝对不让后面的 APP 顺位补齐！
-        for (let i = 0; i < slotsToFill; i++) {
-            const placeholder = document.createElement('div');
-            placeholder.className = 'app-placeholder';
-            placeholder.style.minHeight = '80px';
-            parent.insertBefore(placeholder, widget);
+                for (let i = 0; i < slotsToFill; i++) {
+                    const placeholder = document.createElement('div');
+                    placeholder.className = 'app-placeholder';
+                    placeholder.style.minHeight = '80px';
+                    parent.insertBefore(placeholder, widget);
+                }
+                
+                widget.remove();
+                fillDesktopPlaceholders(); // 校验一下总数
+                if (typeof triggerAutoSave === 'function') triggerAutoSave(); // 强制保存布局
+            }
         }
-        
-        widget.remove();
-        fillDesktopPlaceholders(); // 校验一下总数
-    }
-}
 
 // ==========================================
 // 导入小组件弹窗逻辑 (支持预览、删除与持久化)
