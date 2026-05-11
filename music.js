@@ -1542,6 +1542,12 @@ audioPlayer.addEventListener('play', () => {
     if (miniPlayBtn2) miniPlayBtn2.style.display = 'none';
     if (miniPauseBtn2) miniPauseBtn2.style.display = 'block';
 
+    // 音乐APP底部悬浮播放栏按钮
+    const appMiniPlayBtn = document.getElementById('appMiniPlayBtn');
+    const appMiniPauseBtn = document.getElementById('appMiniPauseBtn');
+    if (appMiniPlayBtn) appMiniPlayBtn.style.display = 'none';
+    if (appMiniPauseBtn) appMiniPauseBtn.style.display = 'block';
+
     // 桌面小组件按钮
     const desktopPlayIcon = document.querySelector('#carousel-music-widget-container .cw-ins-icon-play');
     const desktopPauseIcon = document.querySelector('#carousel-music-widget-container .cw-ins-icon-pause');
@@ -1550,11 +1556,8 @@ audioPlayer.addEventListener('play', () => {
 
     const disc = document.querySelector('.mp-disc-outer');
     if (disc) disc.style.animationPlayState = 'running';
-
-    // 👇 新增：播放时自动触发系统级保活，防止锁屏或切后台被杀
-    if (typeof toggleKeepAlive === 'function') {
-        toggleKeepAlive(true);
-    }
+    
+    if (typeof updateCapsuleUI === 'function') updateCapsuleUI();
 });
 
 audioPlayer.addEventListener('pause', () => {
@@ -1568,7 +1571,13 @@ audioPlayer.addEventListener('pause', () => {
     const miniPlayBtn2 = document.getElementById('miniPlayBtn2');
     const miniPauseBtn2 = document.getElementById('miniPauseBtn2');
     if (miniPlayBtn2) miniPlayBtn2.style.display = 'block';
-    if (miniPauseBtn2) miniPlayBtn2.style.display = 'none';
+    if (miniPauseBtn2) miniPauseBtn2.style.display = 'none';
+
+    // 音乐APP底部悬浮播放栏按钮
+    const appMiniPlayBtn = document.getElementById('appMiniPlayBtn');
+    const appMiniPauseBtn = document.getElementById('appMiniPauseBtn');
+    if (appMiniPlayBtn) appMiniPlayBtn.style.display = 'block';
+    if (appMiniPauseBtn) appMiniPauseBtn.style.display = 'none';
 
     // 桌面小组件按钮
     const desktopPlayIcon = document.querySelector('#carousel-music-widget-container .cw-ins-icon-play');
@@ -1578,11 +1587,8 @@ audioPlayer.addEventListener('pause', () => {
 
     const disc = document.querySelector('.mp-disc-outer');
     if (disc) disc.style.animationPlayState = 'paused';
-
-    // 👇 新增：暂停时如果用户没有开启全局保活，则关闭保活释放资源
-    if (typeof toggleKeepAlive === 'function' && ChatDB.getItem('app_keep_alive') !== 'true') {
-        toggleKeepAlive(false);
-    }
+    
+    if (typeof updateCapsuleUI === 'function') updateCapsuleUI();
 });
 
 function toggleMusicPlay() {
@@ -2916,6 +2922,31 @@ window.addEventListener('DOMContentLoaded', () => {
         isCapsuleVisible = false;
         container.style.display = 'none';
     }
+
+    // 同步所有播放/暂停按钮的初始状态
+    setTimeout(() => {
+        const isPaused = audioPlayer.paused;
+        
+        const mpPlayBtn = document.getElementById('mpPlayBtn');
+        const mpPauseBtn = document.getElementById('mpPauseBtn');
+        if (mpPlayBtn) mpPlayBtn.style.display = isPaused ? 'block' : 'none';
+        if (mpPauseBtn) mpPauseBtn.style.display = isPaused ? 'none' : 'block';
+        
+        const miniPlayBtn2 = document.getElementById('miniPlayBtn2');
+        const miniPauseBtn2 = document.getElementById('miniPauseBtn2');
+        if (miniPlayBtn2) miniPlayBtn2.style.display = isPaused ? 'block' : 'none';
+        if (miniPauseBtn2) miniPauseBtn2.style.display = isPaused ? 'none' : 'block';
+
+        const appMiniPlayBtn = document.getElementById('appMiniPlayBtn');
+        const appMiniPauseBtn = document.getElementById('appMiniPauseBtn');
+        if (appMiniPlayBtn) appMiniPlayBtn.style.display = isPaused ? 'block' : 'none';
+        if (appMiniPauseBtn) appMiniPauseBtn.style.display = isPaused ? 'none' : 'block';
+
+        const desktopPlayIcon = document.querySelector('#carousel-music-widget-container .cw-ins-icon-play');
+        const desktopPauseIcon = document.querySelector('#carousel-music-widget-container .cw-ins-icon-pause');
+        if (desktopPlayIcon) desktopPlayIcon.style.display = isPaused ? 'block' : 'none';
+        if (desktopPauseIcon) desktopPauseIcon.style.display = isPaused ? 'none' : 'block';
+    }, 1500);
 });
 
 function toggleGlobalMusicCapsule() {
