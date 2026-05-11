@@ -11766,11 +11766,34 @@ input[type="time"].slim-input { font-family: monospace; font-size: 14px; padding
 .sys-browser-bookmarks-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px 15px; width: 90%; }
 .sys-browser-bookmark-item { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; }
 .sys-browser-bookmark-icon {
-    width: 54px; height: 54px; border-radius: 14px; background: #fff; display: flex; justify-content: center; align-items: center;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.03); border: 1px solid #eaeaea; transition: transform 0.1s;
+    width: 54px; height: 54px; border-radius: 14px; display: flex; justify-content: center; align-items: center;
+    transition: transform 0.1s, box-shadow 0.1s;
+    /* 方案4：拟物浮雕毛玻璃 */
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 
+        6px 6px 12px rgba(0, 0, 0, 0.08), 
+        -6px -6px 12px rgba(255, 255, 255, 0.6),
+        inset 2px 2px 5px rgba(255, 255, 255, 0.5);
 }
-.sys-browser-bookmark-item:active .sys-browser-bookmark-icon { transform: scale(0.9); background: #f9f9f9; }
-.sys-browser-bookmark-icon svg { width: 24px; height: 24px; stroke: #333; stroke-width: 1.5; fill: none; }
+.sys-browser-bookmark-item:active .sys-browser-bookmark-icon { 
+    transform: scale(0.92); 
+    /* 按下时改变阴影，增强真实按压感 */
+    box-shadow: 
+        2px 2px 5px rgba(0, 0, 0, 0.08), 
+        -2px -2px 5px rgba(255, 255, 255, 0.6),
+        inset 4px 4px 8px rgba(0, 0, 0, 0.05);
+}
+.sys-browser-bookmark-icon svg { 
+    width: 24px; height: 24px; fill: none; 
+    /* 方案4：中灰 + 加粗 */
+    stroke: #666666; 
+    stroke-width: 2.5; 
+    stroke-linecap: round; 
+    stroke-linejoin: round;
+}
 .sys-browser-bookmark-name { font-size: 11px; color: #555; font-weight: 600; }
 
 /* 2. 真实网页视图 (iframe) */

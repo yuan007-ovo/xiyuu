@@ -26,15 +26,15 @@ const sysBrowserMenuOverlay = document.getElementById('sysBrowserMenuOverlay');
 const sysBrowserAccountOverlay = document.getElementById('sysBrowserAccountOverlay');
 
 // 历史记录栈 (用于后退/前进)
-let sysBrowserHistoryStack = [{ url: 'home', type: 'home' }];
-let sysBrowserCurrentHistoryIndex = 0;
+let sysBrowserHistoryStack = JSON.parse(ChatDB.getItem('sys_browser_history_stack') || '[{"url":"home","type":"home"}]');
+let sysBrowserCurrentHistoryIndex = parseInt(ChatDB.getItem('sys_browser_history_index') || '0');
 
 // 多标签页数据
-let sysBrowserTabs = [
-    { id: 1, title: '起始页', isHome: true, url: 'home', type: 'home' },
-    { id: 2, title: '维基百科', isHome: false, url: 'https://zh.wikipedia.org', type: 'real' }
-];
-let sysBrowserActiveTabId = 1;
+let sysBrowserTabs = JSON.parse(ChatDB.getItem('sys_browser_tabs') || '[{"id":1,"title":"起始页","isHome":true,"url":"home","type":"home"},{"id":2,"title":"维基百科","isHome":false,"url":"https://zh.wikipedia.org","type":"real"}]');
+let sysBrowserActiveTabId = parseInt(ChatDB.getItem('sys_browser_active_tab_id') || '1');
+
+// AI 生成网页缓存
+let sysBrowserCachedPages = JSON.parse(ChatDB.getItem('sys_browser_cached_pages') || '{}');
 
 // Poipiku 模拟数据 (持久化)
 let sysBrowserPoipikuData = JSON.parse(ChatDB.getItem('sys_browser_poipiku_posts') || '[]');
@@ -135,6 +135,8 @@ function sysBrowserNavigateTo(url, type, isHistoryAction = false) {
         sysBrowserHistoryStack = sysBrowserHistoryStack.slice(0, sysBrowserCurrentHistoryIndex + 1);
         sysBrowserHistoryStack.push({ url, type });
         sysBrowserCurrentHistoryIndex++;
+        ChatDB.setItem('sys_browser_history_stack', JSON.stringify(sysBrowserHistoryStack));
+        ChatDB.setItem('sys_browser_history_index', sysBrowserCurrentHistoryIndex.toString());
     }
 
     if (type === 'home') {
@@ -145,38 +147,44 @@ function sysBrowserNavigateTo(url, type, isHistoryAction = false) {
         sysBrowserAddressText.innerText = url.replace('https://', '');
         sysBrowserRealIframe.src = url;
         sysBrowserSwitchView('real');
-    } else if (type === 'ai') {
-        sysBrowserAddressText.innerText = '★ wiki.worldbook.ai';
+    } else if (type === 'ai' || type === 'search_list') {
+        sysBrowserAddressText.innerText = type === 'search_list' ? 'search.browser.com' : '★ wiki.worldbook.ai';
         sysBrowserSwitchView('loading');
         setTimeout(() => {
-            sysBrowserAiTitle.innerText = url;
-            document.querySelector('#sys-browser-view-ai-web .sys-browser-ai-article-meta').innerHTML = `<span>作者: AI 引擎</span><span>刚刚发布</span>`;
-            document.querySelector('#sys-browser-view-ai-web .sys-browser-ai-article-img').style.display = 'flex';
-            document.querySelector('#sys-browser-view-ai-web .sys-browser-ai-article-content').innerHTML = `
-                <p>这是一段由 AI 根据当前世界书和角色设定生成的虚拟网页内容。排版干净优雅，适合沉浸式阅读。</p>
-                <p>你可以想象这里写满了关于魔法、科幻或者你们共同回忆的故事。点击右下角的分享按钮，就可以把这个“网页”发送给你的角色，触发特殊的对话剧情！</p>
-            `;
-            sysBrowserSwitchView('ai');
-        }, 1000);
-    } else if (type === 'search_list') {
-        sysBrowserAddressText.innerText = 'search.browser.com';
-        sysBrowserSwitchView('loading');
-        setTimeout(() => {
-            sysBrowserAiTitle.innerText = `搜索结果: ${url}`;
-            document.querySelector('#sys-browser-view-ai-web .sys-browser-ai-article-meta').innerHTML = `<span>约找到 3,420,000 个结果</span>`;
-            document.querySelector('#sys-browser-view-ai-web .sys-browser-ai-article-img').style.display = 'none';
-            document.querySelector('#sys-browser-view-ai-web .sys-browser-ai-article-content').innerHTML = `
-                <div style="margin-bottom: 20px; cursor: pointer;" onclick="sysBrowserNavigateTo('${url} - 维基百科', 'ai')">
-                    <h3 style="color: #1a0dab; font-size: 18px; margin-bottom: 4px; text-decoration: underline;">${url} - 维基百科，自由的百科全书</h3>
-                    <p style="color: #006621; font-size: 13px; margin-bottom: 4px;">https://zh.wikipedia.org/wiki/${url}</p>
-                    <p style="color: #545454; font-size: 14px;">点击查看关于 ${url} 的详细百科内容，包含历史、发展及相关设定...</p>
-                </div>
-                <div style="margin-bottom: 20px; cursor: pointer;" onclick="sysBrowserNavigateTo('${url} - 最新资讯', 'ai')">
-                    <h3 style="color: #1a0dab; font-size: 18px; margin-bottom: 4px; text-decoration: underline;">${url} - 最新资讯与讨论</h3>
-                    <p style="color: #006621; font-size: 13px; margin-bottom: 4px;">https://news.browser.com/search?q=${url}</p>
-                    <p style="color: #545454; font-size: 14px;">查看网友们关于 ${url} 的最新讨论和热门帖子，了解最新动态...</p>
-                </div>
-            `;
+            const cached = sysBrowserCachedPages[url];
+            if (cached) {
+                sysBrowserAiTitle.innerText = cached.title;
+                document.querySelector('#sys-browser-view-ai-web .sys-browser-ai-article-meta').innerHTML = cached.metaHtml;
+                document.querySelector('#sys-browser-view-ai-web .sys-browser-ai-article-img').style.display = cached.imgDisplay;
+                document.querySelector('#sys-browser-view-ai-web .sys-browser-ai-article-content').innerHTML = cached.contentHtml;
+            } else {
+                // 默认占位内容
+                if (type === 'search_list') {
+                    sysBrowserAiTitle.innerText = `搜索结果: ${url}`;
+                    document.querySelector('#sys-browser-view-ai-web .sys-browser-ai-article-meta').innerHTML = `<span>约找到 3,420,000 个结果</span>`;
+                    document.querySelector('#sys-browser-view-ai-web .sys-browser-ai-article-img').style.display = 'none';
+                    document.querySelector('#sys-browser-view-ai-web .sys-browser-ai-article-content').innerHTML = `
+                        <div style="margin-bottom: 20px; cursor: pointer;" onclick="sysBrowserNavigateTo('${url} - 维基百科', 'ai')">
+                            <h3 style="color: #1a0dab; font-size: 18px; margin-bottom: 4px; text-decoration: underline;">${url} - 维基百科，自由的百科全书</h3>
+                            <p style="color: #006621; font-size: 13px; margin-bottom: 4px;">https://zh.wikipedia.org/wiki/${url}</p>
+                            <p style="color: #545454; font-size: 14px;">点击查看关于 ${url} 的详细百科内容，包含历史、发展及相关设定...</p>
+                        </div>
+                        <div style="margin-bottom: 20px; cursor: pointer;" onclick="sysBrowserNavigateTo('${url} - 最新资讯', 'ai')">
+                            <h3 style="color: #1a0dab; font-size: 18px; margin-bottom: 4px; text-decoration: underline;">${url} - 最新资讯与讨论</h3>
+                            <p style="color: #006621; font-size: 13px; margin-bottom: 4px;">https://news.browser.com/search?q=${url}</p>
+                            <p style="color: #545454; font-size: 14px;">查看网友们关于 ${url} 的最新讨论和热门帖子，了解最新动态...</p>
+                        </div>
+                    `;
+                } else {
+                    sysBrowserAiTitle.innerText = url;
+                    document.querySelector('#sys-browser-view-ai-web .sys-browser-ai-article-meta').innerHTML = `<span>作者: AI 引擎</span><span>刚刚发布</span>`;
+                    document.querySelector('#sys-browser-view-ai-web .sys-browser-ai-article-img').style.display = 'flex';
+                    document.querySelector('#sys-browser-view-ai-web .sys-browser-ai-article-content').innerHTML = `
+                        <p>这是一段由 AI 根据当前世界书和角色设定生成的虚拟网页内容。排版干净优雅，适合沉浸式阅读。</p>
+                        <p>你可以想象这里写满了关于魔法、科幻或者你们共同回忆的故事。点击右下角的分享按钮，就可以把这个“网页”发送给你的角色，触发特殊的对话剧情！</p>
+                    `;
+                }
+            }
             sysBrowserSwitchView('ai');
         }, 800);
     } else if (type === 'poipiku') {
@@ -203,6 +211,7 @@ function sysBrowserNavigateTo(url, type, isHistoryAction = false) {
             activeTab.url = url;
             activeTab.type = type;
         }
+        ChatDB.setItem('sys_browser_tabs', JSON.stringify(sysBrowserTabs));
     }
 
     sysBrowserUpdateNavButtons();
@@ -212,6 +221,7 @@ function sysBrowserNavigateTo(url, type, isHistoryAction = false) {
 function sysBrowserGoBack() {
     if (sysBrowserCurrentHistoryIndex > 0) {
         sysBrowserCurrentHistoryIndex--;
+        ChatDB.setItem('sys_browser_history_index', sysBrowserCurrentHistoryIndex.toString());
         const state = sysBrowserHistoryStack[sysBrowserCurrentHistoryIndex];
         sysBrowserNavigateTo(state.url, state.type, true);
     }
@@ -220,6 +230,7 @@ function sysBrowserGoBack() {
 function sysBrowserGoForward() {
     if (sysBrowserCurrentHistoryIndex < sysBrowserHistoryStack.length - 1) {
         sysBrowserCurrentHistoryIndex++;
+        ChatDB.setItem('sys_browser_history_index', sysBrowserCurrentHistoryIndex.toString());
         const state = sysBrowserHistoryStack[sysBrowserCurrentHistoryIndex];
         sysBrowserNavigateTo(state.url, state.type, true);
     }
@@ -563,6 +574,8 @@ function sysBrowserCreateNewTab() {
     const newId = Date.now();
     sysBrowserTabs.push({ id: newId, title: '起始页', isHome: true, url: 'home', type: 'home' });
     sysBrowserActiveTabId = newId;
+    ChatDB.setItem('sys_browser_tabs', JSON.stringify(sysBrowserTabs));
+    ChatDB.setItem('sys_browser_active_tab_id', sysBrowserActiveTabId.toString());
     sysBrowserGoHome();
     document.getElementById('sysBrowserTabCountDisplay').innerText = sysBrowserTabs.length;
 }
@@ -574,12 +587,15 @@ function sysBrowserCloseTab(id, event) {
         sysBrowserCreateNewTab();
     } else if (sysBrowserActiveTabId === id) {
         sysBrowserActiveTabId = sysBrowserTabs[sysBrowserTabs.length - 1].id;
+        ChatDB.setItem('sys_browser_active_tab_id', sysBrowserActiveTabId.toString());
     }
+    ChatDB.setItem('sys_browser_tabs', JSON.stringify(sysBrowserTabs));
     sysBrowserRenderTabs();
 }
 
 function sysBrowserSelectTab(id) {
     sysBrowserActiveTabId = id;
+    ChatDB.setItem('sys_browser_active_tab_id', sysBrowserActiveTabId.toString());
     const tab = sysBrowserTabs.find(t => t.id === id);
     if (tab) {
         if (tab.isHome) {
@@ -1063,6 +1079,15 @@ ${wbContext ? `【世界观背景】：\n${wbContext}\n` : ''}`;
                 contentContainer.innerHTML = html;
             }
             
+            // 新增：将生成的网页内容保存到缓存中
+            sysBrowserCachedPages[keyword] = {
+                title: sysBrowserAiTitle.innerText,
+                metaHtml: metaContainer.innerHTML,
+                imgDisplay: imgContainer.style.display,
+                contentHtml: contentContainer.innerHTML
+            };
+            ChatDB.setItem('sys_browser_cached_pages', JSON.stringify(sysBrowserCachedPages));
+            
             sysBrowserSwitchView('ai');
             sysBrowserShowToast('网页生成成功！');
         } else {
@@ -1081,6 +1106,10 @@ function sysBrowserClearData() {
     document.getElementById('sys-browser-list-history').innerHTML = '<div style="padding: 30px; text-align: center; color: #aaa; font-size: 13px;">暂无历史记录</div>';
     sysBrowserHistoryStack = [{ url: 'home', type: 'home' }];
     sysBrowserCurrentHistoryIndex = 0;
+    sysBrowserCachedPages = {};
+    ChatDB.setItem('sys_browser_history_stack', JSON.stringify(sysBrowserHistoryStack));
+    ChatDB.setItem('sys_browser_history_index', '0');
+    ChatDB.removeItem('sys_browser_cached_pages');
     sysBrowserUpdateNavButtons();
 }
 
@@ -2071,6 +2100,9 @@ ${customPrompt ? `【剧情大纲/XP要求】：${customPrompt}\n` : ''}
 // ==========================================
 // 书架逻辑 (Bookshelf)
 // ==========================================
+let isBookshelfEditMode = false;
+let bookshelfSelectedBooks = [];
+
 function sysBrowserAddBookToShelf(bookId) {
     const book = sysBrowserHaitangData.find(b => b.id === bookId);
     if (!book) return;
@@ -2086,11 +2118,58 @@ function sysBrowserAddBookToShelf(bookId) {
     sysBrowserShowToast('已加入书架');
 }
 
-function sysBrowserOpenBookshelf() {
-    sysBrowserToggleMenu();
-    sysBrowserSwitchView('bookshelf');
-    sysBrowserAddressText.innerText = '我的书架';
-    
+function toggleBookshelfEditMode() {
+    isBookshelfEditMode = !isBookshelfEditMode;
+    bookshelfSelectedBooks = [];
+    const editBtn = document.getElementById('sysBrowserBookshelfEditBtn');
+    const editBar = document.getElementById('sysBrowserBookshelfEditBar');
+    if (isBookshelfEditMode) {
+        if(editBtn) editBtn.innerText = '取消';
+        if(editBar) editBar.style.display = 'flex';
+    } else {
+        if(editBtn) editBtn.innerText = 'Edit';
+        if(editBar) editBar.style.display = 'none';
+    }
+    sysBrowserRenderBookshelfGrid();
+}
+
+function bookshelfSelectAll() {
+    let shelf = JSON.parse(ChatDB.getItem('sys_browser_bookshelf') || '[]');
+    if (bookshelfSelectedBooks.length === shelf.length && shelf.length > 0) {
+        bookshelfSelectedBooks = [];
+    } else {
+        bookshelfSelectedBooks = shelf.map(b => b.id);
+    }
+    sysBrowserRenderBookshelfGrid();
+}
+
+function bookshelfDeleteSelected() {
+    if (bookshelfSelectedBooks.length === 0) {
+        sysBrowserShowToast('请先选择要删除的书籍');
+        return;
+    }
+    if (confirm(`确定要删除选中的 ${bookshelfSelectedBooks.length} 本书吗？`)) {
+        let shelf = JSON.parse(ChatDB.getItem('sys_browser_bookshelf') || '[]');
+        shelf = shelf.filter(b => !bookshelfSelectedBooks.includes(b.id));
+        ChatDB.setItem('sys_browser_bookshelf', JSON.stringify(shelf));
+        bookshelfSelectedBooks = [];
+        toggleBookshelfEditMode(); // 退出编辑模式并重新渲染
+        sysBrowserShowToast('删除成功');
+    }
+}
+
+function toggleBookshelfBookSelect(id) {
+    if (!isBookshelfEditMode) return;
+    const index = bookshelfSelectedBooks.indexOf(id);
+    if (index > -1) {
+        bookshelfSelectedBooks.splice(index, 1);
+    } else {
+        bookshelfSelectedBooks.push(id);
+    }
+    sysBrowserRenderBookshelfGrid();
+}
+
+function sysBrowserRenderBookshelfGrid() {
     const grid = document.getElementById('sysBrowserBookshelfGrid');
     grid.innerHTML = '';
     let shelf = JSON.parse(ChatDB.getItem('sys_browser_bookshelf') || '[]');
@@ -2103,31 +2182,45 @@ function sysBrowserOpenBookshelf() {
     shelf.forEach(book => {
         const item = document.createElement('div');
         item.className = 'sys-browser-bookshelf-item';
-        item.onclick = () => {
-            sysBrowserNavigateTo('haitang', 'haitang');
-            setTimeout(() => sysBrowserRenderHaitang('detail', book.id), 100);
-        };
         
-        item.innerHTML = `
-            <div class="sys-browser-bookshelf-cover">${book.title.replace(/《|》/g, '')}</div>
-            <div class="sys-browser-bookshelf-title">${book.title}</div>
-        `;
+        if (isBookshelfEditMode) {
+            item.onclick = () => toggleBookshelfBookSelect(book.id);
+            const isChecked = bookshelfSelectedBooks.includes(book.id) ? 'checked' : '';
+            item.innerHTML = `
+                <div style="position: absolute; top: 5px; left: 5px; z-index: 10;">
+                    <input type="checkbox" value="${book.id}" ${isChecked} style="accent-color: #8b1a1a; width: 18px; height: 18px; pointer-events: none;">
+                </div>
+                <div class="sys-browser-bookshelf-cover">${book.title.replace(/《|》/g, '')}</div>
+                <div class="sys-browser-bookshelf-title">${book.title}</div>
+            `;
+        } else {
+            item.onclick = () => {
+                sysBrowserNavigateTo('haitang', 'haitang');
+                setTimeout(() => sysBrowserRenderHaitang('detail', book.id), 100);
+            };
+            item.innerHTML = `
+                <div class="sys-browser-bookshelf-cover">${book.title.replace(/《|》/g, '')}</div>
+                <div class="sys-browser-bookshelf-title">${book.title}</div>
+            `;
+        }
         
-        const delBtn = document.createElement('div');
-        delBtn.className = 'sys-browser-bookshelf-delete';
-        delBtn.innerText = '×';
-        delBtn.onclick = (e) => {
-            e.stopPropagation();
-            shelf = shelf.filter(b => b.id !== book.id);
-            ChatDB.setItem('sys_browser_bookshelf', JSON.stringify(shelf));
-            item.remove();
-            if (shelf.length === 0) {
-                grid.innerHTML = '<div style="grid-column: 1 / -1; padding: 30px; text-align: center; color: #aaa; font-size: 13px;">书架空空如也</div>';
-            }
-        };
-        item.appendChild(delBtn);
         grid.appendChild(item);
     });
+}
+
+function sysBrowserOpenBookshelf() {
+    sysBrowserToggleMenu();
+    sysBrowserSwitchView('bookshelf');
+    sysBrowserAddressText.innerText = '我的书架';
+    
+    isBookshelfEditMode = false;
+    bookshelfSelectedBooks = [];
+    const editBtn = document.getElementById('sysBrowserBookshelfEditBtn');
+    const editBar = document.getElementById('sysBrowserBookshelfEditBar');
+    if(editBtn) editBtn.innerText = 'Edit';
+    if(editBar) editBar.style.display = 'none';
+    
+    sysBrowserRenderBookshelfGrid();
 }
 
 // ==========================================

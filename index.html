@@ -6551,10 +6551,19 @@
             <div class="sys-browser-view-layer" id="sys-browser-view-bookshelf">
                 <div class="sys-browser-history-header">
                     <div class="sys-browser-history-title">我的书架</div>
-                    <div class="sys-browser-history-close" onclick="sysBrowserGoHome()">完成</div>
+                    <div class="sys-browser-history-close" id="sysBrowserBookshelfEditBtn" onclick="toggleBookshelfEditMode()">Edit</div>
                 </div>
                 <div class="sys-browser-bookshelf-grid" id="sysBrowserBookshelfGrid">
                     <!-- 动态渲染 -->
+                </div>
+                <!-- 底部编辑操作栏 (悬浮胶囊) -->
+                <div id="sysBrowserBookshelfEditBar" style="display: none; position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: rgba(253, 245, 246, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 30px; padding: 8px 15px; box-shadow: 0 10px 30px rgba(139, 26, 26, 0.15); border: 1px solid rgba(229, 165, 171, 0.5); z-index: 1000; align-items: center; gap: 15px; width: max-content;">
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="bookshelfSelectAll()" style="background: #fff; color: #8b1a1a; border: 1px solid #8b1a1a; padding: 8px 20px; border-radius: 20px; font-size: 13px; cursor: pointer; font-weight: bold; transition: all 0.2s;">全选</button>
+                        <button onclick="bookshelfDeleteSelected()" style="background: #8b1a1a; color: #fff; border: none; padding: 8px 20px; border-radius: 20px; font-size: 13px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 8px rgba(139, 26, 26, 0.3); transition: all 0.2s;">删除</button>
+                    </div>
+                    <div style="width: 1px; height: 20px; background: #e5a5ab;"></div>
+                    <button onclick="toggleBookshelfEditMode()" style="background: transparent; color: #888; border: none; padding: 8px 10px; font-size: 13px; cursor: pointer; font-weight: bold; transition: color 0.2s;">取消</button>
                 </div>
             </div>
 
