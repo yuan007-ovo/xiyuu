@@ -89,7 +89,7 @@ let currentMusicPlayApi = localStorage.getItem('music_play_api') || 'miemie';
 
 function getMusicSearchApiUrl() {
     if (currentMusicSearchApi === 'secondary') return 'https://ncmapi.btwoa.com';
-    if (currentMusicSearchApi === 'tertiary') return 'https://ncm.zhenxin.me'; 
+    if (currentMusicSearchApi === 'tertiary') return 'https://music163.xuanmou.com.cn'; 
     if (currentMusicSearchApi === 'api4') return 'https://api-music.kingcola-icg.cn'; 
     if (currentMusicSearchApi === 'api5') return 'https://neteaseapi.gksm.store'; 
     return 'https://zm.wwoyun.cn'; // primary
