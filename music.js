@@ -634,6 +634,8 @@ async function musicPlaySong(id, title, artist, cover) {
                     }
                 });
             }
+        } else {
+            alert(`《${title}》可能是 VIP 专属或无版权，无法播放。`);
         }
     } catch (e) {
         console.error("Play Error:", e);
@@ -1872,10 +1874,12 @@ function openPlaylistDetail(id, isCharPlaylist = false, charId = null) {
                 } else {
                     musicPlaySong(song.id, song.title, song.artist, song.cover);
                 }
+                openMusicPlayer(); // 新增：点击歌曲后直接打开全屏播放器
             };
             let innerVoiceHtml = '';
             if (song.innerVoice) {
-                innerVoiceHtml = `<div style="font-size: 11px; color: #ff5000; margin-top: 4px; font-style: italic; background: rgba(255,80,0,0.05); padding: 4px 8px; border-radius: 6px; display: inline-block;">"${song.innerVoice}"</div>`;
+                // 修改：去掉斜体(font-style: normal)，颜色改为深灰(#555)，背景改为浅灰(#f5f5f5)，增加极浅边框
+                innerVoiceHtml = `<div style="font-size: 11px; color: #555; margin-top: 4px; font-style: normal; background: #f5f5f5; padding: 4px 8px; border-radius: 6px; display: inline-block; border: 1px solid #eee;">"${song.innerVoice}"</div>`;
             }
 
             item.innerHTML = `
@@ -1922,6 +1926,7 @@ function openPlaylistDetail(id, isCharPlaylist = false, charId = null) {
             } else {
                 musicPlaySong(firstSong.id, firstSong.title, firstSong.artist, firstSong.cover);
             }
+            openMusicPlayer(); // 新增：点击播放全部后直接打开全屏播放器
         }
     };
 
@@ -2438,7 +2443,7 @@ function renderMpPlaylist() {
         item.style.cssText = 'display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer;';
         
         // 高亮当前正在播放的歌曲
-        const isPlaying = currentPlayingSong && (String(currentPlayingSong.id) === String(song.id) || currentPlayingSong.title === song.title);
+        const isPlaying = currentPlayingSong && (String(currentPlayingSong.id) === String(song.id) || (currentPlayingSong.title === song.title && currentPlayingSong.artist === song.artist));
         const titleColor = isPlaying ? '#ff3b30' : '#fff';
         
         item.onclick = () => {
@@ -2578,7 +2583,11 @@ function playNextMusicSong(isAuto = false) {
     if (!window.currentPlaylistTracks || window.currentPlaylistTracks.length === 0) return alert("当前播放列表为空");
     if (!currentPlayingSong) return;
     
-    let currentIndex = window.currentPlaylistTracks.findIndex(s => String(s.id) === String(currentPlayingSong.id));
+    // 修复：增加歌名和歌手的双重匹配，防止 AI 生成的歌单 ID 不匹配导致无法切歌
+    let currentIndex = window.currentPlaylistTracks.findIndex(s => 
+        String(s.id) === String(currentPlayingSong.id) || 
+        (s.title === currentPlayingSong.title && s.artist === currentPlayingSong.artist)
+    );
     if (currentIndex === -1) currentIndex = 0;
     
     let nextIndex = currentIndex + 1;
@@ -2601,7 +2610,11 @@ function playPrevMusicSong() {
     if (!window.currentPlaylistTracks || window.currentPlaylistTracks.length === 0) return alert("当前播放列表为空");
     if (!currentPlayingSong) return;
     
-    let currentIndex = window.currentPlaylistTracks.findIndex(s => String(s.id) === String(currentPlayingSong.id));
+    // 修复：增加歌名和歌手的双重匹配，防止 AI 生成的歌单 ID 不匹配导致无法切歌
+    let currentIndex = window.currentPlaylistTracks.findIndex(s => 
+        String(s.id) === String(currentPlayingSong.id) || 
+        (s.title === currentPlayingSong.title && s.artist === currentPlayingSong.artist)
+    );
     if (currentIndex === -1) currentIndex = 0;
     
     let prevIndex = currentIndex - 1;
