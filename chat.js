@@ -6660,9 +6660,9 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
         let ivHistory = JSON.parse(ChatDB.getItem(`inner_voice_history_${currentLoginId}_${targetCharId}`) || '[]');
         let lastIv = ivHistory.length > 0 ? ivHistory[ivHistory.length - 1].content : "无";
         if (char.isGroup) {
-            systemPrompt += `【心声系统已开启】\n上一轮你的心声是：${lastIv}\n请结合上一轮心声和当前对话，输出你此刻的心声。\n格式如下：\n{\n  "inner_voice": "角色此刻内心真实的、未说出口的想法或吐槽",\n  "messages": [\n    {"senderId": "回复成员的ID", "type":"text", "quote":"引用的对方的话(可选)", "content":"完整的一句话。"}\n  ]\n}\n`;
+            systemPrompt += `【心声系统已开启】\n上一轮你的心声是：${lastIv}\n请结合当前对话的最新进展，输出你此刻【全新】的心声（绝对不要重复上一轮）。\n格式如下：\n{\n  "inner_voice": "角色此刻内心真实的、未说出口的想法或吐槽",\n  "messages": [\n    {"senderId": "回复成员的ID", "type":"text", "quote":"引用的对方的话(可选)", "content":"完整的一句话。"}\n  ]\n}\n`;
         } else {
-            systemPrompt += `【心声系统已开启】\n上一轮你的心声是：${lastIv}\n请结合上一轮心声和当前对话，输出你此刻的心声。\n格式如下：\n{\n  "inner_voice": "角色此刻内心真实的、未说出口的想法或吐槽",\n  "messages": [\n    {"type":"text", "quote":"引用的对方的话(可选)", "content":"完整的一句话。"}\n  ]\n}\n`;
+            systemPrompt += `【心声系统已开启】\n上一轮你的心声是：${lastIv}\n请结合当前对话的最新进展，输出你此刻【全新】的心声（绝对不要重复上一轮）。\n格式如下：\n{\n  "inner_voice": "角色此刻内心真实的、未说出口的想法或吐槽",\n  "messages": [\n    {"type":"text", "quote":"引用的对方的话(可选)", "content":"完整的一句话。"}\n  ]\n}\n`;
         }
     } else {
         if (char.isGroup) {
@@ -6794,6 +6794,11 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
     } else {
         systemPrompt += `注意：你当前没有可用的表情包，绝对不要发送任何表情包！\n`;
     }
+    
+    systemPrompt += `\n【！！！绝对禁止！！！】\n`;
+    systemPrompt += `历史记录中的 "*xxx 发送了...*" 只是系统提示，你绝对不能在 content 中输出类似 "*我 发送了一张图片*" 或 "*发送了一个表情包*" 的纯文本！\n`;
+    systemPrompt += `如果你想发图片或表情包，必须严格使用对应的 JSON type 格式！\n\n`;
+    
     systemPrompt += `- 必须使用双引号 " 包裹键名和字符串值。\n`;
     systemPrompt += `- 严禁输出损坏的 JSON，严禁在 JSON 外部输出任何多余的字符（如 markdown 标记 \`\`\`json 等）。\n`;
     systemPrompt += `- 模拟真人打字聊天习惯/线上聊天的碎片化习惯，保持对话口语化、碎片化，保持回复气泡的随机性和多样性！\n`;
@@ -7084,6 +7089,11 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
                 if (!Array.isArray(messagesArray)) {
                     messagesArray = [messagesArray]; 
                 }
+                
+                // 兜底：如果大模型把 inner_voice 写在了 messages 数组的第一条里
+                if (!innerVoice && messagesArray.length > 0 && messagesArray[0].inner_voice) {
+                    innerVoice = messagesArray[0].inner_voice;
+                }
             } catch (e) {
                 console.warn("JSON解析失败，启动智能兜底方案", e);
                 messagesArray = [];
@@ -7177,7 +7187,7 @@ async function generateApiReply(isProactive = false, proactiveCharId = null) {
                 } else if (msgObj.type === 'sticker') {
                     const url = charEmojiMap[msgObj.content];
                     if (url) {
-                        newMsg.content = `<img src="${url}" style="width: 100px; height: 100px; object-fit: contain; border-radius: 8px; display: block; margin: 5px 0;">`;
+                        newMsg.content = `<img src="${url}" alt="${msgObj.content}" style="width: 100px; height: 100px; object-fit: contain; border-radius: 8px; display: block; margin: 5px 0;">`;
                     } else {
                         continue; 
                     }

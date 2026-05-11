@@ -2852,10 +2852,9 @@ window.addEventListener('DOMContentLoaded', () => {
             }
 
             if (savedUrl) {
-                audioPlayer.autoplay = false; // 临时关闭自动播放，防止刷新直接发声
+                audioPlayer.autoplay = false; // 保持关闭自动播放，刷新后保持暂停状态
                 audioPlayer.src = savedUrl;
                 window.pendingRestoreTime = savedTime; // 交给 loadedmetadata 恢复进度
-                setTimeout(() => { audioPlayer.autoplay = true; }, 1000);
             }
 
             // 恢复 UI
