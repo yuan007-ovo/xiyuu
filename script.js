@@ -596,6 +596,7 @@ async function confirmExport() {
         const dataStr = JSON.stringify(state, null, 2);
         downloadJson(dataStr, fileName);
     } else if (currentExportType === 'all') {
+        silentSaveDesktopOrder(); // 强制保存最新桌面布局
         const state = await getGlobalStateFromDB() || captureFullState();
         const presets = await getAllPresets();
         
@@ -755,6 +756,11 @@ function importAllData(e) {
                 
                 // 监听事务完成事件，确保 100% 写入硬盘后再刷新
                 tx.oncomplete = () => {
+                    if (data.localData) {
+                        for (let key in data.localData) {
+                            localStorage.setItem(key, data.localData[key]);
+                        }
+                    }
                     alert('所有数据导入成功！即将刷新页面...');
                     location.reload();
                 };
@@ -800,6 +806,7 @@ async function backupToCloud(e) {
     showToast('正在打包数据...', 'loading');
     
     try {
+        silentSaveDesktopOrder(); // 强制保存最新桌面布局
         // 1. 收集所有数据
         const state = await getGlobalStateFromDB() || captureFullState();
         const presets = await getAllPresets();
@@ -906,6 +913,11 @@ async function restoreFromCloud(e) {
             }
             
             tx.oncomplete = () => {
+                if (backupData.localData) {
+                    for (let key in backupData.localData) {
+                        localStorage.setItem(key, backupData.localData[key]);
+                    }
+                }
                 hideToast();
                 alert('☁️ 云端数据恢复成功！即将刷新页面...');
                 location.reload();
@@ -914,6 +926,11 @@ async function restoreFromCloud(e) {
                 throw new Error('数据写入本地数据库失败');
             };
         } else {
+            if (backupData.localData) {
+                for (let key in backupData.localData) {
+                    localStorage.setItem(key, backupData.localData[key]);
+                }
+            }
             hideToast();
             alert('☁️ 云端数据恢复成功！即将刷新页面...');
             location.reload();

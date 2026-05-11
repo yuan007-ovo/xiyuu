@@ -1869,12 +1869,11 @@ function openPlaylistDetail(id, isCharPlaylist = false, charId = null) {
                 renderMpPlaylist();
                 if (song.url && song.url.startsWith('data:audio')) {
                     playLocalSong(song);
-                } else if (song.isGenerated) {
+                } else if (song.isGenerated || String(song.id).startsWith('gen_')) {
                     playGeneratedSong(song.title, song.artist);
                 } else {
                     musicPlaySong(song.id, song.title, song.artist, song.cover);
                 }
-                openMusicPlayer(); // 新增：点击歌曲后直接打开全屏播放器
             };
             let innerVoiceHtml = '';
             if (song.innerVoice) {
@@ -1921,12 +1920,11 @@ function openPlaylistDetail(id, isCharPlaylist = false, charId = null) {
             const firstSong = pl.tracks[0];
             if (firstSong.url && firstSong.url.startsWith('data:audio')) {
                 playLocalSong(firstSong);
-            } else if (firstSong.isGenerated) {
+            } else if (firstSong.isGenerated || String(firstSong.id).startsWith('gen_')) {
                 playGeneratedSong(firstSong.title, firstSong.artist);
             } else {
                 musicPlaySong(firstSong.id, firstSong.title, firstSong.artist, firstSong.cover);
             }
-            openMusicPlayer(); // 新增：点击播放全部后直接打开全屏播放器
         }
     };
 
@@ -1964,25 +1962,46 @@ window.removeSongFromPlaylist = function(playlistId, songId, isCharPlaylist, cha
 
 // 播放 AI 生成的歌曲 (先搜索再播放)
 async function playGeneratedSong(title, artist) {
-    if (typeof showToast === 'function') showToast('正在搜索音源...', 'loading');
+    // 创建或获取原生的搜索提示框
+    let toast = document.getElementById('music-search-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'music-search-toast';
+        toast.style.cssText = 'position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(0,0,0,0.8); color:#fff; padding:12px 24px; border-radius:12px; z-index:999999; font-size:14px; font-weight:bold; text-align:center; box-shadow:0 4px 15px rgba(0,0,0,0.2);';
+        document.body.appendChild(toast);
+    }
+    toast.innerText = `正在搜索歌曲中...`;
+    toast.style.display = 'block';
+
     try {
         const baseUrl = getMusicSearchApiUrl();
         const kw = `${title} ${artist}`;
-        const res = await fetch(`${baseUrl}/cloudsearch?keywords=${encodeURIComponent(kw)}&limit=1`);
-        const data = await res.json();
+        // 增加 timestamp 防止浏览器缓存旧源的数据
+        let res = await fetch(`${baseUrl}/cloudsearch?keywords=${encodeURIComponent(kw)}&limit=1&timestamp=${Date.now()}`);
+        let data = await res.json();
+        
+        // 如果当前源不支持 cloudsearch 接口，自动降级尝试 search 接口
+        if (data.code !== 200 || !data.result || !data.result.songs || data.result.songs.length === 0) {
+            res = await fetch(`${baseUrl}/search?keywords=${encodeURIComponent(kw)}&limit=1&timestamp=${Date.now()}`);
+            data = await res.json();
+        }
         
         if (data.code === 200 && data.result && data.result.songs && data.result.songs.length > 0) {
             const song = data.result.songs[0];
+            // 兼容不同源返回的歌手字段格式 (ar 或 artists)
+            const artistName = song.ar ? song.ar.map(a=>a.name).join(',') : (song.artists ? song.artists.map(a=>a.name).join(',') : artist);
             const cover = (song.al && song.al.picUrl) ? song.al.picUrl + '?param=100y100' : 'https://p2.music.126.net/6y-7YvS_G8V8.jpg?param=100y100';
-            if (typeof hideToast === 'function') hideToast();
-            musicPlaySong(song.id, song.name, artist, cover);
+            
+            toast.style.display = 'none';
+            musicPlaySong(song.id, song.name, artistName, cover);
         } else {
-            if (typeof hideToast === 'function') hideToast();
-            alert(`未找到《${title}》的音源，请尝试其他歌曲。`);
+            toast.style.display = 'none';
+            alert(`未找到《${title}》的音源，请尝试在设置中切换其他音乐源。`);
         }
     } catch (e) {
-        if (typeof hideToast === 'function') hideToast();
-        alert("搜索音源失败，请检查网络或切换搜索接口。");
+        console.error("Search Error:", e);
+        toast.style.display = 'none';
+        alert(`搜索失败，该接口可能暂时不可用，请在设置中切换其他音乐源。`);
     }
 }
 
@@ -2449,7 +2468,7 @@ function renderMpPlaylist() {
         item.onclick = () => {
             if (song.url && song.url.startsWith('data:audio')) {
                 playLocalSong(song);
-            } else if (song.isGenerated) {
+            } else if (song.isGenerated || String(song.id).startsWith('gen_')) {
                 playGeneratedSong(song.title, song.artist);
             } else {
                 musicPlaySong(song.id, song.title, song.artist, song.cover);
@@ -2632,7 +2651,7 @@ function playPrevMusicSong() {
 function executePlaySongObj(song) {
     if (song.url && song.url.startsWith('data:audio')) {
         playLocalSong(song);
-    } else if (song.isGenerated) {
+    } else if (song.isGenerated || String(song.id).startsWith('gen_')) {
         playGeneratedSong(song.title, song.artist);
     } else {
         musicPlaySong(song.id, song.title, song.artist, song.cover);
