@@ -3379,31 +3379,21 @@ function renderChatHistory(charId, keepScroll = false) {
         fragment.appendChild(loadMoreBtn);
     }
 
-    // 提取头像为全局 CSS 类，避免 Base64 重复拼接
-    let avatarStyleTag = document.getElementById('chat-avatar-dynamic-style');
-    if (!avatarStyleTag) {
-        avatarStyleTag = document.createElement('style');
-        avatarStyleTag.id = 'chat-avatar-dynamic-style';
-        document.head.appendChild(avatarStyleTag);
-    }
     const meAvatarUrl = me ? me.avatarUrl : '';
     const charAvatarUrl = char ? char.avatarUrl : '';
+
+    // 【性能优化】：使用 CSS 变量代替内联 Base64，极大减少 HTML 字符串体积和解析时间
+    historyEl.style.setProperty('--me-avatar', meAvatarUrl ? `url('${meAvatarUrl}')` : 'none');
+    historyEl.style.setProperty('--char-avatar', charAvatarUrl ? `url('${charAvatarUrl}')` : 'none');
     
-    let groupAvatarStyles = '';
     if (char && char.isGroup && char.memberIds) {
         char.memberIds.forEach(mid => {
             const member = allEntities.find(e => e.id === mid);
             if (member && member.avatarUrl) {
-                groupAvatarStyles += `.cr-avatar-group-${mid} { background-image: url('${member.avatarUrl}'); }\n`;
+                historyEl.style.setProperty(`--group-avatar-${mid}`, `url('${member.avatarUrl}')`);
             }
         });
     }
-
-    avatarStyleTag.innerHTML = `
-        .cr-avatar-me-bg { background-image: url('${meAvatarUrl}'); }
-        .cr-avatar-char-bg { background-image: url('${charAvatarUrl}'); }
-        ${groupAvatarStyles}
-    `;
 
     renderHistory.forEach((msg, i) => {
         const index = startIndex + i;
@@ -3449,23 +3439,23 @@ function renderChatHistory(charId, keepScroll = false) {
         };
 
         const isUser = msg.role === 'user';
-        let hasAvatar = isUser ? meAvatarUrl : charAvatarUrl;
-        let avatarClass = isUser ? 'cr-avatar-me-bg' : 'cr-avatar-char-bg';
+        let avatarVar = isUser ? 'var(--me-avatar)' : 'var(--char-avatar)';
+        let hasAvatarFlag = isUser ? !!meAvatarUrl : !!charAvatarUrl;
         let senderNameHtml = '';
 
         if (!isUser && char && char.isGroup && msg.senderId) {
             const member = allEntities.find(e => e.id === msg.senderId);
             if (member) {
-                hasAvatar = member.avatarUrl;
-                avatarClass = `cr-avatar-group-${msg.senderId}`;
+                avatarVar = `var(--group-avatar-${msg.senderId}, none)`;
+                hasAvatarFlag = !!member.avatarUrl;
                 const displayName = remarks[member.id] || member.netName || member.name;
                 senderNameHtml = `<div style="font-size: 11px; color: #888; margin-bottom: 4px; margin-left: 12px;">${displayName}</div>`;
             }
         }
         
         const avatarHtml = `
-            <div class="cr-avatar ${avatarClass} ${isContinuous ? 'hidden' : ''}">
-                ${!hasAvatar ? '<svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>' : ''}
+            <div class="cr-avatar ${isContinuous ? 'hidden' : ''}" style="background-image: ${avatarVar};">
+                ${!hasAvatarFlag ? '<svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>' : ''}
             </div>
         `;
 
@@ -3885,10 +3875,12 @@ function openChatRoom(charId) {
             inputEl.placeholder = 'Entering......';
         }
 
-        // 【终极流畅修复】：移除 requestAnimationFrame 阻塞，直接显示面板并渲染，与流畅版项目保持一致
+        // 【终极流畅修复】：先显示面板，利用 setTimeout 将繁重的渲染任务推迟到下一帧，消除点击瞬间的卡顿感
         document.getElementById('chatRoomPanel').style.display = 'flex';
         updateChatRoomAppearance(); 
-        renderChatHistory(charId);
+        setTimeout(() => {
+            renderChatHistory(charId);
+        }, 10);
     }
 }
 

@@ -146,14 +146,9 @@ function updateAppViewportVars() {
         window.scrollTo(0, 0);
         document.body.scrollTop = 0;
     } else {
-        // 🤖 安卓及其他设备逻辑：Edge PWA 等环境下防止键盘弹出导致输入框溢出
-        if (!window.initialAndroidHeight || window.innerHeight > window.initialAndroidHeight) {
-            window.initialAndroidHeight = window.innerHeight;
-        }
-        // 如果当前高度小于初始高度的 80%，说明键盘弹出了
-        if (window.innerHeight < window.initialAndroidHeight * 0.8) {
-            // 键盘弹出时，保持原高度，让浏览器原生滚动处理，防止 UI 挤压溢出
-            docStyle.setProperty('--app-height', `${window.initialAndroidHeight}px`);
+        // 🤖 安卓及其他设备逻辑：允许容器缩小，让输入框跟随键盘
+        if (window.visualViewport) {
+            docStyle.setProperty('--app-height', `${window.visualViewport.height}px`);
         } else {
             docStyle.setProperty('--app-height', `${window.innerHeight}px`);
         }
@@ -189,6 +184,12 @@ if (window.visualViewport) {
 // 监听输入框失去焦点（键盘收起），强制重置页面位置，防止页面卡在半空中漏出白边
 document.addEventListener('focusout', () => {
     setTimeout(() => {
+        // 如果登录框还在显示，就不强制暴力滚动，让 iOS 原生平滑恢复，解决回弹问题
+        const authOverlay = document.getElementById('auth-overlay');
+        if (authOverlay && authOverlay.style.display !== 'none') {
+            updateAppViewportVars();
+            return;
+        }
         window.scrollTo(0, 0);
         document.body.scrollTop = 0;
         updateAppViewportVars();
@@ -260,287 +261,7 @@ function closeSettingsFullScreenPanel() {
     document.getElementById('settingsPopup').classList.remove('show');
 }
 
-// 4. 切换面板逻辑
-function switchAuthTab(tab) {
-    document.querySelectorAll('.auth-section').forEach(section => section.classList.remove('active'));
-    if(tab === 'login') {
-        document.getElementById('auth-section-login').classList.add('active');
-    } else if(tab === 'register') {
-        document.getElementById('auth-section-register').classList.add('active');
-    } else if(tab === 'reset') {
-        document.getElementById('auth-section-reset').classList.add('active');
-    }
-}
-
-// 5. 密码小眼睛切换逻辑
-function toggleAuthPassword(inputId, iconEl) {
-    const input = document.getElementById(inputId);
-    if (input.type === 'password') {
-        input.type = 'text';
-        iconEl.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
-    } else {
-        input.type = 'password';
-        iconEl.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
-    }
-}
-
-// 6. 激活码注册逻辑
-async function handleAppBind() {
-    if (typeof supabaseClient === 'undefined' || !supabaseClient) return alert("安全组件正在加载中，请稍等两秒再点击...");
-
-    const qq = document.getElementById('auth-bind-qq').value.trim();
-    const code = document.getElementById('auth-bind-code').value.trim();
-    const pwd = document.getElementById('auth-bind-pwd').value.trim();
-    const pwdConfirm = document.getElementById('auth-bind-pwd-confirm').value.trim();
-    const btn = document.getElementById('auth-btn-bind');
-
-    if (!qq || !code || !pwd || !pwdConfirm) return alert('请填写完整信息！');
-    if (pwd !== pwdConfirm) return alert('两次输入的密码不一致，请重新输入！');
-
-    btn.disabled = true; btn.innerText = '验证中...';
-
-    try {
-        const expectedCode = generateCodeForQQ(qq);
-        if (code !== expectedCode) throw new Error('激活码与QQ号不匹配，或激活码无效！');
-
-        const { error } = await supabaseClient.from('vip_keys').insert([{ code: code, qq: qq, password: pwd, is_used: true }]);
-        if (error) {
-            if (error.code === '23505') throw new Error('该 QQ 号已注册，或该激活码已被使用！');
-            throw error;
-        }
-
-        alert('注册成功！请登录。');
-        switchAuthTab('login');
-        document.getElementById('auth-login-qq').value = qq;
-        document.getElementById('auth-login-pwd').value = ''; 
-        document.getElementById('auth-bind-pwd').value = ''; 
-        document.getElementById('auth-bind-pwd-confirm').value = ''; 
-    } catch (err) {
-        alert(err.message);
-    } finally {
-        btn.disabled = false; btn.innerText = '注 册';
-    }
-}
-
-// 7. QQ 登录逻辑
-async function handleAppLogin() {
-    if (typeof supabaseClient === 'undefined' || !supabaseClient) return alert("安全组件正在加载中，请稍等两秒再点击...");
-
-    const qq = document.getElementById('auth-login-qq').value.trim();
-    const pwd = document.getElementById('auth-login-pwd').value.trim();
-    const btn = document.getElementById('auth-btn-login');
-
-    if (!qq || !pwd) return alert('请输入 QQ 号和密码！');
-    btn.disabled = true; btn.innerText = '登录中...';
-
-    try {
-        const { data, error } = await supabaseClient.from('vip_keys').select('*').eq('qq', qq).eq('password', pwd).single();
-        if (error || !data) throw new Error('QQ号或密码错误！');
-
-        localStorage.setItem('auth_token', 'valid_user_' + qq);
-        document.getElementById('auth-overlay').style.display = 'none';
-        document.getElementById('iphone-container').style.display = 'flex';
-        
-    } catch (err) {
-        alert(err.message);
-    } finally {
-        btn.disabled = false; btn.innerText = '登 录';
-    }
-}
-
-// 8. 忘记密码重置逻辑
-async function handleAppResetPwd() {
-    if (typeof supabaseClient === 'undefined' || !supabaseClient) return alert("安全组件正在加载中，请稍等两秒再点击...");
-
-    const qq = document.getElementById('auth-reset-qq').value.trim();
-    const code = document.getElementById('auth-reset-code').value.trim();
-    const pwd = document.getElementById('auth-reset-pwd').value.trim();
-    const pwdConfirm = document.getElementById('auth-reset-pwd-confirm').value.trim();
-    const btn = document.getElementById('auth-btn-reset');
-
-    if (!qq || !code || !pwd || !pwdConfirm) return alert('请填写完整信息！');
-    if (pwd !== pwdConfirm) return alert('两次输入的密码不一致，请重新输入！');
-
-    btn.disabled = true; btn.innerText = '验证中...';
-
-    try {
-        const expectedCode = generateCodeForQQ(qq);
-        if (code !== expectedCode) throw new Error('激活码与QQ号不匹配，验证失败！');
-
-        // 验证通过，直接更新数据库密码
-        const { error } = await supabaseClient.from('vip_keys').update({ password: pwd }).eq('qq', qq);
-        if (error) throw new Error('重置密码失败，请确认该账号是否已注册！');
-
-        alert('密码重置成功！请使用新密码登录。');
-        switchAuthTab('login');
-        document.getElementById('auth-login-qq').value = qq;
-        document.getElementById('auth-login-pwd').value = ''; 
-        document.getElementById('auth-reset-pwd').value = ''; 
-        document.getElementById('auth-reset-pwd-confirm').value = ''; 
-    } catch (err) {
-        alert(err.message);
-    } finally {
-        btn.disabled = false; btn.innerText = '重置密码';
-    }
-}
-
-// 9. Discord 登录逻辑 (修复状态保持)
-async function handleAppDiscordLogin() {
-    if (typeof supabaseClient === 'undefined' || !supabaseClient) return alert("安全组件正在加载中，请稍等两秒再点击...");
-    const { data, error } = await supabaseClient.auth.signInWithOAuth({ provider: 'discord' });
-    if (error) alert('Discord 登录失败: ' + error.message);
-}
-
-// 页面加载时检查 Discord Session
-document.addEventListener('DOMContentLoaded', () => {
-    if (typeof supabaseClient !== 'undefined' && supabaseClient) {
-        supabaseClient.auth.getSession().then(({ data: { session } }) => {
-            if (session) {
-                localStorage.setItem('auth_token', 'discord_' + session.user.id);
-                document.getElementById('auth-overlay').style.display = 'none';
-                document.getElementById('iphone-container').style.display = 'flex';
-            }
-        });
-    }
-});
-
-// 10. 账号管理与修改密码逻辑
-function openAccountManagePanel() {
-    const token = localStorage.getItem('auth_token');
-    let displayQQ = '未登录';
-    if (token && token.startsWith('valid_user_')) {
-        displayQQ = token.replace('valid_user_', '');
-    } else if (token && token.startsWith('discord_')) {
-        displayQQ = 'Discord 用户';
-    }
-    document.getElementById('current-logged-in-qq').innerText = displayQQ;
-    document.getElementById('accountManagePanel').style.display = 'flex';
-}
-
-function closeAccountManagePanel() {
-    document.getElementById('accountManagePanel').style.display = 'none';
-}
-
-function logoutApp() {
-    if(confirm('确定要退出当前账号吗？')) {
-        localStorage.removeItem('auth_token');
-        if (typeof supabaseClient !== 'undefined' && supabaseClient) supabaseClient.auth.signOut(); // 清除 DC 登录状态
-        document.getElementById('accountManagePanel').style.display = 'none';
-        document.getElementById('settingsFullScreenPanel').style.display = 'none';
-        document.getElementById('iphone-container').style.display = 'none';
-        document.getElementById('auth-overlay').style.display = 'flex';
-        switchAuthTab('login');
-    }
-}
-
-// 找回旧密码弹窗
-async function showOldPasswordHint(type) {
-    if (type === 'login') {
-        const token = localStorage.getItem('auth_token');
-        if (!token || !token.startsWith('valid_user_')) return alert('当前未绑定QQ账号，无法找回密码！');
-        
-        const qq = token.replace('valid_user_', '');
-        try {
-            if (typeof supabaseClient === 'undefined' || !supabaseClient) throw new Error('安全组件未加载');
-            const { data, error } = await supabaseClient.from('vip_keys').select('password').eq('qq', qq).single();
-            if (error || !data) throw new Error('查询失败');
-            alert('您的旧密码是：' + data.password);
-        } catch (err) {
-            alert('获取旧密码失败！');
-        }
-    }
-}
-
-// 执行修改密码
-async function executeModifyPassword() {
-    const oldPwd = document.getElementById('oldPassInput').value.trim();
-    const newPwd1 = document.getElementById('newPassInput1').value.trim();
-    const newPwd2 = document.getElementById('newPassInput2').value.trim();
-
-    if (!oldPwd || !newPwd1 || !newPwd2) return alert('请填写完整信息！');
-    if (newPwd1 !== newPwd2) return alert('两次输入的新密码不一致！');
-
-    const token = localStorage.getItem('auth_token');
-    if (!token || !token.startsWith('valid_user_')) return alert('当前账号状态异常，无法修改密码！');
-    const qq = token.replace('valid_user_', '');
-
-    try {
-        if (typeof supabaseClient === 'undefined' || !supabaseClient) throw new Error('安全组件未加载');
-        // 验证旧密码
-        const { data, error } = await supabaseClient.from('vip_keys').select('*').eq('qq', qq).eq('password', oldPwd).single();
-        if (error || !data) throw new Error('旧密码错误！');
-
-        // 更新新密码
-        const { error: updateError } = await supabaseClient.from('vip_keys').update({ password: newPwd1 }).eq('qq', qq);
-        if (updateError) throw new Error('密码修改失败！');
-
-        alert('密码修改成功！请重新登录。');
-        document.getElementById('oldPassInput').value = '';
-        document.getElementById('newPassInput1').value = '';
-        document.getElementById('newPassInput2').value = '';
-        closeModifyPasswordPanel();
-        logoutApp(); // 强制重新登录
-    } catch (err) {
-        alert(err.message);
-    }
-}
-
-// --- 系统激活码专属修改密码逻辑 ---
-function openAuthModifyPasswordPanel() {
-    document.getElementById('authModifyPasswordPanel').style.display = 'flex';
-}
-
-function closeAuthModifyPasswordPanel() {
-    document.getElementById('authModifyPasswordPanel').style.display = 'none';
-}
-
-async function showAuthOldPasswordHint() {
-    const token = localStorage.getItem('auth_token');
-    if (!token || !token.startsWith('valid_user_')) return alert('当前未绑定QQ账号，无法找回密码！');
-    
-    const qq = token.replace('valid_user_', '');
-    try {
-        if (typeof supabaseClient === 'undefined' || !supabaseClient) throw new Error('安全组件未加载');
-        const { data, error } = await supabaseClient.from('vip_keys').select('password').eq('qq', qq).single();
-        if (error || !data) throw new Error('查询失败');
-        alert('您的旧密码是：' + data.password);
-    } catch (err) {
-        alert('获取旧密码失败！');
-    }
-}
-
-async function executeAuthModifyPassword() {
-    const oldPwd = document.getElementById('authOldPassInput').value.trim();
-    const newPwd1 = document.getElementById('authNewPassInput1').value.trim();
-    const newPwd2 = document.getElementById('authNewPassInput2').value.trim();
-
-    if (!oldPwd || !newPwd1 || !newPwd2) return alert('请填写完整信息！');
-    if (newPwd1 !== newPwd2) return alert('两次输入的新密码不一致！');
-
-    const token = localStorage.getItem('auth_token');
-    if (!token || !token.startsWith('valid_user_')) return alert('当前账号状态异常，无法修改密码！');
-    const qq = token.replace('valid_user_', '');
-
-    try {
-        if (typeof supabaseClient === 'undefined' || !supabaseClient) throw new Error('安全组件未加载');
-        // 验证旧密码
-        const { data, error } = await supabaseClient.from('vip_keys').select('*').eq('qq', qq).eq('password', oldPwd).single();
-        if (error || !data) throw new Error('旧密码错误！');
-
-        // 更新新密码
-        const { error: updateError } = await supabaseClient.from('vip_keys').update({ password: newPwd1 }).eq('qq', qq);
-        if (updateError) throw new Error('密码修改失败！');
-
-        alert('密码修改成功！请重新登录。');
-        document.getElementById('authOldPassInput').value = '';
-        document.getElementById('authNewPassInput1').value = '';
-        document.getElementById('authNewPassInput2').value = '';
-        closeAuthModifyPasswordPanel();
-        logoutApp(); // 强制重新登录
-    } catch (err) {
-        alert(err.message);
-    }
-}
+// 激活码与登录相关逻辑已统一移至 auth.js 中管理
 
 // 主题页面弹窗逻辑
 function toggleThemePopup() {
@@ -2072,9 +1793,16 @@ function renderApiPresets() {
 // --- 通用图片上传处理 ---
 function handleImageUpload(element, callback) {
     element.addEventListener('click', () => {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
+        let input = document.getElementById('global-hidden-image-upload');
+        if (!input) {
+            input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.id = 'global-hidden-image-upload';
+            input.style.display = 'none';
+            document.body.appendChild(input);
+        }
+        input.onchange = null;
         input.onchange = (e) => {
             const file = e.target.files[0];
             if (file) {
@@ -2086,6 +1814,7 @@ function handleImageUpload(element, callback) {
                 };
                 reader.readAsDataURL(file);
             }
+            input.value = '';
         };
         input.click();
     });
